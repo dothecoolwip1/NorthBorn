@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,9 +27,14 @@ jobs:
       - name: Build Northborn
         run: npm run build
 
-      - name: Upload generated lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: northborn-package-lock
-          path: package-lock.json
-          retention-days: 1
+      - name: Commit generated lockfile
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Add npm lockfile"
+          git push

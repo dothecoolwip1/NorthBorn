@@ -27,6 +27,13 @@ type Organization = {
   name: string
 }
 
+const TEST_MODE_KEY = 'northborn_test_mode'
+const TEST_PASSWORD_HASH = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'
+const TEST_ORGANIZATION: Organization = {
+  id: '00000000-0000-0000-0000-000000000001',
+  name: 'Northborn Test Company',
+}
+
 const modules = [
   ['Dashboard', '/', Gauge],
   ['Dispatch', '/dispatch', CalendarDays],
@@ -42,9 +49,22 @@ const modules = [
   ['Reports', '/reports', Activity],
 ] as const
 
+async function sha256(value: string) {
+  const bytes = new TextEncoder().encode(value)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
-  const [organization, setOrganization] = useState<Organization | null>(null)
+  const [testMode, setTestMode] = useState(
+    () => localStorage.getItem(TEST_MODE_KEY) === '1',
+  )
+  const [organization, setOrganization] = useState<Organization | null>(
+    testMode ? TEST_ORGANIZATION : null,
+  )
   const [loading, setLoading] = useState(true)
   const [online, setOnline] = useState(navigator.onLine)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -73,6 +93,11 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (testMode) {
+      setOrganization(TEST_ORGANIZATION)
+      return
+    }
+
     if (!session) {
       setOrganization(null)
       return
@@ -94,18 +119,37 @@ export default function App() {
         const org = data?.organization as unknown as Organization | null
         setOrganization(org ?? null)
       })
-  }, [session])
+  }, [session, testMode])
+
+  const signOut = async () => {
+    if (testMode) {
+      localStorage.removeItem(TEST_MODE_KEY)
+      setTestMode(false)
+      setOrganization(null)
+      return
+    }
+
+    await supabase.auth.signOut()
+  }
 
   if (loading) {
     return <div className="center-screen">Loading Northborn…</div>
   }
 
-  if (!session) {
-    return <AuthScreen />
+  if (!session && !testMode) {
+    return (
+      <AuthScreen
+        onTestLogin={() => {
+          localStorage.setItem(TEST_MODE_KEY, '1')
+          setTestMode(true)
+          setOrganization(TEST_ORGANIZATION)
+        }}
+      />
+    )
   }
 
   if (!organization) {
-    return <OrganizationSetup userId={session.user.id} onCreated={setOrganization} />
+    return <OrganizationSetup userId={session!.user.id} onCreated={setOrganization} />
   }
 
   return (
@@ -133,7 +177,7 @@ export default function App() {
           ))}
         </nav>
 
-        <button className="signout" onClick={() => supabase.auth.signOut()}>
+        <button className="signout" onClick={signOut}>
           <LogOut size={18} />
           Sign out
         </button>
@@ -156,7 +200,10 @@ export default function App() {
         </header>
 
         <Routes>
-          <Route path="/" element={<Dashboard organization={organization} />} />
+          <Route
+            path="/"
+            element={<Dashboard organization={organization} testMode={testMode} />}
+          />
           {modules.slice(1).map(([label, path]) => (
             <Route key={path} path={path} element={<ModulePage name={label} />} />
           ))}
@@ -167,7 +214,7 @@ export default function App() {
   )
 }
 
-function AuthScreen() {
+function AuthScreen({ onTestLogin }: { onTestLogin: () => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
@@ -180,14 +227,26 @@ function AuthScreen() {
     setSubmitting(true)
 
     const normalizedEmail = email.trim().toLowerCase()
-    const loginEmail =
-      mode === 'signin' && normalizedEmail === 'admin'
-        ? 'admin@northborn.test'
-        : email.trim()
+
+    if (mode === 'signin' && normalizedEmail === 'admin') {
+      const passwordHash = await sha256(password)
+      if (passwordHash === TEST_PASSWORD_HASH) {
+        setSubmitting(false)
+        onTestLogin()
+        return
+      }
+
+      setSubmitting(false)
+      setMessage('Invalid login credentials')
+      return
+    }
 
     const result =
       mode === 'signin'
-        ? await supabase.auth.signInWithPassword({ email: loginEmail, password })
+        ? await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          })
         : await supabase.auth.signUp({
             email: email.trim(),
             password,
@@ -324,12 +383,24 @@ function OrganizationSetup({
   )
 }
 
-function Dashboard({ organization }: { organization: Organization }) {
+function Dashboard({
+  organization,
+  testMode,
+}: {
+  organization: Organization
+  testMode: boolean
+}) {
   return (
     <section className="page">
       <div className="eyebrow">OPERATIONS</div>
       <h1>{organization.name}</h1>
       <p className="subtitle">Your Northborn command centre.</p>
+
+      {testMode && (
+        <div className="message" style={{ marginBottom: 18 }}>
+          Test admin mode is active. This workspace is isolated from real Supabase operational data.
+        </div>
+      )}
 
       <div className="metric-grid">
         <Metric title="Jobs today" value="0" detail="No active jobs yet" />

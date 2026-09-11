@@ -1,17 +1,26 @@
 # Northborn
 
-Northborn is a cross-platform field operations platform for trucking, hydrovac, vacuum, steaming, water hauling, environmental, construction, oilfield and industrial service companies.
+Northborn is a cross platform field operations platform for trucking, hydrovac, vacuum, steaming, water hauling, environmental, construction, oilfield and industrial service companies.
 
-## Foundation 0.1
+## Foundation 0.2
 
 - React + TypeScript + Vite
 - Supabase backend
-- Multi-tenant organization model
-- Role-based permissions
+- Multi tenant organization model
+- Role based permissions
+- Row level security on all current public tables
+- Audit logging foundation
+- Customers, employees, fleet, jobs and dispatch operational slice
+- Live schema synchronized TypeScript database definitions
+- Git tracked database migrations
+- Automated GitHub Actions build verification
 - Responsive desktop and mobile shell
-- Capacitor-ready native wrapper configuration
-- Vercel-ready routing
+- Capacitor ready native wrapper configuration
+- Vercel ready SPA routing
+- PowerSync selected for the future offline synchronization layer
+
+See `docs/TECHNICAL_FOUNDATION.md` for the architecture baseline, migration rules and remaining external setup.
 
 ## Temporary test login
 
-The current preview includes an isolated test-admin mode for interface testing only. It does not represent a real Supabase user, cannot access real operational records, and must be removed before production or before real operational data is used.
+The current preview includes an isolated test admin mode for interface testing only. It does not represent a real Supabase user, cannot access real operational records, and must be removed before production or before real operational data is used.

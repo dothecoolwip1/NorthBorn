@@ -23,3 +23,10 @@ jobs:
 
       - name: Build Northborn
         run: npm run build
+
+      - name: Upload generated lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: northborn-package-lock
+          path: package-lock.json
+          retention-days: 1

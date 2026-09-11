@@ -14,4 +14,4 @@ Northborn is a cross-platform field operations platform for trucking, hydrovac, 
 
 ## Temporary test login
 
-The current preview includes an isolated test-admin mode for interface testing only. It does not represent a real Supabase user and must be removed before production or before real operational data is used.
+The current preview includes an isolated test-admin mode for interface testing only. It does not represent a real Supabase user, cannot access real operational records, and must be removed before production or before real operational data is used.

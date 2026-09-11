@@ -179,11 +179,17 @@ function AuthScreen() {
     setMessage('')
     setSubmitting(true)
 
+    const normalizedEmail = email.trim().toLowerCase()
+    const loginEmail =
+      mode === 'signin' && normalizedEmail === 'admin'
+        ? 'admin@northborn.test'
+        : email.trim()
+
     const result =
       mode === 'signin'
-        ? await supabase.auth.signInWithPassword({ email, password })
+        ? await supabase.auth.signInWithPassword({ email: loginEmail, password })
         : await supabase.auth.signUp({
-            email,
+            email: email.trim(),
             password,
             options: {
               emailRedirectTo: window.location.origin,
@@ -211,10 +217,10 @@ function AuthScreen() {
 
         <form onSubmit={submit}>
           <label>
-            Email
+            Email or username
             <input
-              type="email"
-              autoComplete="email"
+              type="text"
+              autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
@@ -228,7 +234,7 @@ function AuthScreen() {
               autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              minLength={8}
+              minLength={mode === 'signin' ? 1 : 8}
               required
             />
           </label>

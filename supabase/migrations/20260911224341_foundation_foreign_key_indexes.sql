@@ -1,0 +1,13 @@
+create index if not exists audit_logs_actor_user_idx on public.audit_logs(actor_user_id);
+create index if not exists customers_created_by_idx on public.customers(created_by);
+create index if not exists dispatch_assignments_created_by_idx on public.dispatch_assignments(created_by);
+create index if not exists dispatch_assignments_employee_idx on public.dispatch_assignments(employee_id);
+create index if not exists dispatch_assignments_vehicle_idx on public.dispatch_assignments(vehicle_id);
+create index if not exists employees_created_by_idx on public.employees(created_by);
+create index if not exists employees_user_idx on public.employees(user_id);
+create index if not exists fleet_vehicles_created_by_idx on public.fleet_vehicles(created_by);
+create index if not exists jobs_created_by_idx on public.jobs(created_by);
+create index if not exists jobs_customer_idx on public.jobs(customer_id);
+create index if not exists organization_members_created_by_idx on public.organization_members(created_by);
+create index if not exists organizations_created_by_idx on public.organizations(created_by);
+create index if not exists role_permissions_permission_key_idx on public.role_permissions(permission_key);

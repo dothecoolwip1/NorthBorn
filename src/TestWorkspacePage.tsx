@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  BriefcaseBusiness, CalendarDays, CheckCircle2, ContactRound, Gauge, HardHat,
-  ReceiptText, ShieldCheck, Truck, UserRound, Users, Wrench, Plus, Clock3, MapPin,
-  Building2, ChevronRight, ClipboardCheck, Activity, Eye,
+  Activity, BriefcaseBusiness, Building2, CalendarDays, CheckCircle2, ChevronRight,
+  ClipboardCheck, Clock3, ContactRound, Eye, Gauge, HardHat, MapPin, Plus,
+  ReceiptText, ShieldCheck, Truck, UserRound, Users, Wrench,
 } from 'lucide-react'
 import './test-workspace.css'
 
@@ -16,8 +16,8 @@ type Vehicle = { id:string; organization_id:string; unit_number:string; name:str
 type Job = { id:string; organization_id:string; customer_id:string; job_number:string; title:string; site_name:string|null; site_address:string|null; scheduled_start:string|null; scheduled_end:string|null; status:string; notes:string|null; shop_time?:string|null; onsite_time?:string|null; completed_at?:string|null }
 type Assignment = { id:string; organization_id:string; job_id:string; employee_id:string|null; vehicle_id:string|null; role:string|null }
 type TestData = { customers:Customer[]; employees:Employee[]; vehicles:Vehicle[]; jobs:Job[]; assignments:Assignment[] }
-type Section = 'home'|'jobs'|'dispatch'|'calendar'|'customers'|'operator'|'client'
-
+type Section = 'home'|'jobs'|'dispatch'|'calendar'|'customers'|'operator'|'operator-jobs'|'operator-fleet'|'client'|'client-jobs'|'client-invoices'
+type Persona = 'manager'|'operator'|'client'
 type Invoice = { id:string; invoice_number:string; status:string; total:number; balance_due?:number; customer_id?:string; invoice_date?:string; due_date?:string }
 
 const ORG_ID = '00000000-0000-0000-0000-000000000001'
@@ -63,16 +63,34 @@ function readInvoices(): Invoice[] {
   try { return JSON.parse(localStorage.getItem(TEST_INVOICES_KEY) || '[]') as Invoice[] } catch { return [] }
 }
 
-const nav = [
+const managerNav = [
   ['Dashboard','/',Gauge], ['Calendar','/calendar',CalendarDays], ['Dispatch','/dispatch',CalendarDays],
   ['Jobs','/jobs',BriefcaseBusiness], ['Customers','/customers',ContactRound], ['Employees','/employees',Users],
   ['Fleet','/fleet',Truck], ['Fleet access','/fleet-access',ShieldCheck], ['Maintenance','/maintenance',Wrench],
   ['Safety','/safety',ClipboardCheck], ['Timesheets','/timesheets',HardHat], ['Invoices','/invoices',ReceiptText], ['Reports','/reports',Activity],
 ] as const
 
+const operatorNav = [
+  ['Dashboard','/test/operator',Gauge],
+  ['My jobs','/test/operator/jobs',BriefcaseBusiness],
+  ['My fleet','/test/operator/fleet',Truck],
+] as const
+
+const clientNav = [
+  ['Dashboard','/test/client',Gauge],
+  ['Jobs','/test/client/jobs',BriefcaseBusiness],
+  ['Invoices','/test/client/invoices',ReceiptText],
+] as const
+
 const fmt = (value:string|null|undefined) => value ? new Intl.DateTimeFormat('en-CA',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(value)) : 'Not set'
 const money = (value:number) => new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD'}).format(value || 0)
 const label = (value:string) => value.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())
+
+function personaFor(section:Section):Persona {
+  if (section.startsWith('operator')) return 'operator'
+  if (section.startsWith('client')) return 'client'
+  return 'manager'
+}
 
 export default function TestWorkspacePage({ section='home' }:{ section?:Section }) {
   const [data,setData] = useState<TestData>(()=>readData())
@@ -83,6 +101,8 @@ export default function TestWorkspacePage({ section='home' }:{ section?:Section 
   const [selectedEmployee,setSelectedEmployee] = useState<Record<string,string>>({})
   const [selectedVehicle,setSelectedVehicle] = useState<Record<string,string>>({})
   const invoices = useMemo(()=>readInvoices(),[data])
+  const persona = personaFor(section)
+  const nav = persona==='operator' ? operatorNav : persona==='client' ? clientNav : managerNav
 
   const save = (next:TestData) => { localStorage.setItem(TEST_DATA_KEY,JSON.stringify(next)); setData(next) }
   const activeJobs = data.jobs.filter(j=>!['completed','cancelled'].includes(j.status))
@@ -120,32 +140,36 @@ export default function TestWorkspacePage({ section='home' }:{ section?:Section 
   return <div className="testws-shell">
     <aside className="testws-sidebar">
       <div className="testws-brand"><div>N</div><span><strong>NORTHBORN</strong><small>Universal test account</small></span></div>
-      <div className="testws-badge">ADMIN TEST WORKSPACE</div>
-      <nav>{nav.map(([name,path,Icon])=><NavLink key={path} to={path} end={path==='/' && section==='home'}><Icon size={18}/><span>{name}</span></NavLink>)}</nav>
+      <div className="testws-badge">{persona.toUpperCase()} TEST VIEW</div>
+      <nav>{nav.map(([name,path,Icon])=><NavLink key={path} to={path} end><Icon size={18}/><span>{name}</span></NavLink>)}</nav>
     </aside>
     <main className="testws-main">
-      <header className="testws-topbar"><div><span>TESTING</span><strong>{sectionTitle(section)}</strong></div><div className="testws-personas"><NavLink to="/test/manager">Manager</NavLink><NavLink to="/test/operator">Operator</NavLink><NavLink to="/test/client">Client</NavLink></div></header>
+      <header className="testws-topbar"><div><span>TESTING AS {persona.toUpperCase()}</span><strong>{sectionTitle(section)}</strong></div><div className="testws-personas"><NavLink to="/test/manager">Manager</NavLink><NavLink to="/test/operator">Operator</NavLink><NavLink to="/test/client">Client</NavLink></div></header>
       {section==='home'&&<Home data={data} invoices={invoices} activeJobs={activeJobs.length} availableVehicles={availableVehicles.length}/>} 
       {section==='jobs'&&<Jobs data={data} activeJobs={activeJobs} completedJobs={completedJobs} showAddJob={showAddJob} setShowAddJob={setShowAddJob} jobTitle={jobTitle} setJobTitle={setJobTitle} addJob={addJob}/>} 
       {section==='dispatch'&&<Dispatch data={data} jobs={activeJobs} selectedEmployee={selectedEmployee} setSelectedEmployee={setSelectedEmployee} selectedVehicle={selectedVehicle} setSelectedVehicle={setSelectedVehicle} assign={assign} completeJob={completeJob}/>} 
       {section==='calendar'&&<Calendar data={data}/>} 
       {section==='customers'&&<Customers data={data} showAddClient={showAddClient} setShowAddClient={setShowAddClient} clientName={clientName} setClientName={setClientName} addClient={addClient}/>} 
       {section==='operator'&&<OperatorPreview data={data}/>} 
+      {section==='operator-jobs'&&<OperatorJobs data={data}/>} 
+      {section==='operator-fleet'&&<OperatorFleet data={data}/>} 
       {section==='client'&&<ClientPreview data={data} invoices={invoices}/>} 
+      {section==='client-jobs'&&<ClientJobs data={data}/>} 
+      {section==='client-invoices'&&<ClientInvoices data={data} invoices={invoices}/>} 
     </main>
   </div>
 }
 
-function sectionTitle(section:Section){return({home:'Northborn Test HQ',jobs:'Jobs',dispatch:'Dispatch',calendar:'Operations Calendar',customers:'Customers',operator:'Operator Preview',client:'Client Preview'})[section]}
+function sectionTitle(section:Section){return({home:'Northborn Test HQ',jobs:'Jobs',dispatch:'Dispatch',calendar:'Operations Calendar',customers:'Customers',operator:'Operator Dashboard','operator-jobs':'My Jobs','operator-fleet':'My Fleet',client:'Client Dashboard','client-jobs':'Client Jobs','client-invoices':'Client Invoices'})[section]}
 
 function Home({data,invoices,activeJobs,availableVehicles}:{data:TestData;invoices:Invoice[];activeJobs:number;availableVehicles:number}){
   const cards=[
     ['Dispatch','/dispatch','Live jobs, crews and units',CalendarDays],['Jobs','/jobs','Active and completed work',BriefcaseBusiness],['Customers','/customers','CRM and client records',ContactRound],['Fleet','/fleet','Units, inspections and defects',Truck],['Maintenance','/maintenance','Schedules and work orders',Wrench],['Invoices','/invoices','Billing and invoice workflow',ReceiptText],['Employee fleet access','/fleet-access','Truck access by employee',ShieldCheck],['Operator preview','/test/operator','Current employee-facing view',UserRound],['Client preview','/test/client','Jobs and billing from the client side',Building2],
   ] as const
-  return <section className="testws-page"><div className="testws-hero"><div><span>ONE ACCOUNT, EVERY VIEW</span><h1>Everything we build should show up here.</h1><p>The admin test account is now the permanent Northborn testing hub. New manager features are linked here, with Operator and Client previews available without signing into another account.</p></div><Eye size={42}/></div>
+  return <section className="testws-page"><div className="testws-hero"><div><span>ONE ACCOUNT, EVERY VIEW</span><h1>Everything we build should show up here.</h1><p>The admin test account is the permanent Northborn testing hub. Manager, Operator and Client are separate test personas and each one keeps its own navigation until you deliberately switch roles.</p></div><Eye size={42}/></div>
     <div className="testws-metrics"><article><span>Active jobs</span><strong>{activeJobs}</strong></article><article><span>Clients</span><strong>{data.customers.length}</strong></article><article><span>Available units</span><strong>{availableVehicles}</strong></article><article><span>Invoices</span><strong>{invoices.length}</strong></article></div>
     <div className="testws-feature-grid">{cards.map(([name,path,desc,Icon])=><NavLink key={path} to={path}><div className="testws-feature-icon"><Icon size={20}/></div><div><strong>{name}</strong><span>{desc}</span></div><ChevronRight size={18}/></NavLink>)}</div>
-    <div className="testws-rule"><CheckCircle2 size={18}/><div><strong>Testing rule going forward</strong><span>A Northborn feature is not considered finished until the admin test account can open it.</span></div></div>
+    <div className="testws-rule"><CheckCircle2 size={18}/><div><strong>Testing rule going forward</strong><span>A Northborn feature is not considered finished until the admin test account can open it in the correct role.</span></div></div>
   </section>
 }
 
@@ -168,12 +192,49 @@ function Customers({data,showAddClient,setShowAddClient,clientName,setClientName
   return <section className="testws-page"><div className="testws-page-head"><div><span>CRM</span><h1>Clients</h1><p>Current client records available to the universal test account.</p></div><button className="testws-primary" onClick={()=>setShowAddClient(!showAddClient)}><Plus size={16}/>Add test client</button></div>{showAddClient&&<div className="testws-inline-form"><input value={clientName} onChange={e=>setClientName(e.target.value)} placeholder="Company name"/><button onClick={addClient}>Add</button></div>}<div className="testws-customer-grid">{data.customers.map(c=><article key={c.id}><Building2 size={20}/><div><strong>{c.name}</strong><span>{c.phone||'No main phone'}</span><small>{c.billing_email||'No billing email'}</small></div></article>)}</div></section>
 }
 
-function OperatorPreview({data}:{data:TestData}){
-  const employee=data.employees[0];const assignment=data.assignments.find(a=>a.employee_id===employee?.id);const job=data.jobs.find(j=>j.id===assignment?.job_id);const unitAssignment=job?data.assignments.find(a=>a.job_id===job.id&&a.vehicle_id):null;const unit=data.vehicles.find(v=>v.id===unitAssignment?.vehicle_id)
-  return <section className="testws-page"><div className="testws-role-banner"><UserRound size={26}/><div><span>PREVIEWING AS OPERATOR</span><h1>{employee?`${employee.first_name} ${employee.last_name}`:'Test Operator'}</h1></div></div><div className="testws-role-grid"><article><span>Current job</span><strong>{job?.title||'No assigned job'}</strong><small>{job?.site_name||job?.site_address||'No site'}</small></article><article><span>Assigned unit</span><strong>{unit?`Unit ${unit.unit_number}`:'No unit assigned'}</strong><small>{unit?.name||unit?.vehicle_type||''}</small></article><article><span>On site</span><strong>{fmt(job?.onsite_time||job?.scheduled_start)}</strong><small>Operator only sees the work and equipment they need.</small></article></div><div className="testws-feature-grid"><NavLink to="/fleet"><Truck size={20}/><div><strong>My unit</strong><span>Inspections, defects and fleet reporting</span></div><ChevronRight size={18}/></NavLink><NavLink to="/"><Gauge size={20}/><div><strong>Back to manager</strong><span>Return to the admin testing hub</span></div><ChevronRight size={18}/></NavLink></div></section>
+function operatorJobs(data:TestData){
+  const employee=data.employees[0]
+  if(!employee)return []
+  const ids=new Set(data.assignments.filter(a=>a.employee_id===employee.id).map(a=>a.job_id))
+  return data.jobs.filter(j=>ids.has(j.id))
 }
 
+function operatorVehicles(data:TestData){
+  const jobs=new Set(operatorJobs(data).map(j=>j.id))
+  const ids=new Set(data.assignments.filter(a=>a.vehicle_id&&jobs.has(a.job_id)).map(a=>a.vehicle_id!))
+  return data.vehicles.filter(v=>ids.has(v.id))
+}
+
+function OperatorPreview({data}:{data:TestData}){
+  const employee=data.employees[0];const jobs=operatorJobs(data);const job=jobs.find(j=>!['completed','cancelled'].includes(j.status))||jobs[0];const unit=operatorVehicles(data)[0]
+  return <section className="testws-page"><div className="testws-role-banner"><UserRound size={26}/><div><span>PREVIEWING AS OPERATOR</span><h1>{employee?`${employee.first_name} ${employee.last_name}`:'Test Operator'}</h1></div></div><div className="testws-role-grid"><article><span>Current job</span><strong>{job?.title||'No assigned job'}</strong><small>{job?.site_name||job?.site_address||'No site'}</small></article><article><span>Assigned unit</span><strong>{unit?`Unit ${unit.unit_number}`:'No unit assigned'}</strong><small>{unit?.name||unit?.vehicle_type||''}</small></article><article><span>On site</span><strong>{fmt(job?.onsite_time||job?.scheduled_start)}</strong><small>This view stays in Operator until you choose another persona above.</small></article></div><div className="testws-feature-grid"><NavLink to="/test/operator/jobs"><BriefcaseBusiness size={20}/><div><strong>My jobs</strong><span>Only work assigned to this operator</span></div><ChevronRight size={18}/></NavLink><NavLink to="/test/operator/fleet"><Truck size={20}/><div><strong>My fleet</strong><span>Only equipment available to this operator</span></div><ChevronRight size={18}/></NavLink></div></section>
+}
+
+function OperatorJobs({data}:{data:TestData}){
+  const jobs=operatorJobs(data)
+  return <section className="testws-page"><div className="testws-page-head"><div><span>OPERATOR</span><h1>My jobs</h1><p>Only jobs assigned to the test operator appear here.</p></div></div><div className="testws-list">{jobs.map(j=><JobRow key={j.id} job={j} data={data}/>)}{!jobs.length&&<div className="testws-rule"><BriefcaseBusiness size={18}/><div><strong>No assigned jobs</strong><span>Dispatch must assign this operator before work appears here.</span></div></div>}</div></section>
+}
+
+function OperatorFleet({data}:{data:TestData}){
+  const vehicles=operatorVehicles(data)
+  return <section className="testws-page"><div className="testws-page-head"><div><span>OPERATOR</span><h1>My fleet</h1><p>Operator access stays limited to units tied to assigned work in this test preview.</p></div></div><div className="testws-customer-grid">{vehicles.map(v=><article key={v.id}><Truck size={20}/><div><strong>Unit {v.unit_number}</strong><span>{v.name||v.vehicle_type}</span><small>{label(v.status)}{v.plate?` · ${v.plate}`:''}</small></div></article>)}</div>{!vehicles.length&&<div className="testws-rule"><Truck size={18}/><div><strong>No assigned units</strong><span>Dispatch must assign a unit to one of this operator's jobs.</span></div></div>}</section>
+}
+
+function clientJobs(data:TestData){const customer=data.customers[0];return data.jobs.filter(j=>j.customer_id===customer?.id)}
+
 function ClientPreview({data,invoices}:{data:TestData;invoices:Invoice[]}){
-  const customer=data.customers[0];const jobs=data.jobs.filter(j=>j.customer_id===customer?.id);const now=Date.now();const future=jobs.filter(j=>new Date(j.onsite_time||j.scheduled_start||0).getTime()>now&&!['completed','cancelled'].includes(j.status));const active=jobs.filter(j=>['dispatched','in_progress'].includes(j.status));const past=jobs.filter(j=>j.status==='completed');const outstanding=invoices.reduce((sum,i)=>sum+Number(i.balance_due??(i.status==='paid'?0:i.total||0)),0)
-  return <section className="testws-page"><div className="testws-role-banner"><Building2 size={26}/><div><span>PREVIEWING AS CLIENT</span><h1>{customer?.name||'Demo Client'}</h1></div></div><div className="testws-metrics"><article><span>Active jobs</span><strong>{active.length}</strong></article><article><span>Future jobs</span><strong>{future.length}</strong></article><article><span>Past jobs</span><strong>{past.length}</strong></article><article><span>Outstanding</span><strong>{money(outstanding)}</strong></article></div><h2 className="testws-section-title">Jobs visible to client</h2><div className="testws-list">{jobs.map(j=><article className="testws-client-job" key={j.id}><div><strong>{j.title}</strong><span>{j.site_name||j.site_address||'Site not set'}</span></div><em>{label(j.status)}</em><small>On-site contact and client notes belong here. Internal work descriptions and swamper details stay hidden.</small></article>)}</div><div className="testws-rule"><ReceiptText size={18}/><div><strong>Client invoice area</strong><span>{invoices.length?`${invoices.length} test invoice${invoices.length===1?'':'s'} available.`:'Invoice access is being connected to the client portal next.'}</span></div></div></section>
+  const customer=data.customers[0];const jobs=clientJobs(data);const now=Date.now();const future=jobs.filter(j=>new Date(j.onsite_time||j.scheduled_start||0).getTime()>now&&!['completed','cancelled'].includes(j.status));const active=jobs.filter(j=>['dispatched','in_progress'].includes(j.status));const past=jobs.filter(j=>j.status==='completed');const outstanding=invoices.reduce((sum,i)=>sum+Number(i.balance_due??(i.status==='paid'?0:i.total||0)),0)
+  return <section className="testws-page"><div className="testws-role-banner"><Building2 size={26}/><div><span>PREVIEWING AS CLIENT</span><h1>{customer?.name||'Demo Client'}</h1></div></div><div className="testws-metrics"><article><span>Active jobs</span><strong>{active.length}</strong></article><article><span>Future jobs</span><strong>{future.length}</strong></article><article><span>Past jobs</span><strong>{past.length}</strong></article><article><span>Outstanding</span><strong>{money(outstanding)}</strong></article></div><div className="testws-feature-grid"><NavLink to="/test/client/jobs"><BriefcaseBusiness size={20}/><div><strong>Jobs</strong><span>Past, current and upcoming client work</span></div><ChevronRight size={18}/></NavLink><NavLink to="/test/client/invoices"><ReceiptText size={20}/><div><strong>Invoices</strong><span>Billing tied to this client account</span></div><ChevronRight size={18}/></NavLink></div></section>
+}
+
+function ClientJobs({data}:{data:TestData}){
+  const jobs=clientJobs(data)
+  return <section className="testws-page"><div className="testws-page-head"><div><span>CLIENT PORTAL</span><h1>Jobs</h1><p>Internal work descriptions and swamper details stay hidden from the client.</p></div></div><div className="testws-list">{jobs.map(j=><article className="testws-client-job" key={j.id}><div><strong>{j.title}</strong><span>{j.site_name||j.site_address||'Site not set'}</span></div><em>{label(j.status)}</em><small>On-site contact and client notes belong here. Internal crew details remain private.</small></article>)}</div></section>
+}
+
+function ClientInvoices({data,invoices}:{data:TestData;invoices:Invoice[]}){
+  const customer=data.customers[0]
+  const rows=invoices.filter(i=>!i.customer_id||i.customer_id===customer?.id)
+  const outstanding=rows.reduce((sum,i)=>sum+Number(i.balance_due??(i.status==='paid'?0:i.total||0)),0)
+  return <section className="testws-page"><div className="testws-page-head"><div><span>CLIENT PORTAL</span><h1>Invoices</h1><p>Invoices visible to {customer?.name||'this client'}.</p></div></div><div className="testws-metrics"><article><span>Invoices</span><strong>{rows.length}</strong></article><article><span>Outstanding</span><strong>{money(outstanding)}</strong></article></div><div className="testws-list">{rows.map(i=><article className="testws-job" key={i.id}><div><span>{i.invoice_number}</span><strong>{money(Number(i.total||0))}</strong><small>{i.invoice_date||'No invoice date'} · Due {i.due_date||'not set'}</small></div><em>{label(i.status)}</em></article>)}{!rows.length&&<div className="testws-rule"><ReceiptText size={18}/><div><strong>No client invoices yet</strong><span>Create a test invoice in Manager view and it will appear here when it belongs to this client.</span></div></div>}</div></section>
 }

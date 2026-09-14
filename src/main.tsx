@@ -10,6 +10,7 @@ import ClientJoinPage from './ClientJoinPage'
 import ManagerDispatchPage from './ManagerDispatchPage'
 import OperationsCalendarPage from './OperationsCalendarPage'
 import ManagerClientsPage from './ManagerClientsPage'
+import ManagerJobsPage from './ManagerJobsPage'
 import './styles.css'
 import './contact-hierarchy.css'
 
@@ -25,6 +26,7 @@ function NorthbornRouter() {
   if (normalizedPath === '/dispatch') return <ManagerDispatchPage />
   if (normalizedPath === '/calendar') return <OperationsCalendarPage />
   if (normalizedPath === '/customers') return <ManagerClientsPage />
+  if (normalizedPath === '/jobs') return <ManagerJobsPage />
 
   return (
     <>

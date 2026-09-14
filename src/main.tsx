@@ -13,6 +13,7 @@ import ManagerClientsPage from './ManagerClientsPage'
 import ManagerJobsPage from './ManagerJobsPage'
 import FleetRoutePage from './FleetRoutePage'
 import ManagerMaintenancePage from './ManagerMaintenancePage'
+import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import './styles.css'
 import './contact-hierarchy.css'
 
@@ -30,6 +31,7 @@ function NorthbornRouter() {
   if (normalizedPath === '/customers') return <ManagerClientsPage />
   if (normalizedPath === '/jobs') return <ManagerJobsPage />
   if (normalizedPath === '/fleet') return <FleetRoutePage />
+  if (normalizedPath === '/fleet-access') return <EmployeeFleetAccessPage />
   if (normalizedPath === '/maintenance') return <ManagerMaintenancePage />
 
   return (

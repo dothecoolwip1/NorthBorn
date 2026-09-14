@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { ArrowLeft, Check, Copy, Link2, ShieldCheck, UserPlus, Users, X } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Link2, Mail, ShieldCheck, UserPlus, Users, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import './team-access.css'
 
@@ -86,6 +86,7 @@ export default function TeamAccessPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [deliveryMessage, setDeliveryMessage] = useState('')
   const [email, setEmail] = useState('')
   const [roleKey, setRoleKey] = useState('operator')
   const [inviteLink, setInviteLink] = useState('')
@@ -202,22 +203,33 @@ export default function TeamAccessPage() {
 
     setBusy(true)
     setError('')
+    setDeliveryMessage('')
     setInviteLink('')
     setCopied(false)
 
     try {
-      const { data, error: rpcError } = await db.rpc('create_organization_invite', {
-        _organization_id: workspace.organizationId,
-        _email: email.trim().toLowerCase(),
-        _role_key: roleKey,
+      const normalizedEmail = email.trim().toLowerCase()
+      const selectedRole = TEAM_ROLES.find(role => role.key === roleKey)
+      const { data, error: functionError } = await supabase.functions.invoke('send-team-invite', {
+        body: {
+          organizationId: workspace.organizationId,
+          organizationName: workspace.organizationName,
+          email: normalizedEmail,
+          roleKey,
+          roleName: selectedRole?.label || roleKey,
+        },
       })
 
-      if (rpcError) throw rpcError
+      if (functionError) throw functionError
+      if (!data?.ok) throw new Error(data?.error || 'Northborn could not create the invitation.')
+      if (!data?.inviteLink) throw new Error('Northborn created the invite but did not return a link.')
 
-      const row = data?.[0]
-      if (!row?.invite_token) throw new Error('Northborn created the invite but did not return a link.')
-
-      setInviteLink(`${window.location.origin}/join?invite=${row.invite_token}`)
+      setInviteLink(String(data.inviteLink))
+      setDeliveryMessage(
+        data.emailSent
+          ? `Invitation email sent to ${normalizedEmail}.`
+          : `Invitation created, but the email could not be sent yet: ${data.deliveryError || 'email delivery is not configured'}. You can still copy the invite link below.`,
+      )
       setEmail('')
       await refresh(workspace)
     } catch (err) {
@@ -275,6 +287,7 @@ export default function TeamAccessPage() {
       </div>
 
       {error && <div className="team-error">{error}</div>}
+      {deliveryMessage && <div className="team-message"><Mail size={18}/>{deliveryMessage}</div>}
 
       <div className="team-grid">
         <section className="team-card">
@@ -282,9 +295,9 @@ export default function TeamAccessPage() {
           <form onSubmit={createInvite} className="team-form">
             <label>Email address<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="operator@company.ca" required/></label>
             <label>Northborn role<select value={roleKey} onChange={event => setRoleKey(event.target.value)}>{TEAM_ROLES.map(role => <option key={role.key} value={role.key}>{role.label}</option>)}</select></label>
-            <button className="team-primary" disabled={busy}>{busy ? 'Creating invite…' : 'Create invite link'}</button>
+            <button className="team-primary" disabled={busy}>{busy ? 'Sending invite…' : 'Send invite'}</button>
           </form>
-          <p className="team-help">Invite links expire after 7 days and only work for the email address entered above.</p>
+          <p className="team-help">Northborn will email the invitation when email delivery is configured. The secure invite link remains available as a fallback and expires after 7 days.</p>
           {inviteLink && <div className="invite-result"><div><Link2 size={18}/><span>{inviteLink}</span></div><button onClick={copyInvite}>{copied ? <><Check size={17}/>Copied</> : <><Copy size={17}/>Copy link</>}</button></div>}
         </section>
 

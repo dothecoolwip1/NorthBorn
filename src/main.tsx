@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import App from './App'
+import RoleAwareApp from './RoleAwareApp'
 import AuthEnhancements from './AuthEnhancements'
 import { JoinOrganizationPage, TeamAccessLauncher } from './TeamAccess'
 import TeamAccessPage from './TeamAccessPage'
@@ -20,7 +20,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <JoinOrganizationPage />
       ) : (
         <>
-          <App />
+          <RoleAwareApp />
           <AuthEnhancements />
           <TeamAccessLauncher />
         </>

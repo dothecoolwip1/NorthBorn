@@ -7,14 +7,16 @@ import { JoinOrganizationPage, TeamAccessLauncher } from './TeamAccess'
 import TeamAccessPage from './TeamAccessPage'
 import './styles.css'
 
-const path = window.location.pathname
+const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/'
+const params = new URLSearchParams(window.location.search)
+const isInviteRoute = normalizedPath === '/join' || params.has('invite')
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      {path === '/team-access' ? (
+      {normalizedPath === '/team-access' ? (
         <TeamAccessPage />
-      ) : path === '/join' ? (
+      ) : isInviteRoute ? (
         <JoinOrganizationPage />
       ) : (
         <>

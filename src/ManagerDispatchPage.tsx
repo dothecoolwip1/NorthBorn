@@ -12,6 +12,7 @@ import {
   Gauge,
   HardHat,
   MapPin,
+  Phone,
   Plus,
   ShieldCheck,
   Star,
@@ -27,7 +28,7 @@ import './manager-dispatch.css'
 const db = supabase as any
 
 type Organization = { id: string; name: string }
-type Customer = { id: string; name: string; address: string | null }
+type Customer = { id: string; name: string; address: string | null; phone: string | null }
 type Employee = { id: string; first_name: string; last_name: string; position: string | null; status: string }
 type Vehicle = { id: string; unit_number: string; name: string | null; vehicle_type: string; status: string }
 type Job = {
@@ -167,7 +168,7 @@ export default function ManagerDispatchPage() {
     }
 
     const [customers, employees, vehicles, jobs, assignments, contacts, jobContacts] = await Promise.all([
-      db.from('customers').select('id,name,address').eq('organization_id', org.id).order('name'),
+      db.from('customers').select('id,name,address,phone').eq('organization_id', org.id).order('name'),
       db.from('employees').select('id,first_name,last_name,position,status').eq('organization_id', org.id).order('last_name'),
       db.from('fleet_vehicles').select('id,unit_number,name,vehicle_type,status').eq('organization_id', org.id).order('unit_number'),
       db.from('jobs').select('id,customer_id,job_number,title,site_name,site_address,shop_time,onsite_time,scheduled_start,scheduled_end,status,notes').eq('organization_id', org.id).order('onsite_time', { ascending: true, nullsFirst: false }),
@@ -310,6 +311,7 @@ function JobManagementModal({ job, workspace, onClose, onChanged }: { job: Job; 
   const assignments = workspace.assignments.filter(item => item.job_id === job.id)
   const crewAssignments = assignments.filter(item => item.employee_id)
   const unitAssignments = assignments.filter(item => item.vehicle_id)
+  const currentCustomer = workspace.customers.find(customer => customer.id === form.customer_id)
   const customerContacts = workspace.contacts.filter(contact => contact.customer_id === form.customer_id && contact.status !== 'archived')
   const selectedContactRows = workspace.jobContacts.filter(item => item.job_id === job.id)
   const selectedContactIds = new Set(selectedContactRows.map(item => item.contact_id))
@@ -494,7 +496,12 @@ function JobManagementModal({ job, workspace, onClose, onChanged }: { job: Job; 
         </form>
 
         <section className="dispatch-v2-section">
-          <div className="dispatch-v2-section-title"><span>Field contacts</span><small>Only selected contacts are shown to operators.</small></div>
+          <div className="dispatch-v2-section-title"><span>Client & field contacts</span><small>The company number stays first; selected field contacts appear directly beneath it for operators.</small></div>
+          <div className="dispatch-v2-client-summary">
+            <span><Building2 size={17}/><strong>{currentCustomer?.name || 'Unknown customer'}</strong></span>
+            {currentCustomer?.phone ? <a href={`tel:${currentCustomer.phone}`}><Phone size={16}/>{currentCustomer.phone}</a> : <small>No main company number entered.</small>}
+          </div>
+          <div className="dispatch-v2-section-title dispatch-v2-contact-subtitle"><span>Field contacts</span><small>Select the people this crew should actually call.</small></div>
           <div className="dispatch-v2-contact-list">
             {customerContacts.map(contact => {
               const assigned = selectedContactIds.has(contact.id)

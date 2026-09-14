@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import App from './App'
 import OperatorApp from './OperatorApp'
+import EmployeeProfileSetup from './EmployeeProfileSetup'
 import { supabase } from './lib/supabase'
 
 type OperatorContext = {
   organizationId: string
   organizationName: string
+  hasEmployeeProfile: boolean
 }
 
 export default function RoleAwareApp() {
@@ -49,13 +51,25 @@ export default function RoleAwareApp() {
 
       if (!active) return
       const roleKey = ((roleRows?.[0]?.role as unknown as { key?: string } | null)?.key) || ''
+
       if (roleKey === 'operator') {
         const organization = membership.organization as unknown as { name?: string } | null
+        const { data: employee } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('organization_id', membership.organization_id)
+          .eq('user_id', nextSession.user.id)
+          .limit(1)
+          .maybeSingle()
+
+        if (!active) return
         setOperatorContext({
           organizationId: membership.organization_id,
           organizationName: organization?.name || 'Northborn company',
+          hasEmployeeProfile: Boolean(employee?.id),
         })
       }
+
       setCheckingRole(false)
     }
 
@@ -73,6 +87,16 @@ export default function RoleAwareApp() {
   if (checkingRole) return <div className="center-screen">Loading your Northborn workspace…</div>
 
   if (session && operatorContext) {
+    if (!operatorContext.hasEmployeeProfile) {
+      return (
+        <EmployeeProfileSetup
+          session={session}
+          organizationId={operatorContext.organizationId}
+          organizationName={operatorContext.organizationName}
+        />
+      )
+    }
+
     return (
       <OperatorApp
         userId={session.user.id}

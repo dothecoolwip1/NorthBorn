@@ -15,6 +15,8 @@ import FleetRoutePage from './FleetRoutePage'
 import ManagerMaintenancePage from './ManagerMaintenancePage'
 import ManagerInvoicesPage from './ManagerInvoicesPage'
 import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
+import GlobalAccountMenu from './GlobalAccountMenu'
+import LogoutPage from './LogoutPage'
 import './styles.css'
 import './contact-hierarchy.css'
 
@@ -24,6 +26,7 @@ function NorthbornRouter() {
   const params = new URLSearchParams(location.search)
   const hasInvite = params.has('invite')
 
+  if (normalizedPath === '/logout') return <LogoutPage />
   if (normalizedPath === '/team-access') return <TeamAccessPage />
   if (normalizedPath === '/client-join') return <ClientJoinPage />
   if (normalizedPath === '/join' || (hasInvite && normalizedPath !== '/client-join')) return <JoinOrganizationPage />
@@ -45,10 +48,13 @@ function NorthbornRouter() {
   )
 }
 
+const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '')
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={routerBase}>
       <NorthbornRouter />
+      <GlobalAccountMenu />
     </BrowserRouter>
   </React.StrictMode>,
 )

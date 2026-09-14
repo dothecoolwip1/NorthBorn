@@ -80,7 +80,8 @@ function UnconnectedAccount({session,onCreateCompany}:{session:Session;onCreateC
   const signOut=async()=>{
     setSigningOut(true)
     await supabase.auth.signOut()
-    window.location.href='/'
+    const home=new URL(import.meta.env.BASE_URL,window.location.origin).toString()
+    window.location.href=home
   }
 
   return <div className="auth-page"><div className="auth-card account-choice-card">
@@ -88,7 +89,7 @@ function UnconnectedAccount({session,onCreateCompany}:{session:Session;onCreateC
     <h1>Choose how to continue</h1>
     <p>Signed in as <strong>{session.user.email}</strong>, but this account is not connected to a Northborn workspace yet.</p>
     <div className="account-choice-actions">
-      <a className="primary account-choice-link" href="/client-join"><KeyRound size={18}/>Use a client access code</a>
+      <NavLink className="primary account-choice-link" to="/client-join"><KeyRound size={18}/>Use a client access code</NavLink>
       <button className="secondary" type="button" onClick={onCreateCompany}><Building2 size={18}/>Create a new company</button>
       <button className="link-button account-signout" type="button" disabled={signingOut} onClick={()=>void signOut()}><LogOut size={17}/>{signingOut?'Signing out…':'Sign out and use another account'}</button>
     </div>

@@ -59,13 +59,23 @@ type Contact = {
   contact_type: string | null
   is_primary: boolean
 }
+type NotificationPayload = {
+  job_title?: string
+  onsite_time?: string
+  shop_time?: string
+  site_name?: string
+  site_address?: string
+  unit_number?: string
+  unit_name?: string
+  [key: string]: unknown
+}
 type Notification = {
   id: string
   notification_type: string
   title: string
   message: string | null
   entity_id: string | null
-  payload: Record<string, unknown>
+  payload: NotificationPayload
   read_at: string | null
   created_at: string
 }
@@ -125,7 +135,7 @@ export default function OperatorAppV2({ userId, organizationId, organizationName
     }
     const employee = employeeResult.data as Employee | null
     const assignments = (assignmentsResult.data ?? []) as Assignment[]
-    const ownJobIds = new Set(assignments.filter(item => item.employee_id === employee?.id).map(item => item.job_id))
+    const ownJobIds = new Set(assignments.filter((item: Assignment) => item.employee_id === employee?.id).map((item: Assignment) => item.job_id))
     const jobs = ((jobsResult.data ?? []) as Job[]).filter(job => ownJobIds.has(job.id))
     const next: Data = {
       employee,
@@ -252,8 +262,8 @@ function JobCard({ job, data, onOpen }: { job:Job; data:Data; onOpen:()=>void })
 
 function NoticeCard({ notice, data, onDismiss, onOpenJob }: { notice:Notification; data:Data; onDismiss:()=>void; onOpenJob:(id:string)=>void }) {
   const removed=notice.notification_type==='job_unassigned'; const equipment=notice.notification_type==='job_equipment_updated'; const canOpen=Boolean(notice.entity_id&&data.jobs.some(job=>job.id===notice.entity_id))
-  const payload=notice.payload||{}; const jobTitle=String(payload.job_title||notice.message||'Job')
-  return <div className={removed?'field-assignment-alert field-removal-alert':'field-assignment-alert'} role="alert" aria-live="assertive"><button className="field-alert-close" onClick={onDismiss}><X size={18}/></button><div className="field-alert-icon">{removed?<X size={24}/>:equipment?<Truck size={24}/>:<BellRing size={24}/>}</div><div className="field-alert-copy"><span className="field-eyebrow">{removed?'REMOVED FROM JOB':equipment?'JOB EQUIPMENT UPDATED':'NEW JOB ASSIGNED'}</span><strong>{jobTitle}</strong>{notice.message&&notice.message!==jobTitle&&<span>{notice.message}</span>}{payload.onsite_time&&<span>On site {formatDate(String(payload.onsite_time))}</span>}</div>{canOpen&&notice.entity_id&&<button className="field-alert-action" onClick={()=>onOpenJob(notice.entity_id!)}>View job</button>}</div>
+  const payload=notice.payload||{}; const jobTitle=String(payload.job_title||notice.message||'Job'); const onsite=typeof payload.onsite_time==='string'?payload.onsite_time:null
+  return <div className={removed?'field-assignment-alert field-removal-alert':'field-assignment-alert'} role="alert" aria-live="assertive"><button className="field-alert-close" onClick={onDismiss}><X size={18}/></button><div className="field-alert-icon">{removed?<X size={24}/>:equipment?<Truck size={24}/>:<BellRing size={24}/>}</div><div className="field-alert-copy"><span className="field-eyebrow">{removed?'REMOVED FROM JOB':equipment?'JOB EQUIPMENT UPDATED':'NEW JOB ASSIGNED'}</span><strong>{jobTitle}</strong>{notice.message&&notice.message!==jobTitle&&<span>{notice.message}</span>}{onsite&&<span>On site {formatDate(onsite)}</span>}</div>{canOpen&&notice.entity_id&&<button className="field-alert-action" onClick={()=>onOpenJob(notice.entity_id!)}>View job</button>}</div>
 }
 
 function JobModal({ job, data, onClose }: { job:Job; data:Data; onClose:()=>void }) {

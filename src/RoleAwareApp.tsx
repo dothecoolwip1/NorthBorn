@@ -70,7 +70,7 @@ export default function RoleAwareApp() {
     }
   }, [])
 
-  if (checkingRole && session) return <div className="center-screen">Loading your Northborn workspace…</div>
+  if (checkingRole) return <div className="center-screen">Loading your Northborn workspace…</div>
 
   if (session && operatorContext) {
     return (

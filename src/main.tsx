@@ -9,6 +9,7 @@ import JoinOrganizationPage from './JoinOrganizationPage'
 import ManagerDispatchPage from './ManagerDispatchPage'
 import OperationsCalendarPage from './OperationsCalendarPage'
 import './styles.css'
+import './contact-hierarchy.css'
 
 function NorthbornRouter() {
   const location = useLocation()

@@ -51,6 +51,7 @@ type Contact = {
   job_id: string
   customer_id: string
   customer_name: string
+  customer_phone: string | null
   contact_id: string | null
   contact_name: string | null
   contact_title: string | null
@@ -269,6 +270,8 @@ function NoticeCard({ notice, data, onDismiss, onOpenJob }: { notice:Notificatio
 function JobModal({ job, data, onClose }: { job:Job; data:Data; onClose:()=>void }) {
   const [copied,setCopied]=useState(false)
   const contacts=useMemo(()=>data.contacts.filter(item=>item.job_id===job.id).sort((a,b)=>Number(b.is_primary)-Number(a.is_primary)),[data.contacts,job.id])
+  const client=contacts[0]
+  const fieldContacts=contacts.filter(contact=>contact.contact_id)
   const unitIds=new Set(data.assignments.filter(item=>item.job_id===job.id).map(item=>item.vehicle_id).filter(Boolean) as string[]); const units=data.vehicles.filter(unit=>unitIds.has(unit.id))
   const copyAddress=async()=>{if(!job.site_address)return;await navigator.clipboard.writeText(job.site_address);setCopied(true);setTimeout(()=>setCopied(false),1600)}
   return <div className="field-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}}><section className="field-job-modal" role="dialog" aria-modal="true"><div className="field-modal-header"><div><span className="field-job-number">{job.job_number}</span><h2>{job.title}</h2></div><button className="field-modal-close" onClick={onClose}><X size={20}/></button></div>
@@ -276,7 +279,7 @@ function JobModal({ job, data, onClose }: { job:Job; data:Data; onClose:()=>void
     <div className="field-detail-grid">
       <section className="field-detail-section"><div className="field-detail-heading"><Clock3 size={19}/><span>Timing</span></div><strong>Be at shop: {formatDate(job.shop_time)}</strong><strong>On site: {formatDate(job.onsite_time||job.scheduled_start)}</strong>{job.scheduled_end&&<span>Expected finish: {formatDate(job.scheduled_end)}</span>}</section>
       <section className="field-detail-section"><div className="field-detail-heading"><MapPin size={19}/><span>Job site</span></div><strong>{job.site_name||'Job site'}</strong>{job.site_address?<><span>{job.site_address}</span><button className="field-copy-button" onClick={()=>void copyAddress()}><Copy size={16}/>{copied?'Copied':'Copy address'}</button></>:<span className="field-detail-muted">No site address entered.</span>}</section>
-      <section className="field-detail-section field-contacts-section"><div className="field-detail-heading"><UserRound size={19}/><span>Field contacts</span></div>{contacts.length?<><strong>{contacts[0].customer_name}</strong>{contacts.map(contact=><div className="field-contact-card" key={contact.contact_id||`${job.id}-${contact.contact_name}`}><div><strong>{contact.contact_name||'Contact'}</strong>{contact.contact_title&&<span>{contact.contact_title}</span>}{contact.is_primary&&<small>Primary contact</small>}</div>{contact.contact_phone&&<a href={`tel:${contact.contact_phone}`}><Phone size={15}/>{contact.contact_phone}</a>}{contact.contact_email&&<a href={`mailto:${contact.contact_email}`}><Mail size={15}/>{contact.contact_email}</a>}</div>)}</>:<span className="field-detail-muted">No field contact selected for this job.</span>}</section>
+      <section className="field-detail-section field-contacts-section"><div className="field-detail-heading"><Building2 size={19}/><span>Client</span></div>{client?<><strong>{client.customer_name}</strong>{client.customer_phone?<a href={`tel:${client.customer_phone}`}><Phone size={15}/><span>Main/company: {client.customer_phone}</span></a>:<span className="field-detail-muted">No main company number entered.</span>}<div className="field-contact-subheading">Field contacts</div>{fieldContacts.length?fieldContacts.map(contact=><div className="field-contact-card" key={contact.contact_id||`${job.id}-${contact.contact_name}`}><div><strong>{contact.contact_name||'Contact'}</strong>{contact.contact_title&&<span>{contact.contact_title}</span>}{contact.is_primary&&<small>Primary field contact</small>}</div>{contact.contact_phone&&<a href={`tel:${contact.contact_phone}`}><Phone size={15}/>{contact.contact_phone}</a>}{contact.contact_email&&<a href={`mailto:${contact.contact_email}`}><Mail size={15}/>{contact.contact_email}</a>}</div>):<span className="field-detail-muted">No field contact selected for this job.</span>}</>:<span className="field-detail-muted">Client contact information is unavailable.</span>}</section>
       <section className="field-detail-section"><div className="field-detail-heading"><Truck size={19}/><span>Assigned equipment</span></div>{units.length?units.map(unit=><span key={unit.id}>Unit {unit.unit_number} · {unit.name||unit.vehicle_type}</span>):<span className="field-detail-muted">No unit assigned.</span>}</section>
       <section className="field-detail-section field-notes-section"><div className="field-detail-heading"><FileText size={19}/><span>Job notes</span></div><p>{job.notes?.trim()||'No job notes have been added.'}</p></section>
     </div><button className="field-modal-done" onClick={onClose}>Done</button>

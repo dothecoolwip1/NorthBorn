@@ -21,6 +21,7 @@ import TestSupabaseBridge from './TestSupabaseBridge'
 import { getTestPersona, isTestMode } from './test-lab'
 import './styles.css'
 import './contact-hierarchy.css'
+import './test-lab-overrides.css'
 
 function ProductionRoutes({ normalizedPath, hasInvite }:{ normalizedPath:string; hasInvite:boolean }) {
   if (normalizedPath === '/logout') return <LogoutPage />
@@ -63,11 +64,13 @@ function NorthbornRouter() {
   if (!testMode) return <ProductionRoutes normalizedPath={normalizedPath} hasInvite={hasInvite} />
 
   return <TestSupabaseBridge persona={persona}>
-    {persona === 'manager'
-      ? <ProductionRoutes normalizedPath={normalizedPath} hasInvite={hasInvite} />
-      : normalizedPath === '/fleet' && persona === 'operator'
-        ? <FleetRoutePage />
-        : <><RoleAwareApp /><AuthEnhancements /></>}
+    {normalizedPath === '/logout'
+      ? <LogoutPage />
+      : persona === 'manager'
+        ? <ProductionRoutes normalizedPath={normalizedPath} hasInvite={hasInvite} />
+        : normalizedPath === '/fleet' && persona === 'operator'
+          ? <FleetRoutePage />
+          : <><RoleAwareApp /><AuthEnhancements /></>}
   </TestSupabaseBridge>
 }
 

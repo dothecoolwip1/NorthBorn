@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { Building2, KeyRound, LogOut } from 'lucide-react'
 import App from './App'
 import OperatorAppV2 from './OperatorAppV2'
 import EmployeeProfileSetup from './EmployeeProfileSetup'
@@ -17,12 +18,13 @@ export default function RoleAwareApp() {
   const [operatorContext,setOperatorContext]=useState<OperatorContext|null>(null)
   const [clientContext,setClientContext]=useState<ClientContext|null>(null)
   const [checkingRole,setCheckingRole]=useState(true)
+  const [showCompanySetup,setShowCompanySetup]=useState(false)
 
   useEffect(()=>{
     let active=true
     const resolve=async(nextSession:Session|null)=>{
       if(!active)return
-      setSession(nextSession);setCheckingRole(true);setOperatorContext(null);setClientContext(null)
+      setSession(nextSession);setCheckingRole(true);setOperatorContext(null);setClientContext(null);setShowCompanySetup(false)
       if(!nextSession){setCheckingRole(false);return}
 
       const {data:membership,error:membershipError}=await supabase.from('organization_members').select('id,organization_id,organization:organizations(name)').eq('user_id',nextSession.user.id).eq('status','active').limit(1).maybeSingle()
@@ -59,5 +61,26 @@ export default function RoleAwareApp() {
     if(!operatorContext.hasEmployeeProfile)return <EmployeeProfileSetup session={session} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/>
     return <OperatorAppV2 userId={session.user.id} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/>
   }
+  if(session&&!showCompanySetup)return <UnconnectedAccount session={session} onCreateCompany={()=>setShowCompanySetup(true)}/>
   return <App resolvedSession={session} authResolved/>
+}
+
+function UnconnectedAccount({session,onCreateCompany}:{session:Session;onCreateCompany:()=>void}){
+  const [signingOut,setSigningOut]=useState(false)
+  const signOut=async()=>{
+    setSigningOut(true)
+    await supabase.auth.signOut()
+    window.location.href='/'
+  }
+
+  return <div className="auth-page"><div className="auth-card account-choice-card">
+    <div className="auth-logo">N</div>
+    <h1>Choose how to continue</h1>
+    <p>Signed in as <strong>{session.user.email}</strong>, but this account is not connected to a Northborn workspace yet.</p>
+    <div className="account-choice-actions">
+      <a className="primary account-choice-link" href="/client-join"><KeyRound size={18}/>Use a client access code</a>
+      <button className="secondary" type="button" onClick={onCreateCompany}><Building2 size={18}/>Create a new company</button>
+      <button className="link-button account-signout" type="button" disabled={signingOut} onClick={()=>void signOut()}><LogOut size={17}/>{signingOut?'Signing out…':'Sign out and use another account'}</button>
+    </div>
+  </div></div>
 }

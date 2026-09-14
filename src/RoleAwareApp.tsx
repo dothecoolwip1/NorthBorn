@@ -59,5 +59,5 @@ export default function RoleAwareApp() {
     if(!operatorContext.hasEmployeeProfile)return <EmployeeProfileSetup session={session} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/>
     return <OperatorAppV2 userId={session.user.id} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/>
   }
-  return <App/>
+  return <App resolvedSession={session} authResolved/>
 }

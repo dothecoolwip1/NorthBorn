@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import NorthbornDateTimePicker from './NorthbornDateTimePicker'
 import './manager-dispatch.css'
 
 const db = supabase as any
@@ -487,9 +488,9 @@ function JobManagementModal({ job, workspace, onClose, onChanged }: { job: Job; 
             <label className="wide"><span>Job title</span><input value={form.title} onChange={event => setForm({ ...form, title: event.target.value })} required/></label>
             <label><span>Site name</span><input value={form.site_name} onChange={event => setForm({ ...form, site_name: event.target.value })}/></label>
             <label><span>Site address</span><input value={form.site_address} onChange={event => setForm({ ...form, site_address: event.target.value })}/></label>
-            <label><span>Be at shop</span><input type="datetime-local" value={form.shop_time} onChange={event => setForm({ ...form, shop_time: event.target.value })}/></label>
-            <label><span>On site</span><input type="datetime-local" value={form.onsite_time} onChange={event => setForm({ ...form, onsite_time: event.target.value })}/></label>
-            <label><span>Expected finish</span><input type="datetime-local" value={form.scheduled_end} onChange={event => setForm({ ...form, scheduled_end: event.target.value })}/></label>
+            <label><span>Be at shop</span><NorthbornDateTimePicker value={form.shop_time} onChange={value => setForm({ ...form, shop_time: value })} placeholder="Choose shop time"/></label>
+            <label><span>On site</span><NorthbornDateTimePicker value={form.onsite_time} onChange={value => setForm({ ...form, onsite_time: value })} placeholder="Choose on-site time"/></label>
+            <label><span>Expected finish</span><NorthbornDateTimePicker value={form.scheduled_end} onChange={value => setForm({ ...form, scheduled_end: value })} min={form.onsite_time} placeholder="Choose finish time"/></label>
             <label className="wide"><span>Notes</span><textarea value={form.notes} onChange={event => setForm({ ...form, notes: event.target.value })}/></label>
           </div>
           <div className="dispatch-v2-save-row"><button className="primary" disabled={busy}>Save job details</button></div>

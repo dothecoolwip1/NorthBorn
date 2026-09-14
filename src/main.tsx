@@ -6,6 +6,8 @@ import AuthEnhancements from './AuthEnhancements'
 import { TeamAccessLauncher } from './TeamAccess'
 import TeamAccessPage from './TeamAccessPage'
 import JoinOrganizationPage from './JoinOrganizationPage'
+import ManagerDispatchPage from './ManagerDispatchPage'
+import OperationsCalendarPage from './OperationsCalendarPage'
 import './styles.css'
 
 const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/'
@@ -19,6 +21,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <TeamAccessPage />
       ) : isInviteRoute ? (
         <JoinOrganizationPage />
+      ) : normalizedPath === '/dispatch' ? (
+        <ManagerDispatchPage />
+      ) : normalizedPath === '/calendar' ? (
+        <OperationsCalendarPage />
       ) : (
         <>
           <RoleAwareApp />

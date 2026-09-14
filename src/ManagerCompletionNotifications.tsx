@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, ChevronRight, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronRight, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import './manager-completion-notifications.css'
 
 const db = supabase as any
+const TYPES=['job_completed','fleet_defect_reported']
 
 type CompletionNotification = {
   id: string
@@ -35,13 +36,13 @@ export default function ManagerCompletionNotifications({ userId, organizationId 
       .select('id,notification_type,title,message,entity_id,payload,read_at,created_at')
       .eq('recipient_user_id', userId)
       .eq('organization_id', organizationId)
-      .eq('notification_type', 'job_completed')
+      .in('notification_type', TYPES)
       .is('read_at', null)
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(30)
 
     if (result.error) {
-      console.error('Unable to load completion notifications', result.error)
+      console.error('Unable to load manager notifications', result.error)
       return
     }
 
@@ -54,7 +55,7 @@ export default function ManagerCompletionNotifications({ userId, organizationId 
 
   useEffect(() => {
     const channel = supabase
-      .channel(`manager-job-completions-${userId}`)
+      .channel(`manager-notifications-${userId}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -62,7 +63,7 @@ export default function ManagerCompletionNotifications({ userId, organizationId 
         filter: `recipient_user_id=eq.${userId}`,
       }, payload => {
         const row = payload.new as CompletionNotification
-        if (row.notification_type !== 'job_completed') return
+        if (!TYPES.includes(row.notification_type)) return
         setNotifications(current => [row, ...current.filter(item => item.id !== row.id)])
         setVisibleId(row.id)
       })
@@ -82,35 +83,29 @@ export default function ManagerCompletionNotifications({ userId, organizationId 
     setVisibleId(null)
   }
 
-  const openCompleted = async () => {
-    if (notifications.length) {
-      await db
-        .from('user_notifications')
-        .update({ read_at: new Date().toISOString() })
-        .eq('recipient_user_id', userId)
-        .eq('organization_id', organizationId)
-        .eq('notification_type', 'job_completed')
-        .is('read_at', null)
-    }
-    window.location.href = '/jobs?view=completed'
+  const openCurrent = async () => {
+    if (!current) return
+    await markRead(current.id)
+    window.location.href = current.notification_type === 'fleet_defect_reported' ? '/maintenance?view=defects' : '/jobs?view=completed'
   }
 
   if (!current && !notifications.length) return null
+  const defect=current?.notification_type==='fleet_defect_reported'
 
   return (
     <div className="completion-notification-wrap" aria-live="polite">
       {current && <div className="completion-notification-card">
-        <div className="completion-notification-icon"><CheckCircle2 size={22}/></div>
+        <div className="completion-notification-icon">{defect?<AlertTriangle size={22}/>:<CheckCircle2 size={22}/>}</div>
         <div className="completion-notification-copy">
-          <span className="completion-notification-eyebrow">JOB COMPLETE</span>
+          <span className="completion-notification-eyebrow">{defect?'FLEET DEFECT':'JOB COMPLETE'}</span>
           <strong>{current.title}</strong>
-          <p>{current.message || 'A job was marked complete.'}</p>
+          <p>{current.message || (defect?'A fleet defect was reported.':'A job was marked complete.')}</p>
           <small>{formatWhen(current.created_at)}</small>
-          <button type="button" onClick={() => void openCompleted()}>View completed jobs <ChevronRight size={15}/></button>
+          <button type="button" onClick={() => void openCurrent()}>{defect?'View defects':'View completed jobs'} <ChevronRight size={15}/></button>
         </div>
         <button className="completion-notification-close" type="button" aria-label="Dismiss notification" onClick={() => void markRead(current.id)}><X size={17}/></button>
       </div>}
-      {notifications.length > 1 && <button type="button" className="completion-notification-count" onClick={() => void openCompleted()}>{notifications.length} completed jobs waiting for review</button>}
+      {notifications.length > 1 && <button type="button" className="completion-notification-count" onClick={() => setVisibleId(notifications[1]?.id||notifications[0]?.id||null)}>{notifications.length} notifications waiting for review</button>}
     </div>
   )
 }

@@ -1,0 +1,12 @@
+create index if not exists fleet_maintenance_programs_created_by_idx on public.fleet_maintenance_programs(created_by);
+create index if not exists fleet_maintenance_assignments_vehicle_id_idx on public.fleet_maintenance_assignments(vehicle_id);
+create index if not exists fleet_maintenance_assignments_created_by_idx on public.fleet_maintenance_assignments(created_by);
+create index if not exists fleet_defects_vehicle_id_idx on public.fleet_defects(vehicle_id);
+create index if not exists fleet_defects_reported_by_idx on public.fleet_defects(reported_by);
+create index if not exists fleet_inspections_vehicle_id_idx on public.fleet_inspections(vehicle_id);
+create index if not exists fleet_inspections_inspector_user_idx on public.fleet_inspections(inspector_user_id);
+create index if not exists fleet_work_orders_vehicle_id_idx on public.fleet_work_orders(vehicle_id);
+create index if not exists fleet_work_orders_assigned_employee_idx on public.fleet_work_orders(assigned_employee_id);
+create index if not exists fleet_work_orders_created_by_idx on public.fleet_work_orders(created_by);
+create index if not exists fleet_documents_vehicle_id_idx on public.fleet_documents(vehicle_id);
+create index if not exists fleet_documents_created_by_idx on public.fleet_documents(created_by);

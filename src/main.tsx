@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, useLocation } from 'react-router-dom'
 import RoleAwareApp from './RoleAwareApp'
 import AuthEnhancements from './AuthEnhancements'
 import { TeamAccessLauncher } from './TeamAccess'
@@ -10,28 +10,30 @@ import ManagerDispatchPage from './ManagerDispatchPage'
 import OperationsCalendarPage from './OperationsCalendarPage'
 import './styles.css'
 
-const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/'
-const params = new URLSearchParams(window.location.search)
-const isInviteRoute = normalizedPath === '/join' || params.has('invite')
+function NorthbornRouter() {
+  const location = useLocation()
+  const normalizedPath = location.pathname.replace(/\/+$/, '') || '/'
+  const params = new URLSearchParams(location.search)
+  const isInviteRoute = normalizedPath === '/join' || params.has('invite')
+
+  if (normalizedPath === '/team-access') return <TeamAccessPage />
+  if (isInviteRoute) return <JoinOrganizationPage />
+  if (normalizedPath === '/dispatch') return <ManagerDispatchPage />
+  if (normalizedPath === '/calendar') return <OperationsCalendarPage />
+
+  return (
+    <>
+      <RoleAwareApp />
+      <AuthEnhancements />
+      <TeamAccessLauncher />
+    </>
+  )
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      {normalizedPath === '/team-access' ? (
-        <TeamAccessPage />
-      ) : isInviteRoute ? (
-        <JoinOrganizationPage />
-      ) : normalizedPath === '/dispatch' ? (
-        <ManagerDispatchPage />
-      ) : normalizedPath === '/calendar' ? (
-        <OperationsCalendarPage />
-      ) : (
-        <>
-          <RoleAwareApp />
-          <AuthEnhancements />
-          <TeamAccessLauncher />
-        </>
-      )}
+      <NorthbornRouter />
     </BrowserRouter>
   </React.StrictMode>,
 )

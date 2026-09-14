@@ -7,6 +7,7 @@ import OperatorAppV2 from './OperatorAppV2'
 import EmployeeProfileSetup from './EmployeeProfileSetup'
 import ClientPortalApp from './ClientPortalApp'
 import ManagerCompletionNotifications from './ManagerCompletionNotifications'
+import OperatorFleetRepairNotifications from './OperatorFleetRepairNotifications'
 import { supabase } from './lib/supabase'
 import './operator-app-v2.css'
 import './operator-fleet.css'
@@ -67,9 +68,9 @@ export default function RoleAwareApp() {
   if(session&&clientContext)return <ClientPortalApp initialContext={clientContext}/>
   if(session&&operatorContext){
     if(!operatorContext.hasEmployeeProfile)return <EmployeeProfileSetup session={session} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/>
-    return <><OperatorAppV2 userId={session.user.id} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/><NavLink className="operator-fleet-shortcut" to="/fleet"><Truck size={16}/>My unit</NavLink></>
+    return <><OperatorAppV2 userId={session.user.id} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/><NavLink className="operator-fleet-shortcut" to="/fleet"><Truck size={16}/>My unit</NavLink><OperatorFleetRepairNotifications userId={session.user.id} organizationId={operatorContext.organizationId}/></>
   }
-  if(session&&internalContext)return <><App resolvedSession={session} authResolved/>{['owner','admin'].includes(internalContext.roleKey)&&<ManagerCompletionNotifications userId={session.user.id} organizationId={internalContext.organizationId}/>}</>
+  if(session&&internalContext)return <><App resolvedSession={session} authResolved/>{['owner','admin','supervisor','mechanic','dispatcher'].includes(internalContext.roleKey)&&<ManagerCompletionNotifications userId={session.user.id} organizationId={internalContext.organizationId}/>}</>
   if(session&&!showCompanySetup)return <UnconnectedAccount session={session} onCreateCompany={()=>setShowCompanySetup(true)}/>
   return <App resolvedSession={session} authResolved/>
 }

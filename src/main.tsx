@@ -6,8 +6,10 @@ import AuthEnhancements from './AuthEnhancements'
 import { TeamAccessLauncher } from './TeamAccess'
 import TeamAccessPage from './TeamAccessPage'
 import JoinOrganizationPage from './JoinOrganizationPage'
+import ClientJoinPage from './ClientJoinPage'
 import ManagerDispatchPage from './ManagerDispatchPage'
 import OperationsCalendarPage from './OperationsCalendarPage'
+import ManagerClientsPage from './ManagerClientsPage'
 import './styles.css'
 import './contact-hierarchy.css'
 
@@ -15,12 +17,14 @@ function NorthbornRouter() {
   const location = useLocation()
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/'
   const params = new URLSearchParams(location.search)
-  const isInviteRoute = normalizedPath === '/join' || params.has('invite')
+  const hasInvite = params.has('invite')
 
   if (normalizedPath === '/team-access') return <TeamAccessPage />
-  if (isInviteRoute) return <JoinOrganizationPage />
+  if (normalizedPath === '/client-join') return <ClientJoinPage />
+  if (normalizedPath === '/join' || (hasInvite && normalizedPath !== '/client-join')) return <JoinOrganizationPage />
   if (normalizedPath === '/dispatch') return <ManagerDispatchPage />
   if (normalizedPath === '/calendar') return <OperationsCalendarPage />
+  if (normalizedPath === '/customers') return <ManagerClientsPage />
 
   return (
     <>

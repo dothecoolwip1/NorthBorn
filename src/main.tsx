@@ -17,28 +17,31 @@ import ManagerInvoicesPage from './ManagerInvoicesPage'
 import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import GlobalAccountMenu from './GlobalAccountMenu'
 import LogoutPage from './LogoutPage'
-import TestWorkspacePage from './TestWorkspacePage'
+import OperatorAppV2 from './OperatorAppV2'
+import ClientPortalApp from './ClientPortalApp'
+import { getTestPersona, isTestMode, TEST_ORG, TEST_USERS, testClientContext } from './test-lab'
 import './styles.css'
 import './contact-hierarchy.css'
-
-const TEST_MODE_KEY = 'northborn_test_mode'
 
 function NorthbornRouter() {
   const location = useLocation()
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/'
   const params = new URLSearchParams(location.search)
   const hasInvite = params.has('invite')
-  const [testMode,setTestMode] = React.useState(() => localStorage.getItem(TEST_MODE_KEY) === '1')
+  const [testMode,setTestMode] = React.useState(() => isTestMode())
+  const [persona,setPersona] = React.useState(() => getTestPersona())
 
   React.useEffect(() => {
-    const sync = () => setTestMode(localStorage.getItem(TEST_MODE_KEY) === '1')
+    const sync = () => { setTestMode(isTestMode()); setPersona(getTestPersona()) }
     const timer = window.setInterval(sync, 300)
     window.addEventListener('storage', sync)
     window.addEventListener('northborn-auth-changed', sync)
+    window.addEventListener('northborn-test-persona-changed', sync)
     return () => {
       window.clearInterval(timer)
       window.removeEventListener('storage', sync)
       window.removeEventListener('northborn-auth-changed', sync)
+      window.removeEventListener('northborn-test-persona-changed', sync)
     }
   }, [])
 
@@ -47,18 +50,28 @@ function NorthbornRouter() {
   if (normalizedPath === '/client-join') return <ClientJoinPage />
   if (normalizedPath === '/join' || (hasInvite && normalizedPath !== '/client-join')) return <JoinOrganizationPage />
 
-  if (testMode) {
-    if (normalizedPath === '/' || normalizedPath === '/test' || normalizedPath === '/test/manager') return <TestWorkspacePage section="home" />
-    if (normalizedPath === '/test/operator') return <TestWorkspacePage section="operator" />
-    if (normalizedPath === '/test/operator/jobs') return <TestWorkspacePage section="operator-jobs" />
-    if (normalizedPath === '/test/operator/fleet') return <TestWorkspacePage section="operator-fleet" />
-    if (normalizedPath === '/test/client') return <TestWorkspacePage section="client" />
-    if (normalizedPath === '/test/client/jobs') return <TestWorkspacePage section="client-jobs" />
-    if (normalizedPath === '/test/client/invoices') return <TestWorkspacePage section="client-invoices" />
-    if (normalizedPath === '/dispatch') return <TestWorkspacePage section="dispatch" />
-    if (normalizedPath === '/calendar') return <TestWorkspacePage section="calendar" />
-    if (normalizedPath === '/customers') return <TestWorkspacePage section="customers" />
-    if (normalizedPath === '/jobs') return <TestWorkspacePage section="jobs" />
+  if (testMode && persona === 'operator') {
+    if (normalizedPath === '/fleet') return <FleetRoutePage />
+    return <OperatorAppV2 userId={TEST_USERS.operator.id} organizationId={TEST_ORG.id} organizationName={TEST_ORG.name} testMode />
+  }
+
+  if (testMode && persona === 'client') {
+    return <ClientPortalApp initialContext={testClientContext()} testMode />
+  }
+
+  if (testMode && persona === 'manager') {
+    if (normalizedPath === '/fleet') return <FleetRoutePage />
+    if (normalizedPath === '/fleet-access') return <EmployeeFleetAccessPage />
+    if (normalizedPath === '/maintenance') return <ManagerMaintenancePage />
+    if (normalizedPath === '/invoices') return <ManagerInvoicesPage />
+    if (normalizedPath === '/calendar') return <OperationsCalendarPage />
+    return (
+      <>
+        <RoleAwareApp />
+        <AuthEnhancements />
+        <TeamAccessLauncher />
+      </>
+    )
   }
 
   if (normalizedPath === '/dispatch') return <ManagerDispatchPage />

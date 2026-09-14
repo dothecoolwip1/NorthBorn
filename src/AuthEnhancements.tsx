@@ -49,7 +49,9 @@ function enhanceAuthCard() {
     }
   }
 
-  if (!card.querySelector('.google-auth-button')) {
+  // Only the real sign-in/sign-up card has a password field. This prevents
+  // Google OAuth controls from appearing on company onboarding screens.
+  if (passwordInput && !card.querySelector('.google-auth-button')) {
     const form = card.querySelector('form')
     if (!form) return
 

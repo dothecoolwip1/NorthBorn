@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { Building2, KeyRound, LogOut } from 'lucide-react'
+import { NavLink } from 'react-router-dom'
+import { Building2, KeyRound, LogOut, Truck } from 'lucide-react'
 import App from './App'
 import OperatorAppV2 from './OperatorAppV2'
 import EmployeeProfileSetup from './EmployeeProfileSetup'
@@ -8,6 +9,7 @@ import ClientPortalApp from './ClientPortalApp'
 import ManagerCompletionNotifications from './ManagerCompletionNotifications'
 import { supabase } from './lib/supabase'
 import './operator-app-v2.css'
+import './operator-fleet.css'
 
 const db = supabase as any
 
@@ -65,7 +67,7 @@ export default function RoleAwareApp() {
   if(session&&clientContext)return <ClientPortalApp initialContext={clientContext}/>
   if(session&&operatorContext){
     if(!operatorContext.hasEmployeeProfile)return <EmployeeProfileSetup session={session} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/>
-    return <OperatorAppV2 userId={session.user.id} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/>
+    return <><OperatorAppV2 userId={session.user.id} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/><NavLink className="operator-fleet-shortcut" to="/fleet"><Truck size={16}/>My unit</NavLink></>
   }
   if(session&&internalContext)return <><App resolvedSession={session} authResolved/>{['owner','admin'].includes(internalContext.roleKey)&&<ManagerCompletionNotifications userId={session.user.id} organizationId={internalContext.organizationId}/>}</>
   if(session&&!showCompanySetup)return <UnconnectedAccount session={session} onCreateCompany={()=>setShowCompanySetup(true)}/>

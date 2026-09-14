@@ -5,17 +5,20 @@ import App from './App'
 import OperatorAppV2 from './OperatorAppV2'
 import EmployeeProfileSetup from './EmployeeProfileSetup'
 import ClientPortalApp from './ClientPortalApp'
+import ManagerCompletionNotifications from './ManagerCompletionNotifications'
 import { supabase } from './lib/supabase'
 import './operator-app-v2.css'
 
 const db = supabase as any
 
 type OperatorContext = { organizationId:string; organizationName:string; hasEmployeeProfile:boolean }
+type InternalContext = { organizationId:string; organizationName:string; roleKey:string }
 type ClientContext = { portal_user_id:string; organization_id:string; organization_name:string; customer_id:string; customer_name:string; customer_phone:string|null; customer_address:string|null; billing_email:string|null; portal_role:string }
 
 export default function RoleAwareApp() {
   const [session,setSession]=useState<Session|null>(null)
   const [operatorContext,setOperatorContext]=useState<OperatorContext|null>(null)
+  const [internalContext,setInternalContext]=useState<InternalContext|null>(null)
   const [clientContext,setClientContext]=useState<ClientContext|null>(null)
   const [checkingRole,setCheckingRole]=useState(true)
   const [showCompanySetup,setShowCompanySetup]=useState(false)
@@ -24,7 +27,7 @@ export default function RoleAwareApp() {
     let active=true
     const resolve=async(nextSession:Session|null)=>{
       if(!active)return
-      setSession(nextSession);setCheckingRole(true);setOperatorContext(null);setClientContext(null);setShowCompanySetup(false)
+      setSession(nextSession);setCheckingRole(true);setOperatorContext(null);setInternalContext(null);setClientContext(null);setShowCompanySetup(false)
       if(!nextSession){setCheckingRole(false);return}
 
       const {data:membership,error:membershipError}=await supabase.from('organization_members').select('id,organization_id,organization:organizations(name)').eq('user_id',nextSession.user.id).eq('status','active').limit(1).maybeSingle()
@@ -34,11 +37,14 @@ export default function RoleAwareApp() {
         const {data:roleRows}=await supabase.from('membership_roles').select('role:roles(key)').eq('membership_id',membership.id)
         if(!active)return
         const roleKey=((roleRows?.[0]?.role as unknown as {key?:string}|null)?.key)||''
+        const organization=membership.organization as unknown as {name?:string}|null
+        const organizationName=organization?.name||'Northborn company'
         if(roleKey==='operator'){
-          const organization=membership.organization as unknown as {name?:string}|null
           const {data:employee}=await supabase.from('employees').select('id').eq('organization_id',membership.organization_id).eq('user_id',nextSession.user.id).limit(1).maybeSingle()
           if(!active)return
-          setOperatorContext({organizationId:membership.organization_id,organizationName:organization?.name||'Northborn company',hasEmployeeProfile:Boolean(employee?.id)})
+          setOperatorContext({organizationId:membership.organization_id,organizationName,hasEmployeeProfile:Boolean(employee?.id)})
+        } else {
+          setInternalContext({organizationId:membership.organization_id,organizationName,roleKey})
         }
         setCheckingRole(false)
         return
@@ -61,6 +67,7 @@ export default function RoleAwareApp() {
     if(!operatorContext.hasEmployeeProfile)return <EmployeeProfileSetup session={session} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/>
     return <OperatorAppV2 userId={session.user.id} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/>
   }
+  if(session&&internalContext)return <><App resolvedSession={session} authResolved/>{['owner','admin'].includes(internalContext.roleKey)&&<ManagerCompletionNotifications userId={session.user.id} organizationId={internalContext.organizationId}/>}</>
   if(session&&!showCompanySetup)return <UnconnectedAccount session={session} onCreateCompany={()=>setShowCompanySetup(true)}/>
   return <App resolvedSession={session} authResolved/>
 }

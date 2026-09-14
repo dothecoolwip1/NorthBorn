@@ -5,6 +5,7 @@ import NorthbornDateTimePicker from './NorthbornDateTimePicker'
 import RoleAwareApp from './RoleAwareApp'
 import { supabase } from './lib/supabase'
 import './manager-jobs.css'
+import './manager-jobs-history.css'
 
 const db=supabase as any
 type Organization={id:string;name:string}

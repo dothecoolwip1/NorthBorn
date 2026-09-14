@@ -1,22 +1,32 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import {
+  BellRing,
   BriefcaseBusiness,
+  Building2,
   CalendarDays,
   CheckCircle2,
+  ChevronRight,
   ClipboardCheck,
   Clock3,
+  Copy,
+  FileText,
   HardHat,
   Home,
   LogOut,
+  Mail,
   MapPin,
+  Phone,
   ShieldCheck,
   Truck,
   Wifi,
   WifiOff,
+  X,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import './operator-app.css'
+
+const db = supabase as any
 
 type OperatorAppProps = {
   userId: string
@@ -34,6 +44,7 @@ type Employee = {
 
 type Job = {
   id: string
+  customer_id: string
   job_number: string
   title: string
   site_name: string | null
@@ -41,6 +52,7 @@ type Job = {
   scheduled_start: string | null
   scheduled_end: string | null
   status: string
+  notes: string | null
 }
 
 type Assignment = {
@@ -59,14 +71,24 @@ type Vehicle = {
   status: string
 }
 
+type CustomerContact = {
+  job_id: string
+  customer_id: string
+  customer_name: string
+  contact_phone: string | null
+  contact_email: string | null
+  customer_address: string | null
+}
+
 type FieldData = {
   employee: Employee | null
   jobs: Job[]
   assignments: Assignment[]
   vehicles: Vehicle[]
+  contacts: CustomerContact[]
 }
 
-const EMPTY_DATA: FieldData = { employee: null, jobs: [], assignments: [], vehicles: [] }
+const EMPTY_DATA: FieldData = { employee: null, jobs: [], assignments: [], vehicles: [], contacts: [] }
 const NAV_ITEMS = [
   { label: 'Home', path: '/', icon: Home },
   { label: 'My Jobs', path: '/jobs', icon: BriefcaseBusiness },
@@ -104,12 +126,14 @@ export default function OperatorApp({ userId, organizationId, organizationName }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [online, setOnline] = useState(navigator.onLine)
+  const [assignmentAlertJobId, setAssignmentAlertJobId] = useState<string | null>(null)
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (silent = false): Promise<FieldData | null> => {
+    if (!silent) setLoading(true)
     setError('')
 
-    const [employeeResult, jobsResult, assignmentsResult, vehiclesResult] = await Promise.all([
+    const [employeeResult, jobsResult, assignmentsResult, vehiclesResult, contactsResult] = await Promise.all([
       supabase
         .from('employees')
         .select('id,first_name,last_name,position,status')
@@ -118,7 +142,7 @@ export default function OperatorApp({ userId, organizationId, organizationName }
         .maybeSingle(),
       supabase
         .from('jobs')
-        .select('id,job_number,title,site_name,site_address,scheduled_start,scheduled_end,status')
+        .select('id,customer_id,job_number,title,site_name,site_address,scheduled_start,scheduled_end,status,notes')
         .eq('organization_id', organizationId)
         .order('scheduled_start', { ascending: true }),
       supabase
@@ -130,13 +154,14 @@ export default function OperatorApp({ userId, organizationId, organizationName }
         .select('id,unit_number,name,vehicle_type,status')
         .eq('organization_id', organizationId)
         .order('unit_number'),
+      db.rpc('get_my_assigned_job_contacts', { _organization_id: organizationId }),
     ])
 
-    const firstError = employeeResult.error || jobsResult.error || assignmentsResult.error || vehiclesResult.error
+    const firstError = employeeResult.error || jobsResult.error || assignmentsResult.error || vehiclesResult.error || contactsResult.error
     if (firstError) {
       setError(firstError.message)
-      setLoading(false)
-      return
+      if (!silent) setLoading(false)
+      return null
     }
 
     const employee = (employeeResult.data ?? null) as Employee | null
@@ -147,22 +172,72 @@ export default function OperatorApp({ userId, organizationId, organizationName }
         .map(assignment => assignment.job_id),
     )
 
-    // RLS is the primary security boundary. This second filter ensures the UI also
-    // refuses to render a job unless the signed-in employee has their own assignment row.
+    // RLS is the primary security boundary. This second filter makes the UI refuse
+    // to render anything unless this employee has an assignment for that job.
     const jobs = ((jobsResult.data ?? []) as Job[]).filter(job => ownJobIds.has(job.id))
-
-    setData({
+    const nextData: FieldData = {
       employee,
       jobs,
       assignments: assignments.filter(assignment => ownJobIds.has(assignment.job_id)),
       vehicles: (vehiclesResult.data ?? []) as Vehicle[],
-    })
-    setLoading(false)
+      contacts: ((contactsResult.data ?? []) as CustomerContact[]).filter(contact => ownJobIds.has(contact.job_id)),
+    }
+
+    setData(nextData)
+    if (!silent) setLoading(false)
+    return nextData
   }, [organizationId, userId])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  const employeeId = data.employee?.id
+
+  useEffect(() => {
+    if (!employeeId) return
+
+    const assignmentChannel = supabase
+      .channel(`operator-assignments-${employeeId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'dispatch_assignments',
+          filter: `employee_id=eq.${employeeId}`,
+        },
+        async payload => {
+          const refreshed = await load(true)
+          if (payload.eventType === 'INSERT') {
+            const inserted = payload.new as { job_id?: string }
+            if (inserted.job_id && refreshed?.jobs.some(job => job.id === inserted.job_id)) {
+              setAssignmentAlertJobId(inserted.job_id)
+            }
+          }
+        },
+      )
+      .subscribe()
+
+    const jobsChannel = supabase
+      .channel(`operator-jobs-${organizationId}-${employeeId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'jobs',
+          filter: `organization_id=eq.${organizationId}`,
+        },
+        () => { void load(true) },
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(assignmentChannel)
+      void supabase.removeChannel(jobsChannel)
+    }
+  }, [employeeId, organizationId, load])
 
   useEffect(() => {
     const onOnline = () => setOnline(true)
@@ -179,6 +254,9 @@ export default function OperatorApp({ userId, organizationId, organizationName }
     await supabase.auth.signOut()
     window.location.href = '/'
   }
+
+  const assignmentAlertJob = assignmentAlertJobId ? data.jobs.find(job => job.id === assignmentAlertJobId) ?? null : null
+  const selectedJob = selectedJobId ? data.jobs.find(job => job.id === selectedJobId) ?? null : null
 
   if (loading) return <div className="field-loading">Loading your assigned work…</div>
 
@@ -214,8 +292,8 @@ export default function OperatorApp({ userId, organizationId, organizationName }
         {error && <div className="field-error">Unable to load your assigned work: {error}</div>}
 
         <Routes>
-          <Route path="/" element={<FieldDashboard data={data} onRefresh={load}/>} />
-          <Route path="/jobs" element={<MyJobsPage data={data}/>} />
+          <Route path="/" element={<FieldDashboard data={data} onRefresh={load} onOpenJob={setSelectedJobId}/>} />
+          <Route path="/jobs" element={<MyJobsPage data={data} onOpenJob={setSelectedJobId}/>} />
           <Route path="/safety" element={<FieldModulePage icon={<ShieldCheck/>} eyebrow="SAFETY" title="My safety" copy="Your safety forms, required acknowledgements, and compliance items will live here. Company-wide safety administration stays hidden from operators."/>} />
           <Route path="/tickets" element={<FieldModulePage icon={<ClipboardCheck/>} eyebrow="FIELD TICKETS" title="My tickets" copy="Tickets connected to your assigned jobs will live here. You will not see tickets for other crews or jobs."/>} />
           <Route path="/timesheets" element={<FieldModulePage icon={<HardHat/>} eyebrow="TIME" title="My timesheets" copy="Your own shift and hour entries will live here. Other employees’ time records stay private."/>} />
@@ -230,11 +308,27 @@ export default function OperatorApp({ userId, organizationId, organizationName }
           </NavLink>
         ))}
       </nav>
+
+      {assignmentAlertJob && (
+        <div className="field-assignment-alert" role="alert" aria-live="assertive">
+          <button className="field-alert-close" aria-label="Dismiss new job alert" onClick={() => setAssignmentAlertJobId(null)}><X size={18}/></button>
+          <div className="field-alert-icon"><BellRing size={24}/></div>
+          <div className="field-alert-copy">
+            <span className="field-eyebrow">NEW JOB ASSIGNED</span>
+            <strong>{assignmentAlertJob.title}</strong>
+            <span>{formatDate(assignmentAlertJob.scheduled_start)}</span>
+            {(assignmentAlertJob.site_name || assignmentAlertJob.site_address) && <span>{assignmentAlertJob.site_name || assignmentAlertJob.site_address}</span>}
+          </div>
+          <button className="field-alert-action" onClick={() => { setSelectedJobId(assignmentAlertJob.id); setAssignmentAlertJobId(null) }}>View job</button>
+        </div>
+      )}
+
+      {selectedJob && <JobDetailsModal job={selectedJob} data={data} onClose={() => setSelectedJobId(null)}/>} 
     </div>
   )
 }
 
-function FieldDashboard({ data, onRefresh }: { data: FieldData; onRefresh: () => Promise<void> }) {
+function FieldDashboard({ data, onRefresh, onOpenJob }: { data: FieldData; onRefresh: (silent?: boolean) => Promise<FieldData | null>; onOpenJob: (jobId: string) => void }) {
   const now = Date.now()
   const current = data.jobs.filter(job => jobBucket(job, now) === 'current')
   const upcoming = data.jobs.filter(job => jobBucket(job, now) === 'upcoming')
@@ -267,7 +361,7 @@ function FieldDashboard({ data, onRefresh }: { data: FieldData; onRefresh: () =>
 
       <section className="field-panel">
         <div className="field-panel-heading"><div><span className="field-eyebrow">NEXT ASSIGNMENT</span><h2>What’s next</h2></div><NavLink to="/jobs">All my jobs</NavLink></div>
-        {next ? <FieldJobCard job={next} data={data}/> : <div className="field-empty"><strong>No assigned work</strong><span>When dispatch assigns you to a job, it will appear here automatically.</span></div>}
+        {next ? <FieldJobCard job={next} data={data} onOpen={() => onOpenJob(next.id)}/> : <div className="field-empty"><strong>No assigned work</strong><span>When dispatch assigns you to a job, it will appear here automatically.</span></div>}
       </section>
 
       <div className="field-tool-grid">
@@ -279,7 +373,7 @@ function FieldDashboard({ data, onRefresh }: { data: FieldData; onRefresh: () =>
   )
 }
 
-function MyJobsPage({ data }: { data: FieldData }) {
+function MyJobsPage({ data, onOpenJob }: { data: FieldData; onOpenJob: (jobId: string) => void }) {
   const now = Date.now()
   const current = data.jobs.filter(job => jobBucket(job, now) === 'current')
   const upcoming = data.jobs.filter(job => jobBucket(job, now) === 'upcoming')
@@ -289,43 +383,111 @@ function MyJobsPage({ data }: { data: FieldData }) {
 
   return (
     <section className="field-page">
-      <div className="field-hero compact"><div><span className="field-eyebrow">ASSIGNED TO ME</span><h1>My jobs</h1><p>Past, current, and future work assigned directly to you.</p></div></div>
-      <JobGroup title="Current" eyebrow="NOW" jobs={current} data={data}/>
-      <JobGroup title="Upcoming" eyebrow="NEXT" jobs={upcoming} data={data}/>
-      <JobGroup title="Past" eyebrow="HISTORY" jobs={past} data={data}/>
+      <div className="field-hero compact"><div><span className="field-eyebrow">ASSIGNED TO ME</span><h1>My jobs</h1><p>Past, current, and future work assigned directly to you. Tap a job to open its full details.</p></div></div>
+      <JobGroup title="Current" eyebrow="NOW" jobs={current} data={data} onOpenJob={onOpenJob}/>
+      <JobGroup title="Upcoming" eyebrow="NEXT" jobs={upcoming} data={data} onOpenJob={onOpenJob}/>
+      <JobGroup title="Past" eyebrow="HISTORY" jobs={past} data={data} onOpenJob={onOpenJob}/>
     </section>
   )
 }
 
-function JobGroup({ title, eyebrow, jobs, data }: { title: string; eyebrow: string; jobs: Job[]; data: FieldData }) {
+function JobGroup({ title, eyebrow, jobs, data, onOpenJob }: { title: string; eyebrow: string; jobs: Job[]; data: FieldData; onOpenJob: (jobId: string) => void }) {
   return (
     <section className="field-panel field-job-group">
       <div className="field-panel-heading"><div><span className="field-eyebrow">{eyebrow}</span><h2>{title}</h2></div><span className="field-count">{jobs.length}</span></div>
       <div className="field-job-list">
-        {jobs.length ? jobs.map(job => <FieldJobCard key={job.id} job={job} data={data}/>) : <div className="field-empty"><span>No {title.toLowerCase()} assigned jobs.</span></div>}
+        {jobs.length ? jobs.map(job => <FieldJobCard key={job.id} job={job} data={data} onOpen={() => onOpenJob(job.id)}/>) : <div className="field-empty"><span>No {title.toLowerCase()} assigned jobs.</span></div>}
       </div>
     </section>
   )
 }
 
-function FieldJobCard({ job, data }: { job: Job; data: FieldData }) {
+function FieldJobCard({ job, data, onOpen }: { job: Job; data: FieldData; onOpen: () => void }) {
   const jobAssignments = data.assignments.filter(assignment => assignment.job_id === job.id)
   const unitIds = new Set(jobAssignments.map(assignment => assignment.vehicle_id).filter(Boolean) as string[])
   const units = data.vehicles.filter(vehicle => unitIds.has(vehicle.id))
+  const contact = data.contacts.find(item => item.job_id === job.id)
 
   return (
-    <article className="field-job-card">
+    <button type="button" className="field-job-card field-job-button" onClick={onOpen}>
       <div className="field-job-top">
         <div><span className="field-job-number">{job.job_number}</span><h3>{job.title}</h3></div>
         <span className={`field-status status-${job.status}`}>{statusLabel(job.status)}</span>
       </div>
       <div className="field-job-details">
         <span><CalendarDays size={17}/>{formatDate(job.scheduled_start)}</span>
+        {contact?.customer_name && <span><Building2 size={17}/>{contact.customer_name}</span>}
         {(job.site_name || job.site_address) && <span><MapPin size={17}/>{job.site_name || job.site_address}</span>}
         {units.length > 0 && <span><Truck size={17}/>{units.map(unit => `Unit ${unit.unit_number}${unit.name ? ` · ${unit.name}` : ''}`).join(', ')}</span>}
       </div>
-      {job.site_name && job.site_address && <div className="field-address">{job.site_address}</div>}
-    </article>
+      <div className="field-job-open">View job details <ChevronRight size={17}/></div>
+    </button>
+  )
+}
+
+function JobDetailsModal({ job, data, onClose }: { job: Job; data: FieldData; onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
+  const contact = data.contacts.find(item => item.job_id === job.id)
+  const jobAssignments = data.assignments.filter(assignment => assignment.job_id === job.id)
+  const unitIds = new Set(jobAssignments.map(assignment => assignment.vehicle_id).filter(Boolean) as string[])
+  const units = data.vehicles.filter(vehicle => unitIds.has(vehicle.id))
+  const addressToCopy = job.site_address || ''
+
+  const copyAddress = async () => {
+    if (!addressToCopy) return
+    try {
+      await navigator.clipboard.writeText(addressToCopy)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <div className="field-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+      <section className="field-job-modal" role="dialog" aria-modal="true" aria-labelledby="operator-job-title">
+        <div className="field-modal-header">
+          <div><span className="field-job-number">{job.job_number}</span><h2 id="operator-job-title">{job.title}</h2></div>
+          <button className="field-modal-close" aria-label="Close job details" onClick={onClose}><X size={20}/></button>
+        </div>
+
+        <div className="field-modal-status-row">
+          <span className={`field-status status-${job.status}`}>{statusLabel(job.status)}</span>
+          <span><CalendarDays size={16}/>{formatDate(job.scheduled_start)}</span>
+          {job.scheduled_end && <span><Clock3 size={16}/>Ends {formatDate(job.scheduled_end)}</span>}
+        </div>
+
+        <div className="field-detail-grid">
+          <section className="field-detail-section">
+            <div className="field-detail-heading"><Building2 size={19}/><span>Client</span></div>
+            <strong>{contact?.customer_name || 'Client not available'}</strong>
+            {contact?.contact_phone && <a href={`tel:${contact.contact_phone}`}><Phone size={16}/>{contact.contact_phone}</a>}
+            {contact?.contact_email && <a href={`mailto:${contact.contact_email}`}><Mail size={16}/>{contact.contact_email}</a>}
+            {contact?.customer_address && <span className="field-detail-muted">{contact.customer_address}</span>}
+            {!contact?.contact_phone && !contact?.contact_email && <span className="field-detail-muted">No client contact information entered.</span>}
+          </section>
+
+          <section className="field-detail-section">
+            <div className="field-detail-heading"><MapPin size={19}/><span>Job site</span></div>
+            <strong>{job.site_name || 'Job site'}</strong>
+            {job.site_address ? <><span>{job.site_address}</span><button className="field-copy-button" onClick={() => void copyAddress()}><Copy size={16}/>{copied ? 'Copied' : 'Copy address'}</button></> : <span className="field-detail-muted">No site address entered.</span>}
+          </section>
+
+          <section className="field-detail-section">
+            <div className="field-detail-heading"><Truck size={19}/><span>Assigned equipment</span></div>
+            {units.length ? units.map(unit => <span key={unit.id}>Unit {unit.unit_number} · {unit.name || unit.vehicle_type}</span>) : <span className="field-detail-muted">No unit assigned.</span>}
+          </section>
+
+          <section className="field-detail-section field-notes-section">
+            <div className="field-detail-heading"><FileText size={19}/><span>Job notes</span></div>
+            <p>{job.notes?.trim() || 'No job notes have been added.'}</p>
+          </section>
+        </div>
+
+        <button className="field-modal-done" onClick={onClose}>Done</button>
+      </section>
+    </div>
   )
 }
 

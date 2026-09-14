@@ -68,18 +68,28 @@ function readTestData(): AppData { try { const saved = localStorage.getItem(TEST
 async function sha256(value: string) { const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('') }
 function roleToView(role: string): DashboardView { if (['client', 'customer'].includes(role)) return 'client'; if (role === 'operator') return 'operator'; return 'manager' }
 
-export default function App() {
-  const [session, setSession] = useState<Session | null>(null); const [testMode, setTestMode] = useState(() => localStorage.getItem(TEST_MODE_KEY) === '1')
+type AppProps = {
+  resolvedSession?: Session | null
+  authResolved?: boolean
+}
+
+export default function App({ resolvedSession, authResolved = false }: AppProps) {
+  const [session, setSession] = useState<Session | null>(resolvedSession ?? null); const [testMode, setTestMode] = useState(() => localStorage.getItem(TEST_MODE_KEY) === '1')
   const [organization, setOrganization] = useState<Organization | null>(testMode ? TEST_ORGANIZATION : null); const [data, setData] = useState<AppData>(() => testMode ? readTestData() : EMPTY_DATA)
-  const [loading, setLoading] = useState(true); const [dataLoading, setDataLoading] = useState(false); const [online, setOnline] = useState(navigator.onLine); const [mobileOpen, setMobileOpen] = useState(false)
+  const [loading, setLoading] = useState(!authResolved); const [dataLoading, setDataLoading] = useState(false); const [online, setOnline] = useState(navigator.onLine); const [mobileOpen, setMobileOpen] = useState(false)
   const [roleKey, setRoleKey] = useState(testMode ? 'owner' : ''); const [testView, setTestView] = useState<DashboardView>('manager')
 
   useEffect(() => {
+    if (authResolved) {
+      setSession(resolvedSession ?? null)
+      setLoading(false)
+      return
+    }
     supabase.auth.getSession().then(({ data: d }) => { setSession(d.session); setLoading(false) })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
     const onOnline = () => setOnline(true); const onOffline = () => setOnline(false); window.addEventListener('online', onOnline); window.addEventListener('offline', onOffline)
     return () => { listener.subscription.unsubscribe(); window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline) }
-  }, [])
+  }, [authResolved, resolvedSession])
 
   useEffect(() => {
     if (testMode) { setOrganization(TEST_ORGANIZATION); setData(readTestData()); setRoleKey('owner'); return }

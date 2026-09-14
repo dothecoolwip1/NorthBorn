@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { BriefcaseBusiness, Gauge, LogOut, ReceiptText, Truck, UserRound, Wrench } from 'lucide-react'
+import { BriefcaseBusiness, Building2, CalendarDays, ContactRound, Gauge, LogOut, ReceiptText, ShieldCheck, Truck, UserRound, Wrench } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import './global-account-menu.css'
@@ -59,13 +59,19 @@ export default function GlobalAccountMenu() {
         </div>
       </div>
       {testMode && <>
-        <p className="northborn-account-note">Use this one account to review manager features. The dashboard also includes Manager, Operator and Client preview buttons.</p>
+        <p className="northborn-account-note">One account for manager features plus Operator and Client previews.</p>
         <div className="northborn-account-links">
-          <NavLink to="/" onClick={() => setOpen(false)}><Gauge size={16}/>Dashboard / role preview</NavLink>
+          <NavLink to="/" onClick={() => setOpen(false)}><Gauge size={16}/>Test HQ</NavLink>
+          <NavLink to="/calendar" onClick={() => setOpen(false)}><CalendarDays size={16}/>Calendar</NavLink>
+          <NavLink to="/dispatch" onClick={() => setOpen(false)}><CalendarDays size={16}/>Dispatch</NavLink>
           <NavLink to="/jobs" onClick={() => setOpen(false)}><BriefcaseBusiness size={16}/>Jobs</NavLink>
+          <NavLink to="/customers" onClick={() => setOpen(false)}><ContactRound size={16}/>Customers</NavLink>
           <NavLink to="/fleet" onClick={() => setOpen(false)}><Truck size={16}/>Fleet</NavLink>
+          <NavLink to="/fleet-access" onClick={() => setOpen(false)}><ShieldCheck size={16}/>Fleet access</NavLink>
           <NavLink to="/maintenance" onClick={() => setOpen(false)}><Wrench size={16}/>Maintenance</NavLink>
           <NavLink to="/invoices" onClick={() => setOpen(false)}><ReceiptText size={16}/>Invoices</NavLink>
+          <NavLink to="/test/operator" onClick={() => setOpen(false)}><UserRound size={16}/>Operator preview</NavLink>
+          <NavLink to="/test/client" onClick={() => setOpen(false)}><Building2 size={16}/>Client preview</NavLink>
         </div>
       </>}
       <button className="northborn-account-signout" type="button" disabled={busy} onClick={() => void signOut()}><LogOut size={16}/>{busy ? 'Signing out…' : 'Sign out'}</button>

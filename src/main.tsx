@@ -50,7 +50,11 @@ function NorthbornRouter() {
   if (testMode) {
     if (normalizedPath === '/' || normalizedPath === '/test' || normalizedPath === '/test/manager') return <TestWorkspacePage section="home" />
     if (normalizedPath === '/test/operator') return <TestWorkspacePage section="operator" />
+    if (normalizedPath === '/test/operator/jobs') return <TestWorkspacePage section="operator-jobs" />
+    if (normalizedPath === '/test/operator/fleet') return <TestWorkspacePage section="operator-fleet" />
     if (normalizedPath === '/test/client') return <TestWorkspacePage section="client" />
+    if (normalizedPath === '/test/client/jobs') return <TestWorkspacePage section="client-jobs" />
+    if (normalizedPath === '/test/client/invoices') return <TestWorkspacePage section="client-invoices" />
     if (normalizedPath === '/dispatch') return <TestWorkspacePage section="dispatch" />
     if (normalizedPath === '/calendar') return <TestWorkspacePage section="calendar" />
     if (normalizedPath === '/customers') return <TestWorkspacePage section="customers" />

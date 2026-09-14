@@ -7,6 +7,21 @@ const corsHeaders = {
 };
 
 const productionUrl = "https://northborn.vercel.app";
+const EMAIL_TIMEOUT_MS = 12000;
+
+async function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
+  let timer: number | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`Email provider timed out after ${Math.round(milliseconds / 1000)} seconds.`)), milliseconds);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -62,24 +77,53 @@ Deno.serve(async (req: Request) => {
       role_name: roleName,
     };
 
-    let deliveryError: string | null = null;
-    const { error: authInviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: inviteLink,
-      data: metadata,
-    });
+    await adminClient
+      .from("organization_invites")
+      .update({
+        delivery_status: "sending",
+        delivery_error: null,
+        delivery_attempted_at: new Date().toISOString(),
+      })
+      .eq("id", invite.invite_id);
 
-    if (authInviteError) {
-      const lowerMessage = authInviteError.message.toLowerCase();
-      if (lowerMessage.includes("already") || lowerMessage.includes("registered") || lowerMessage.includes("exists")) {
-        const { error: magicError } = await adminClient.auth.signInWithOtp({
-          email,
-          options: { shouldCreateUser: false, emailRedirectTo: inviteLink, data: metadata },
-        });
-        deliveryError = magicError?.message ?? null;
-      } else {
-        deliveryError = authInviteError.message;
+    let deliveryError: string | null = null;
+
+    try {
+      const { error: authInviteError } = await withTimeout(
+        adminClient.auth.admin.inviteUserByEmail(email, {
+          redirectTo: inviteLink,
+          data: metadata,
+        }),
+        EMAIL_TIMEOUT_MS,
+      );
+
+      if (authInviteError) {
+        const lowerMessage = authInviteError.message.toLowerCase();
+        if (lowerMessage.includes("already") || lowerMessage.includes("registered") || lowerMessage.includes("exists")) {
+          const { error: magicError } = await withTimeout(
+            adminClient.auth.signInWithOtp({
+              email,
+              options: { shouldCreateUser: false, emailRedirectTo: inviteLink, data: metadata },
+            }),
+            EMAIL_TIMEOUT_MS,
+          );
+          deliveryError = magicError?.message ?? null;
+        } else {
+          deliveryError = authInviteError.message;
+        }
       }
+    } catch (error) {
+      deliveryError = error instanceof Error ? error.message : "The email provider did not respond.";
     }
+
+    await adminClient
+      .from("organization_invites")
+      .update({
+        delivery_status: deliveryError ? "failed" : "sent",
+        delivery_error: deliveryError,
+        delivery_attempted_at: new Date().toISOString(),
+      })
+      .eq("id", invite.invite_id);
 
     return Response.json({
       ok: true,

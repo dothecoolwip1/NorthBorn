@@ -3,7 +3,8 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import AuthEnhancements from './AuthEnhancements'
-import TeamAccessPage, { JoinOrganizationPage, TeamAccessLauncher } from './TeamAccess'
+import { JoinOrganizationPage, TeamAccessLauncher } from './TeamAccess'
+import TeamAccessPage from './TeamAccessPage'
 import './styles.css'
 
 const path = window.location.pathname

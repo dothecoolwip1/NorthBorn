@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { BriefcaseBusiness, Building2, CalendarDays, ContactRound, Gauge, LogOut, ReceiptText, ShieldCheck, Truck, UserRound, Wrench } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { BriefcaseBusiness, Gauge, LogOut, ReceiptText, Truck, UserRound, Wrench } from 'lucide-react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import './global-account-menu.css'
 
 const TEST_MODE_KEY = 'northborn_test_mode'
 
 export default function GlobalAccountMenu() {
+  const location = useLocation()
   const [session, setSession] = useState<Session | null>(null)
   const [testMode, setTestMode] = useState(() => localStorage.getItem(TEST_MODE_KEY) === '1')
   const [open, setOpen] = useState(false)
@@ -49,33 +50,49 @@ export default function GlobalAccountMenu() {
     window.location.replace(home)
   }
 
+  const testPersona = location.pathname.startsWith('/test/operator')
+    ? 'operator'
+    : location.pathname.startsWith('/test/client')
+      ? 'client'
+      : 'manager'
+
+  const testLinks = testPersona === 'operator'
+    ? [
+        ['/test/operator','Operator dashboard',Gauge],
+        ['/test/operator/jobs','My jobs',BriefcaseBusiness],
+        ['/test/operator/fleet','My fleet',Truck],
+      ] as const
+    : testPersona === 'client'
+      ? [
+          ['/test/client','Client dashboard',Gauge],
+          ['/test/client/jobs','Jobs',BriefcaseBusiness],
+          ['/test/client/invoices','Invoices',ReceiptText],
+        ] as const
+      : [
+          ['/','Manager dashboard',Gauge],
+          ['/jobs','Jobs',BriefcaseBusiness],
+          ['/fleet','Fleet',Truck],
+          ['/maintenance','Maintenance',Wrench],
+          ['/invoices','Invoices',ReceiptText],
+        ] as const
+
   return <div className="northborn-account-menu">
     {open && <div className="northborn-account-popover">
       <div className="northborn-account-heading">
         <UserRound size={18}/>
         <div>
-          <strong>{testMode ? 'Universal test account' : 'Northborn account'}</strong>
+          <strong>{testMode ? `${testPersona[0].toUpperCase()}${testPersona.slice(1)} test view` : 'Northborn account'}</strong>
           <span>{testMode ? 'admin / admin' : session?.user.email}</span>
         </div>
       </div>
       {testMode && <>
-        <p className="northborn-account-note">One account for manager features plus Operator and Client previews.</p>
+        <p className="northborn-account-note">You stay in the selected test persona until you deliberately choose Manager, Operator or Client from the role switcher.</p>
         <div className="northborn-account-links">
-          <NavLink to="/" onClick={() => setOpen(false)}><Gauge size={16}/>Test HQ</NavLink>
-          <NavLink to="/calendar" onClick={() => setOpen(false)}><CalendarDays size={16}/>Calendar</NavLink>
-          <NavLink to="/dispatch" onClick={() => setOpen(false)}><CalendarDays size={16}/>Dispatch</NavLink>
-          <NavLink to="/jobs" onClick={() => setOpen(false)}><BriefcaseBusiness size={16}/>Jobs</NavLink>
-          <NavLink to="/customers" onClick={() => setOpen(false)}><ContactRound size={16}/>Customers</NavLink>
-          <NavLink to="/fleet" onClick={() => setOpen(false)}><Truck size={16}/>Fleet</NavLink>
-          <NavLink to="/fleet-access" onClick={() => setOpen(false)}><ShieldCheck size={16}/>Fleet access</NavLink>
-          <NavLink to="/maintenance" onClick={() => setOpen(false)}><Wrench size={16}/>Maintenance</NavLink>
-          <NavLink to="/invoices" onClick={() => setOpen(false)}><ReceiptText size={16}/>Invoices</NavLink>
-          <NavLink to="/test/operator" onClick={() => setOpen(false)}><UserRound size={16}/>Operator preview</NavLink>
-          <NavLink to="/test/client" onClick={() => setOpen(false)}><Building2 size={16}/>Client preview</NavLink>
+          {testLinks.map(([path,label,Icon])=><NavLink key={path} to={path} onClick={() => setOpen(false)}><Icon size={16}/>{label}</NavLink>)}
         </div>
       </>}
       <button className="northborn-account-signout" type="button" disabled={busy} onClick={() => void signOut()}><LogOut size={16}/>{busy ? 'Signing out…' : 'Sign out'}</button>
     </div>}
-    <button className="northborn-account-trigger" type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-label="Open account menu"><UserRound size={17}/><span>{testMode ? 'TEST admin' : 'Account'}</span></button>
+    <button className="northborn-account-trigger" type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-label="Open account menu"><UserRound size={17}/><span>{testMode ? `TEST ${testPersona}` : 'Account'}</span></button>
   </div>
 }

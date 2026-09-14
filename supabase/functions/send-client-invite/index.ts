@@ -22,7 +22,7 @@ Deno.serve(async (req: Request) => {
     const userClient = createClient(url, anon, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false, autoRefreshToken: false } });
     const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: userData, error: userError } = await userClient.auth.getUser();
-    if (userError || !userData.user) return Response.json({ ok: false, error: "Sign in is required to invite clients." }, { status: 401, headers: corsHeaders });
+    if (userError || !userData.user) return Response.json({ ok: false, error: "Sign in is required to send client portal invitations." }, { status: 401, headers: corsHeaders });
 
     const body = await req.json();
     const organizationId = String(body.organizationId ?? "");
@@ -30,15 +30,35 @@ Deno.serve(async (req: Request) => {
     const email = String(body.email ?? "").trim().toLowerCase();
     const customerName = String(body.customerName ?? "Client").slice(0, 120);
     const organizationName = String(body.organizationName ?? "Northborn company").slice(0, 120);
-    if (!organizationId || !customerId || !email) return Response.json({ ok: false, error: "Company, client and email are required." }, { status: 400, headers: corsHeaders });
+    const portalRole = String(body.portalRole ?? "admin").trim().toLowerCase();
+    const asClientAdmin = Boolean(body.asClientAdmin);
+    if (!customerId || !email) return Response.json({ ok: false, error: "Client and email are required." }, { status: 400, headers: corsHeaders });
+    if (!["admin","operations","billing","viewer"].includes(portalRole)) return Response.json({ ok: false, error: "Invalid client portal role." }, { status: 400, headers: corsHeaders });
 
-    const { data: inviteRows, error: inviteError } = await userClient.rpc("create_customer_portal_invite", { _organization_id: organizationId, _customer_id: customerId, _email: email });
+    let inviteRows: any[] | null = null;
+    let inviteError: any = null;
+    if (asClientAdmin) {
+      const result = await userClient.rpc("create_my_customer_portal_invite", { _customer_id: customerId, _email: email, _portal_role: portalRole });
+      inviteRows = result.data;
+      inviteError = result.error;
+    } else {
+      if (!organizationId) return Response.json({ ok: false, error: "Northborn company is required." }, { status: 400, headers: corsHeaders });
+      const result = await userClient.rpc("create_customer_portal_invite", { _organization_id: organizationId, _customer_id: customerId, _email: email, _portal_role: portalRole });
+      inviteRows = result.data;
+      inviteError = result.error;
+    }
     if (inviteError) return Response.json({ ok: false, error: inviteError.message }, { status: 403, headers: corsHeaders });
     const invite = inviteRows?.[0];
-    if (!invite?.invite_token) return Response.json({ ok: false, error: "Client invitation was created but no token was returned." }, { status: 500, headers: corsHeaders });
+    if (!invite?.invite_code) return Response.json({ ok: false, error: "Client invitation was created but no access code was returned." }, { status: 500, headers: corsHeaders });
 
-    const inviteLink = `${productionUrl}/client-join?invite=${invite.invite_token}`;
-    const metadata = { northborn_client_invite_token: invite.invite_token, customer_name: customerName, organization_name: organizationName };
+    const inviteLink = `${productionUrl}/client-join?code=${encodeURIComponent(invite.invite_code)}`;
+    const metadata = {
+      northborn_client_invite_token: invite.invite_token,
+      northborn_client_access_code: invite.invite_code,
+      northborn_client_role: invite.portal_role,
+      customer_name: customerName,
+      organization_name: organizationName,
+    };
     await admin.from("customer_portal_invites").update({ delivery_status: "sending", delivery_error: null, delivery_attempted_at: new Date().toISOString() }).eq("id", invite.invite_id);
     let deliveryError: string | null = null;
     try {
@@ -52,7 +72,17 @@ Deno.serve(async (req: Request) => {
       }
     } catch (error) { deliveryError = error instanceof Error ? error.message : "The email provider did not respond."; }
     await admin.from("customer_portal_invites").update({ delivery_status: deliveryError ? "failed" : "sent", delivery_error: deliveryError, delivery_attempted_at: new Date().toISOString() }).eq("id", invite.invite_id);
-    return Response.json({ ok: true, emailSent: !deliveryError, email, inviteLink, inviteId: invite.invite_id, expiresAt: invite.invite_expires_at, deliveryError }, { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return Response.json({
+      ok: true,
+      emailSent: !deliveryError,
+      email,
+      inviteLink,
+      inviteCode: invite.invite_code,
+      portalRole: invite.portal_role,
+      inviteId: invite.invite_id,
+      expiresAt: invite.invite_expires_at,
+      deliveryError,
+    }, { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     return Response.json({ ok: false, error: error instanceof Error ? error.message : "Unable to send client invitation." }, { status: 500, headers: corsHeaders });
   }

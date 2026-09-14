@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import App from './App'
-import OperatorApp from './OperatorApp'
+import OperatorAppV2 from './OperatorAppV2'
 import EmployeeProfileSetup from './EmployeeProfileSetup'
 import { supabase } from './lib/supabase'
+import './operator-app-v2.css'
 
 type OperatorContext = {
   organizationId: string
@@ -98,7 +99,7 @@ export default function RoleAwareApp() {
     }
 
     return (
-      <OperatorApp
+      <OperatorAppV2
         userId={session.user.id}
         organizationId={operatorContext.organizationId}
         organizationName={operatorContext.organizationName}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { Navigate, NavLink } from 'react-router-dom'
+import { Navigate, NavLink, useLocation } from 'react-router-dom'
 import {
   BriefcaseBusiness,
   CalendarDays,
@@ -20,6 +20,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import SafetyPage from './SafetyPage'
+import FLHAPage from './FLHAPage'
 import { supabase } from './lib/supabase'
 import './operator-app.css'
 import './safety-route.css'
@@ -34,6 +35,7 @@ const MANAGER_NAV = [
   ['Fleet', '/fleet', Truck],
   ['Maintenance', '/maintenance', Wrench],
   ['Safety', '/safety', ShieldCheck],
+  ['FLHA', '/safety/flha', ClipboardCheck],
   ['Tickets', '/tickets', ClipboardCheck],
   ['Timesheets', '/timesheets', HardHat],
   ['Invoices', '/invoices', CircleDollarSign],
@@ -43,7 +45,7 @@ const OPERATOR_NAV = [
   ['Home', '/', Home],
   ['My Jobs', '/jobs', BriefcaseBusiness],
   ['Safety', '/safety', ShieldCheck],
-  ['Tickets', '/tickets', ClipboardCheck],
+  ['FLHA', '/safety/flha', ClipboardCheck],
   ['Timesheets', '/timesheets', HardHat],
 ] as const
 
@@ -57,6 +59,7 @@ type Context = {
 }
 
 export default function SafetyRoutePage() {
+  const location = useLocation()
   const [session, setSession] = useState<Session | null>(null)
   const [context, setContext] = useState<Context | null>(null)
   const [loading, setLoading] = useState(true)
@@ -126,6 +129,11 @@ export default function SafetyRoutePage() {
   if (error) return <div className="center-screen"><div className="safety-route-error"><ShieldCheck size={36}/><strong>Safety workspace unavailable</strong><span>{error}</span><NavLink to="/">Back to Northborn</NavLink></div></div>
   if (!context || !SAFETY_ROLES.has(context.roleKey)) return <Navigate to="/" replace />
 
+  const isFlha = location.pathname.replace(/\/+$/, '') === '/safety/flha'
+  const safetyContent = isFlha
+    ? <FLHAPage organizationId={context.organizationId} userId={context.userId} roleKey={context.roleKey} organizationName={context.organizationName}/>
+    : <SafetyPage organizationId={context.organizationId} userId={context.userId} roleKey={context.roleKey} organizationName={context.organizationName}/>
+
   if (context.roleKey === 'operator') {
     return <div className="field-shell">
       <aside className="field-sidebar">
@@ -136,7 +144,7 @@ export default function SafetyRoutePage() {
       </aside>
       <main className="field-main">
         <header className="field-topbar"><div><span className="field-top-label">FIELD WORKSPACE</span><strong>{context.organizationName}</strong></div><div className={online ? 'field-connection online' : 'field-connection offline'}>{online ? <Wifi size={15}/> : <WifiOff size={15}/>} {online ? 'Online' : 'Offline'}</div></header>
-        <SafetyPage organizationId={context.organizationId} userId={context.userId} roleKey={context.roleKey} organizationName={context.organizationName}/>
+        {safetyContent}
       </main>
       <nav className="field-mobile-nav">{OPERATOR_NAV.map(([name, path, Icon]) => <NavLink key={path} to={path} end={path === '/'}><Icon size={20}/><span>{name}</span></NavLink>)}</nav>
     </div>
@@ -151,7 +159,7 @@ export default function SafetyRoutePage() {
     </aside>
     <main className="content">
       <header><button className="menu-button" aria-label="Open navigation" onClick={() => setMobileOpen(current => !current)}><Menu/></button><div className="header-actions"><div className={online ? 'connection online' : 'connection offline'}>{online ? <Wifi size={16}/> : <WifiOff size={16}/>} {online ? 'Online' : 'Offline'}</div></div></header>
-      <SafetyPage organizationId={context.organizationId} userId={context.userId} roleKey={context.roleKey} organizationName={context.organizationName}/>
+      {safetyContent}
     </main>
   </div>
 }

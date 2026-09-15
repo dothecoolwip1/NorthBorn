@@ -18,6 +18,7 @@ import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import GlobalAccountMenu from './GlobalAccountMenu'
 import LogoutPage from './LogoutPage'
 import TestSupabaseBridge from './TestSupabaseBridge'
+import AppErrorBoundary from './AppErrorBoundary'
 import { getTestPersona, isTestMode } from './test-lab'
 import './styles.css'
 import './contact-hierarchy.css'
@@ -78,9 +79,11 @@ const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.en
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter basename={routerBase}>
-      <NorthbornRouter />
-      <GlobalAccountMenu />
-    </BrowserRouter>
+    <AppErrorBoundary>
+      <BrowserRouter basename={routerBase}>
+        <NorthbornRouter />
+        <GlobalAccountMenu />
+      </BrowserRouter>
+    </AppErrorBoundary>
   </React.StrictMode>,
 )

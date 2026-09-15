@@ -9,8 +9,6 @@ export const FUNCTIONAL_TEST_USERS: Record<FunctionalTestPersona, { email: strin
   client: { email: 'client@test.com', label: 'Client' },
 }
 
-const TEST_UNLOCK_KEY = 'northborn_functional_test_unlock'
-
 export function deriveFunctionalTestPassword(enteredPassword: string) {
   const base = enteredPassword.trim()
   const capitalized = base ? `${base[0].toUpperCase()}${base.slice(1)}` : base
@@ -28,7 +26,7 @@ export function isFunctionalTestSession(session: Session | null) {
   return personaFromSession(session) !== null
 }
 
-async function signInPersona(persona: FunctionalTestPersona, enteredPassword: string) {
+async function signInPersona(persona: FunctionalTestPersona, enteredPassword = 'admin') {
   const account = FUNCTIONAL_TEST_USERS[persona]
   return supabase.auth.signInWithPassword({
     email: account.email,
@@ -66,19 +64,15 @@ export async function signInFunctionalTestAdmin(username: string, password: stri
   }
 
   if (result.error) throw result.error
-
-  sessionStorage.setItem(TEST_UNLOCK_KEY, password)
   return result.data.session
 }
 
 export async function switchFunctionalTestPersona(persona: FunctionalTestPersona) {
-  const password = sessionStorage.getItem(TEST_UNLOCK_KEY)
-  if (!password) throw new Error('Sign in with admin / admin again to switch test accounts.')
-  const result = await signInPersona(persona, password)
+  const result = await signInPersona(persona)
   if (result.error) throw result.error
   return result.data.session
 }
 
 export function clearFunctionalTestUnlock() {
-  sessionStorage.removeItem(TEST_UNLOCK_KEY)
+  // Kept for compatibility with existing sign-out code. No local unlock is required.
 }

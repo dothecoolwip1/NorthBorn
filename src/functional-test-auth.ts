@@ -12,7 +12,9 @@ export const FUNCTIONAL_TEST_USERS: Record<FunctionalTestPersona, { email: strin
 const TEST_UNLOCK_KEY = 'northborn_functional_test_unlock'
 
 function underlyingTestPassword(enteredPassword: string) {
-  return enteredPassword + enteredPassword
+  const base = enteredPassword.trim()
+  const capitalized = base ? `${base[0].toUpperCase()}${base.slice(1)}` : base
+  return `${capitalized}${base}2026!`
 }
 
 export function personaFromSession(session: Session | null): FunctionalTestPersona | null {

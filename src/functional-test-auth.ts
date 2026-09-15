@@ -11,7 +11,7 @@ export const FUNCTIONAL_TEST_USERS: Record<FunctionalTestPersona, { email: strin
 
 const TEST_UNLOCK_KEY = 'northborn_functional_test_unlock'
 
-function underlyingTestPassword(enteredPassword: string) {
+export function deriveFunctionalTestPassword(enteredPassword: string) {
   const base = enteredPassword.trim()
   const capitalized = base ? `${base[0].toUpperCase()}${base.slice(1)}` : base
   return `${capitalized}${base}2026!`
@@ -32,7 +32,7 @@ async function signInPersona(persona: FunctionalTestPersona, enteredPassword: st
   const account = FUNCTIONAL_TEST_USERS[persona]
   const result = await supabase.auth.signInWithPassword({
     email: account.email,
-    password: underlyingTestPassword(enteredPassword),
+    password: deriveFunctionalTestPassword(enteredPassword),
   })
   if (result.error) {
     if (result.error.message.toLowerCase().includes('invalid login')) {

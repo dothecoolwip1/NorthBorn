@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { supabase } from './lib/supabase'
-import { resetTestLabData, TEST_MODE_KEY, TEST_PERSONA_KEY } from './test-lab'
+import { signInFunctionalTestAdmin } from './functional-test-auth'
 import './auth-enhancements.css'
 
 const PRODUCTION_URL = 'https://northborn.vercel.app'
@@ -19,14 +19,6 @@ function showAuthMessage(card: Element, message: string) {
     form?.insertAdjacentElement('afterend', messageBox)
   }
   messageBox.textContent = message
-}
-
-function enterAdminTestMode() {
-  localStorage.setItem(TEST_MODE_KEY, '1')
-  localStorage.setItem(TEST_PERSONA_KEY, 'manager')
-  resetTestLabData()
-  window.dispatchEvent(new Event('northborn-auth-changed'))
-  window.location.replace(getAuthRedirectUrl())
 }
 
 function enhanceAuthCard() {
@@ -76,11 +68,6 @@ function enhanceAuthCard() {
       event.stopPropagation()
       event.stopImmediatePropagation()
 
-      if (!creating && normalized === 'admin' && password.toLowerCase() === 'admin') {
-        enterAdminTestMode()
-        return
-      }
-
       const oldText = submitButton?.textContent || ''
       if (submitButton) {
         submitButton.disabled = true
@@ -89,6 +76,12 @@ function enhanceAuthCard() {
       showAuthMessage(card, '')
 
       try {
+        if (!creating && normalized === 'admin') {
+          await signInFunctionalTestAdmin(email, password)
+          window.location.replace(getAuthRedirectUrl())
+          return
+        }
+
         if (!email.includes('@')) {
           showAuthMessage(card, 'Use admin / admin for the test account, or enter a real email address.')
           return

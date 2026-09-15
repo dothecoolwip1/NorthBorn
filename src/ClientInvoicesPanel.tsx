@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Banknote, CheckCircle2, Download, FileText, ReceiptText, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { isTestMode } from './test-lab'
@@ -7,24 +7,7 @@ import './client-invoices.css'
 const db=supabase as any
 const TEST_INVOICE_KEY='northborn_test_invoices_v1'
 
-type InvoiceSummary={
-  invoice_id:string
-  invoice_number:string
-  invoice_date:string
-  due_date:string|null
-  status:string
-  job_id:string|null
-  job_number:string|null
-  job_title:string|null
-  subtotal:number|string
-  tax_total:number|string
-  total:number|string
-  amount_paid:number|string
-  balance_due:number|string
-  currency_code:string
-  last_sent_at?:string|null
-}
-
+type InvoiceSummary={invoice_id:string;invoice_number:string;invoice_date:string;due_date:string|null;status:string;job_id:string|null;job_number:string|null;job_title:string|null;subtotal:number|string;tax_total:number|string;total:number|string;amount_paid:number|string;balance_due:number|string;currency_code:string;last_sent_at?:string|null}
 type InvoiceLine={line_item_id?:string;id?:string;category:string;description:string;quantity:number|string;unit:string;rate:number|string;amount?:number|string;sort_order?:number}
 type InvoiceDetail={invoice:any;line_items:InvoiceLine[]}
 
@@ -33,74 +16,33 @@ const label=(value:string)=>value.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpp
 const escapeHtml=(value:unknown)=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;')
 const fmtDate=(value:string|null|undefined)=>value?new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'short',day:'numeric'}).format(new Date(`${value}T12:00:00`)):'Not set'
 
-function testInvoices(customerId:string):InvoiceSummary[]{
-  try{
-    const rows=JSON.parse(localStorage.getItem(TEST_INVOICE_KEY)||'[]') as any[]
-    return rows.filter(row=>row.customer_id===customerId&&['issued','partially_paid','paid','overdue'].includes(row.status)).map(row=>({
-      invoice_id:row.id,invoice_number:row.invoice_number,invoice_date:row.invoice_date,due_date:row.due_date||null,status:row.status,job_id:row.job_id||null,job_number:null,job_title:row.project||null,subtotal:row.subtotal||0,tax_total:row.tax_total||0,total:row.total||0,amount_paid:row.amount_paid||0,balance_due:row.balance_due||0,currency_code:row.currency_code||'CAD',last_sent_at:row.last_sent_at||null,
-    }))
-  }catch{return[]}
-}
-
-function testDetail(invoiceId:string):InvoiceDetail|null{
-  try{
-    const rows=JSON.parse(localStorage.getItem(TEST_INVOICE_KEY)||'[]') as any[]
-    const row=rows.find(item=>item.id===invoiceId)
-    if(!row)return null
-    return {invoice:{...row,invoice_id:row.id},line_items:(row.line_items||[]).map((line:any,index:number)=>({...line,line_item_id:line.id||String(index),amount:Number(line.quantity||0)*Number(line.rate||0)}))}
-  }catch{return null}
-}
+function testInvoices(customerId:string):InvoiceSummary[]{try{const rows=JSON.parse(localStorage.getItem(TEST_INVOICE_KEY)||'[]') as any[];return rows.filter(row=>row.customer_id===customerId&&['issued','partially_paid','paid','overdue'].includes(row.status)).map(row=>({invoice_id:row.id,invoice_number:row.invoice_number,invoice_date:row.invoice_date,due_date:row.due_date||null,status:row.status,job_id:row.job_id||null,job_number:null,job_title:row.project||null,subtotal:row.subtotal||0,tax_total:row.tax_total||0,total:row.total||0,amount_paid:row.amount_paid||0,balance_due:row.balance_due||0,currency_code:row.currency_code||'CAD',last_sent_at:row.last_sent_at||null}))}catch{return[]}}
+function testDetail(invoiceId:string):InvoiceDetail|null{try{const rows=JSON.parse(localStorage.getItem(TEST_INVOICE_KEY)||'[]') as any[];const row=rows.find(item=>item.id===invoiceId);if(!row)return null;return {invoice:{...row,invoice_id:row.id},line_items:(row.line_items||[]).map((line:any,index:number)=>({...line,line_item_id:line.id||String(index),amount:Number(line.quantity||0)*Number(line.rate||0)}))}}catch{return null}}
 
 export default function ClientInvoicesPanel({customerId}:{customerId:string}){
-  const [invoices,setInvoices]=useState<InvoiceSummary[]>([])
-  const [loading,setLoading]=useState(true)
-  const [error,setError]=useState('')
-  const [detail,setDetail]=useState<InvoiceDetail|null>(null)
-  const [detailLoading,setDetailLoading]=useState(false)
-  const testMode=isTestMode()
+ const [invoices,setInvoices]=useState<InvoiceSummary[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[detail,setDetail]=useState<InvoiceDetail|null>(null),[detailLoading,setDetailLoading]=useState(false)
+ const openedRef=useRef('')
+ const testMode=isTestMode()
+ const load=useCallback(async()=>{setLoading(true);setError('');if(testMode){setInvoices(testInvoices(customerId));setLoading(false);return}const result=await db.rpc('get_my_customer_invoices',{_customer_id:customerId});if(result.error)setError(result.error.message);else setInvoices(result.data||[]);setLoading(false)},[customerId,testMode])
+ useEffect(()=>{void load()},[load])
+ useEffect(()=>{const refresh=()=>void load();window.addEventListener('northborn-test-data-changed',refresh);return()=>window.removeEventListener('northborn-test-data-changed',refresh)},[load])
 
-  const load=useCallback(async()=>{
-    setLoading(true);setError('')
-    if(testMode){setInvoices(testInvoices(customerId));setLoading(false);return}
-    const result=await db.rpc('get_my_customer_invoices',{_customer_id:customerId})
-    if(result.error)setError(result.error.message);else setInvoices(result.data||[])
-    setLoading(false)
-  },[customerId,testMode])
-  useEffect(()=>{void load()},[load])
-  useEffect(()=>{const refresh=()=>void load();window.addEventListener('northborn-test-data-changed',refresh);return()=>window.removeEventListener('northborn-test-data-changed',refresh)},[load])
+ const outstanding=useMemo(()=>invoices.filter(i=>['issued','partially_paid','overdue'].includes(i.status)).reduce((sum,i)=>sum+Number(i.balance_due||0),0),[invoices])
+ const paidYtd=useMemo(()=>{const y=String(new Date().getFullYear());return invoices.filter(i=>i.invoice_date?.startsWith(y)).reduce((sum,i)=>sum+Number(i.amount_paid||0),0)},[invoices])
+ const openInvoice=useCallback(async(invoice:InvoiceSummary)=>{setDetailLoading(true);setError('');try{if(testMode){const next=testDetail(invoice.invoice_id);if(!next)throw new Error('Invoice not found.');setDetail(next);return}const result=await db.rpc('get_my_customer_invoice_detail',{_customer_id:customerId,_invoice_id:invoice.invoice_id});if(result.error)throw result.error;setDetail(result.data as InvoiceDetail)}catch(err:any){setError(err?.message||String(err))}finally{setDetailLoading(false)}},[customerId,testMode])
 
-  const outstanding=useMemo(()=>invoices.filter(i=>['issued','partially_paid','overdue'].includes(i.status)).reduce((sum,i)=>sum+Number(i.balance_due||0),0),[invoices])
-  const paidYtd=useMemo(()=>{const y=String(new Date().getFullYear());return invoices.filter(i=>i.invoice_date?.startsWith(y)).reduce((sum,i)=>sum+Number(i.amount_paid||0),0)},[invoices])
+ useEffect(()=>{
+   if(!invoices.length)return
+   const requested=new URLSearchParams(window.location.search).get('invoice')||''
+   if(!requested||openedRef.current===requested)return
+   const invoice=invoices.find(i=>i.invoice_id===requested)
+   if(invoice){openedRef.current=requested;document.getElementById('client-invoices')?.scrollIntoView({behavior:'smooth',block:'start'});void openInvoice(invoice)}
+ },[invoices,openInvoice])
+ useEffect(()=>{const handler=(event:Event)=>{const id=String((event as CustomEvent).detail||'');const invoice=invoices.find(i=>i.invoice_id===id);if(invoice){openedRef.current=id;document.getElementById('client-invoices')?.scrollIntoView({behavior:'smooth',block:'start'});void openInvoice(invoice)}};window.addEventListener('northborn-open-invoice',handler);return()=>window.removeEventListener('northborn-open-invoice',handler)},[invoices,openInvoice])
 
-  const openInvoice=async(invoice:InvoiceSummary)=>{
-    setDetailLoading(true);setError('')
-    try{
-      if(testMode){const next=testDetail(invoice.invoice_id);if(!next)throw new Error('Invoice not found.');setDetail(next);return}
-      const result=await db.rpc('get_my_customer_invoice_detail',{_customer_id:customerId,_invoice_id:invoice.invoice_id})
-      if(result.error)throw result.error
-      setDetail(result.data as InvoiceDetail)
-    }catch(err:any){setError(err?.message||String(err))}finally{setDetailLoading(false)}
-  }
-
-  return <section className="portal-card client-invoices-card">
-    <div className="client-invoices-head"><div className="portal-card-head"><ReceiptText/><div><strong>Invoices</strong><span>View billing, balances and printable invoice copies.</span></div></div></div>
-    <div className="client-invoice-metrics"><div><Banknote/><span><b>{money(outstanding)}</b><small>Outstanding</small></span></div><div><CheckCircle2/><span><b>{money(paidYtd)}</b><small>Paid this year</small></span></div><div><FileText/><span><b>{invoices.length}</b><small>Invoices</small></span></div></div>
-    {error&&<div className="client-invoice-error">{error}</div>}
-    {loading?<div className="portal-empty">Loading invoices…</div>:<div className="client-invoice-list">{invoices.map(invoice=><button key={invoice.invoice_id} className="client-invoice-row" onClick={()=>void openInvoice(invoice)} disabled={detailLoading}><div><span>{invoice.invoice_number}</span><strong>{invoice.job_number?`${invoice.job_number} · ${invoice.job_title||'Job'}`:invoice.job_title||'Invoice'}</strong><small>{fmtDate(invoice.invoice_date)} · Due {fmtDate(invoice.due_date)}</small></div><div className="client-invoice-amount"><b>{money(invoice.total,invoice.currency_code)}</b><small>{money(invoice.balance_due,invoice.currency_code)} due</small></div><em className={`status-${invoice.status}`}>{label(invoice.status)}</em></button>)}{!invoices.length&&<div className="portal-empty">No invoices have been issued yet.</div>}</div>}
-    {detail&&<InvoiceModal detail={detail} onClose={()=>setDetail(null)}/>} 
-  </section>
+ return <section className="portal-card client-invoices-card" id="client-invoices"><div className="client-invoices-head"><div className="portal-card-head"><ReceiptText/><div><strong>Invoices</strong><span>View billing, balances and printable invoice copies.</span></div></div></div><div className="client-invoice-metrics"><div><Banknote/><span><b>{money(outstanding)}</b><small>Outstanding</small></span></div><div><CheckCircle2/><span><b>{money(paidYtd)}</b><small>Paid this year</small></span></div><div><FileText/><span><b>{invoices.length}</b><small>Invoices</small></span></div></div>{error&&<div className="client-invoice-error">{error}</div>}{loading?<div className="portal-empty">Loading invoices…</div>:<div className="client-invoice-list">{invoices.map(invoice=><button key={invoice.invoice_id} className="client-invoice-row" onClick={()=>void openInvoice(invoice)} disabled={detailLoading}><div><span>{invoice.invoice_number}</span><strong>{invoice.job_number?`${invoice.job_number} · ${invoice.job_title||'Job'}`:invoice.job_title||'Invoice'}</strong><small>{fmtDate(invoice.invoice_date)} · Due {fmtDate(invoice.due_date)}</small></div><div className="client-invoice-amount"><b>{money(invoice.total,invoice.currency_code)}</b><small>{money(invoice.balance_due,invoice.currency_code)} due</small></div><em className={`status-${invoice.status}`}>{label(invoice.status)}</em></button>)}{!invoices.length&&<div className="portal-empty">No invoices have been issued yet.</div>}</div>}{detail&&<InvoiceModal detail={detail} onClose={()=>setDetail(null)}/>}</section>
 }
 
-function InvoiceModal({detail,onClose}:{detail:InvoiceDetail;onClose:()=>void}){
-  const i=detail.invoice
-  return <div className="portal-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}}><section className="portal-modal client-invoice-modal"><div className="portal-modal-head"><div><span className="client-invoice-number">INVOICE</span><strong>{i.invoice_number}</strong></div><button onClick={onClose}><X size={18}/></button></div><div className="client-invoice-summary"><div><span>Total</span><b>{money(i.total,i.currency_code)}</b></div><div><span>Balance due</span><b>{money(i.balance_due,i.currency_code)}</b></div><div><span>Status</span><b>{label(i.status)}</b></div></div><div className="client-invoice-detail-grid"><div><span>Invoice date</span><b>{fmtDate(i.invoice_date)}</b></div><div><span>Due date</span><b>{fmtDate(i.due_date)}</b></div>{i.purchase_order&&<div><span>PO #</span><b>{i.purchase_order}</b></div>}{i.afe_number&&<div><span>AFE #</span><b>{i.afe_number}</b></div>}{i.project&&<div><span>Project</span><b>{i.project}</b></div>}{i.location&&<div><span>Location</span><b>{i.location}</b></div>}</div>{i.job_description&&<div className="client-invoice-description"><span>Work completed</span><p>{i.job_description}</p></div>}<div className="client-invoice-lines">{detail.line_items.map((line,index)=><div key={line.line_item_id||line.id||index}><span><b>{line.description}</b><small>{line.quantity} {line.unit} × {money(line.rate,i.currency_code)}</small></span><strong>{money(line.amount??Number(line.quantity||0)*Number(line.rate||0),i.currency_code)}</strong></div>)}</div><div className="client-invoice-totals"><span>Subtotal <b>{money(i.subtotal,i.currency_code)}</b></span><span>Tax <b>{money(i.tax_total,i.currency_code)}</b></span><strong>Total <b>{money(i.total,i.currency_code)}</b></strong></div><div className="client-invoice-modal-actions"><button className="portal-secondary" onClick={()=>openDocument(detail,false)}><FileText size={16}/>View invoice</button><button className="portal-primary" onClick={()=>openDocument(detail,true)}><Download size={16}/>Save PDF</button></div></section></div>
-}
+function InvoiceModal({detail,onClose}:{detail:InvoiceDetail;onClose:()=>void}){const i=detail.invoice;return <div className="portal-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}}><section className="portal-modal client-invoice-modal"><div className="portal-modal-head"><div><span className="client-invoice-number">INVOICE</span><strong>{i.invoice_number}</strong></div><button onClick={onClose}><X size={18}/></button></div><div className="client-invoice-summary"><div><span>Total</span><b>{money(i.total,i.currency_code)}</b></div><div><span>Balance due</span><b>{money(i.balance_due,i.currency_code)}</b></div><div><span>Status</span><b>{label(i.status)}</b></div></div><div className="client-invoice-detail-grid"><div><span>Invoice date</span><b>{fmtDate(i.invoice_date)}</b></div><div><span>Due date</span><b>{fmtDate(i.due_date)}</b></div>{i.purchase_order&&<div><span>PO #</span><b>{i.purchase_order}</b></div>}{i.afe_number&&<div><span>AFE #</span><b>{i.afe_number}</b></div>}{i.project&&<div><span>Project</span><b>{i.project}</b></div>}{i.location&&<div><span>Location</span><b>{i.location}</b></div>}</div>{i.job_description&&<div className="client-invoice-description"><span>Work completed</span><p>{i.job_description}</p></div>}<div className="client-invoice-lines">{detail.line_items.map((line,index)=><div key={line.line_item_id||line.id||index}><span><b>{line.description}</b><small>{line.quantity} {line.unit} × {money(line.rate,i.currency_code)}</small></span><strong>{money(line.amount??Number(line.quantity||0)*Number(line.rate||0),i.currency_code)}</strong></div>)}</div><div className="client-invoice-totals"><span>Subtotal <b>{money(i.subtotal,i.currency_code)}</b></span><span>Tax <b>{money(i.tax_total,i.currency_code)}</b></span><strong>Total <b>{money(i.total,i.currency_code)}</b></strong></div><div className="client-invoice-modal-actions"><button className="portal-secondary" onClick={()=>openDocument(detail,false)}><FileText size={16}/>View invoice</button><button className="portal-primary" onClick={()=>openDocument(detail,true)}><Download size={16}/>Save PDF</button></div></section></div>}
 
-function openDocument(detail:InvoiceDetail,printNow:boolean){
-  const i=detail.invoice
-  const w=window.open('','_blank','width=900,height=1000')
-  if(!w)return
-  const lines=detail.line_items.map(line=>`<tr><td>${escapeHtml(line.description)}</td><td class="num">${escapeHtml(line.quantity)} ${escapeHtml(line.unit)}</td><td class="num">${money(line.rate,i.currency_code)}</td><td class="num">${money(line.amount??Number(line.quantity||0)*Number(line.rate||0),i.currency_code)}</td></tr>`).join('')
-  const html=`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(i.invoice_number)}</title><style>body{font-family:Arial,sans-serif;color:#111;margin:34px;font-size:12px}.toolbar{position:sticky;top:0;background:#fff;padding:10px 0;margin-bottom:12px;border-bottom:1px solid #ddd}.toolbar button{padding:10px 14px;font-weight:700}.top{display:flex;justify-content:space-between;gap:24px;border-bottom:4px solid #111;padding-bottom:14px}.top h1{margin:0 0 5px;font-size:24px}.num{text-align:right}.number{text-align:right}.number b{font-size:24px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}.box{border:1px solid #777}.row{display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid #ddd}.row:last-child{border-bottom:0}.row>*{padding:7px}.row b{background:#f4f4f4}.description{border:1px solid #777;padding:10px;min-height:70px;margin:18px 0}.description b{display:block;margin-bottom:6px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{border-top:2px solid #111;border-bottom:2px solid #111}.totals{width:310px;margin:18px 0 0 auto}.totals div{display:flex;justify-content:space-between;padding:7px;border-bottom:1px solid #ddd}.totals .grand{font-size:17px;border-top:2px solid #111;border-bottom:3px double #111}.footer{margin-top:28px;border-top:1px solid #aaa;padding-top:10px;color:#555}@media(max-width:620px){body{margin:16px}.top,.meta{display:block}.number{text-align:left;margin-top:14px}.box{margin-top:10px}.totals{width:100%}}@media print{.toolbar{display:none}body{margin:12mm}}</style></head><body><div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div><div class="top"><div><h1>${escapeHtml(i.seller_name||'Northborn')}</h1><div>${escapeHtml(i.seller_address||'').replace(/\n/g,'<br>')}</div><div>${escapeHtml([i.seller_phone,i.seller_email].filter(Boolean).join(' · '))}</div></div><div class="number"><span>OFFICIAL INVOICE</span><br><b>${escapeHtml(i.invoice_number)}</b></div></div><div class="meta"><div class="box"><div class="row"><b>Date</b><span>${escapeHtml(i.invoice_date)}</span></div><div class="row"><b>PO / AFE</b><span>${escapeHtml([i.purchase_order,i.afe_number].filter(Boolean).join(' / '))}</span></div><div class="row"><b>Project</b><span>${escapeHtml(i.project||'')}</span></div><div class="row"><b>Location</b><span>${escapeHtml(i.location||'')}</span></div></div><div class="box"><div class="row"><b>Bill to</b><span>${escapeHtml(i.billed_to_name||'')}</span></div><div class="row"><b>Address</b><span>${escapeHtml(i.billed_to_address||'')}</span></div><div class="row"><b>Email</b><span>${escapeHtml(i.billed_to_email||'')}</span></div><div class="row"><b>Due date</b><span>${escapeHtml(i.due_date||'')}</span></div></div></div><div class="description"><b>JOB DESCRIPTION</b>${escapeHtml(i.job_description||'').replace(/\n/g,'<br>')}</div><table><thead><tr><th>Equipment / Service</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>${lines}</tbody></table><div class="totals"><div><span>Subtotal</span><b>${money(i.subtotal,i.currency_code)}</b></div><div><span>GST / Tax ${escapeHtml(i.tax_rate)}%</span><b>${money(i.tax_total,i.currency_code)}</b></div><div class="grand"><span>TOTAL</span><b>${money(i.total,i.currency_code)}</b></div></div><div class="footer">${escapeHtml(i.notes||'').replace(/\n/g,'<br>')}${i.terms?`<br><br><b>Terms:</b> ${escapeHtml(i.terms).replace(/\n/g,'<br>')}`:''}</div>${printNow?'<script>window.onload=()=>window.print()<\/script>':''}</body></html>`
-  w.document.write(html);w.document.close()
-}
+function openDocument(detail:InvoiceDetail,printNow:boolean){const i=detail.invoice;const w=window.open('','_blank','width=900,height=1000');if(!w)return;const lines=detail.line_items.map(line=>`<tr><td>${escapeHtml(line.description)}</td><td class="num">${escapeHtml(line.quantity)} ${escapeHtml(line.unit)}</td><td class="num">${money(line.rate,i.currency_code)}</td><td class="num">${money(line.amount??Number(line.quantity||0)*Number(line.rate||0),i.currency_code)}</td></tr>`).join('');const html=`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(i.invoice_number)}</title><style>body{font-family:Arial,sans-serif;color:#111;margin:34px;font-size:12px}.toolbar{position:sticky;top:0;background:#fff;padding:10px 0;margin-bottom:12px;border-bottom:1px solid #ddd}.toolbar button{padding:10px 14px;font-weight:700}.top{display:flex;justify-content:space-between;gap:24px;border-bottom:4px solid #111;padding-bottom:14px}.top h1{margin:0 0 5px;font-size:24px}.num{text-align:right}.number{text-align:right}.number b{font-size:24px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}.box{border:1px solid #777}.row{display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid #ddd}.row:last-child{border-bottom:0}.row>*{padding:7px}.row b{background:#f4f4f4}.description{border:1px solid #777;padding:10px;min-height:70px;margin:18px 0}.description b{display:block;margin-bottom:6px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{border-top:2px solid #111;border-bottom:2px solid #111}.totals{width:310px;margin:18px 0 0 auto}.totals div{display:flex;justify-content:space-between;padding:7px;border-bottom:1px solid #ddd}.totals .grand{font-size:17px;border-top:2px solid #111;border-bottom:3px double #111}.footer{margin-top:28px;border-top:1px solid #aaa;padding-top:10px;color:#555}@media(max-width:620px){body{margin:16px}.top,.meta{display:block}.number{text-align:left;margin-top:14px}.box{margin-top:10px}.totals{width:100%}}@media print{.toolbar{display:none}body{margin:12mm}}</style></head><body><div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div><div class="top"><div><h1>${escapeHtml(i.seller_name||'Northborn')}</h1><div>${escapeHtml(i.seller_address||'').replace(/\n/g,'<br>')}</div><div>${escapeHtml([i.seller_phone,i.seller_email].filter(Boolean).join(' · '))}</div></div><div class="number"><span>OFFICIAL INVOICE</span><br><b>${escapeHtml(i.invoice_number)}</b></div></div><div class="meta"><div class="box"><div class="row"><b>Date</b><span>${escapeHtml(i.invoice_date)}</span></div><div class="row"><b>PO / AFE</b><span>${escapeHtml([i.purchase_order,i.afe_number].filter(Boolean).join(' / '))}</span></div><div class="row"><b>Project</b><span>${escapeHtml(i.project||'')}</span></div><div class="row"><b>Location</b><span>${escapeHtml(i.location||'')}</span></div></div><div class="box"><div class="row"><b>Bill to</b><span>${escapeHtml(i.billed_to_name||'')}</span></div><div class="row"><b>Address</b><span>${escapeHtml(i.billed_to_address||'')}</span></div><div class="row"><b>Email</b><span>${escapeHtml(i.billed_to_email||'')}</span></div><div class="row"><b>Due date</b><span>${escapeHtml(i.due_date||'')}</span></div></div></div><div class="description"><b>JOB DESCRIPTION</b>${escapeHtml(i.job_description||'').replace(/\n/g,'<br>')}</div><table><thead><tr><th>Equipment / Service</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>${lines}</tbody></table><div class="totals"><div><span>Subtotal</span><b>${money(i.subtotal,i.currency_code)}</b></div><div><span>GST / Tax ${escapeHtml(i.tax_rate)}%</span><b>${money(i.tax_total,i.currency_code)}</b></div><div class="grand"><span>TOTAL</span><b>${money(i.total,i.currency_code)}</b></div></div><div class="footer">${escapeHtml(i.notes||'').replace(/\n/g,'<br>')}${i.terms?`<br><br><b>Terms:</b> ${escapeHtml(i.terms).replace(/\n/g,'<br>')}`:''}</div>${printNow?'<script>window.onload=()=>window.print()<\/script>':''}</body></html>`;w.document.write(html);w.document.close()}

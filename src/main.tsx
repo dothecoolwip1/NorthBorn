@@ -13,7 +13,7 @@ import ManagerClientsPage from './ManagerClientsPage'
 import ManagerJobsPage from './ManagerJobsPage'
 import FleetRoutePage from './FleetRoutePage'
 import ManagerMaintenancePage from './ManagerMaintenancePage'
-import ManagerInvoicesPage from './ManagerInvoicesPage'
+import ManagerInvoicesPageV2 from './ManagerInvoicesPageV2'
 import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import GlobalAccountMenu from './GlobalAccountMenu'
 import LogoutPage from './LogoutPage'
@@ -37,7 +37,7 @@ function ProductionRoutes({ normalizedPath, hasInvite }:{ normalizedPath:string;
   if (normalizedPath === '/fleet') return <FleetRoutePage />
   if (normalizedPath === '/fleet-access') return <EmployeeFleetAccessPage />
   if (normalizedPath === '/maintenance') return <ManagerMaintenancePage />
-  if (normalizedPath === '/invoices') return <ManagerInvoicesPage />
+  if (normalizedPath === '/invoices') return <ManagerInvoicesPageV2 />
   return <><RoleAwareApp /><AuthEnhancements /><TeamAccessLauncher /></>
 }
 

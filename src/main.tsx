@@ -15,6 +15,7 @@ import FleetRoutePage from './FleetRoutePage'
 import ManagerMaintenancePage from './ManagerMaintenancePage'
 import ManagerInvoicesPageV2 from './ManagerInvoicesPageV2'
 import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
+import SafetyRoutePage from './SafetyRoutePage'
 import GlobalAccountMenu from './GlobalAccountMenu'
 import LogoutPage from './LogoutPage'
 import TestSupabaseBridge from './TestSupabaseBridge'
@@ -38,6 +39,7 @@ function ProductionRoutes({ normalizedPath, hasInvite }:{ normalizedPath:string;
   if (normalizedPath === '/fleet-access') return <EmployeeFleetAccessPage />
   if (normalizedPath === '/maintenance') return <ManagerMaintenancePage />
   if (normalizedPath === '/invoices') return <ManagerInvoicesPageV2 />
+  if (normalizedPath === '/safety') return <SafetyRoutePage />
   return <><RoleAwareApp /><AuthEnhancements /><TeamAccessLauncher /></>
 }
 
@@ -72,7 +74,9 @@ function NorthbornRouter() {
         ? <ProductionRoutes normalizedPath={normalizedPath} hasInvite={hasInvite} />
         : normalizedPath === '/fleet' && persona === 'operator'
           ? <FleetRoutePage />
-          : <><RoleAwareApp /><AuthEnhancements /></>}
+          : normalizedPath === '/safety' && persona === 'operator'
+            ? <SafetyRoutePage />
+            : <><RoleAwareApp /><AuthEnhancements /></>}
   </TestSupabaseBridge>
 }
 

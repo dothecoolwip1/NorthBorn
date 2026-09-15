@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { NavLink } from 'react-router-dom'
-import { Building2, KeyRound, LogOut, Truck } from 'lucide-react'
+import { Building2, KeyRound, LogOut } from 'lucide-react'
 import App from './App'
 import OperatorAppV2 from './OperatorAppV2'
 import EmployeeProfileSetup from './EmployeeProfileSetup'
@@ -32,10 +32,8 @@ export default function RoleAwareApp() {
       if(!active)return
       setSession(nextSession);setCheckingRole(true);setOperatorContext(null);setInternalContext(null);setClientContext(null);setShowCompanySetup(false)
       if(!nextSession){setCheckingRole(false);return}
-
       const {data:membership,error:membershipError}=await supabase.from('organization_members').select('id,organization_id,organization:organizations(name)').eq('user_id',nextSession.user.id).eq('status','active').limit(1).maybeSingle()
       if(!active)return
-
       if(!membershipError&&membership?.id){
         const {data:roleRows}=await supabase.from('membership_roles').select('role:roles(key)').eq('membership_id',membership.id)
         if(!active)return
@@ -46,19 +44,14 @@ export default function RoleAwareApp() {
           const {data:employee}=await supabase.from('employees').select('id').eq('organization_id',membership.organization_id).eq('user_id',nextSession.user.id).limit(1).maybeSingle()
           if(!active)return
           setOperatorContext({organizationId:membership.organization_id,organizationName,hasEmployeeProfile:Boolean(employee?.id)})
-        } else {
-          setInternalContext({organizationId:membership.organization_id,organizationName,roleKey})
-        }
-        setCheckingRole(false)
-        return
+        }else setInternalContext({organizationId:membership.organization_id,organizationName,roleKey})
+        setCheckingRole(false);return
       }
-
       const portal=await db.rpc('get_my_customer_portal_context')
       if(!active)return
       if(!portal.error&&portal.data?.length)setClientContext(portal.data[0] as ClientContext)
       setCheckingRole(false)
     }
-
     void supabase.auth.getSession().then(({data})=>resolve(data.session))
     const {data:listener}=supabase.auth.onAuthStateChange((_event,next)=>{void resolve(next)})
     return()=>{active=false;listener.subscription.unsubscribe()}
@@ -68,7 +61,7 @@ export default function RoleAwareApp() {
   if(session&&clientContext)return <ClientPortalApp initialContext={clientContext}/>
   if(session&&operatorContext){
     if(!operatorContext.hasEmployeeProfile)return <EmployeeProfileSetup session={session} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/>
-    return <><OperatorAppV2 userId={session.user.id} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/><NavLink className="operator-fleet-shortcut" to="/fleet"><Truck size={16}/>My unit</NavLink><OperatorFleetRepairNotifications userId={session.user.id} organizationId={operatorContext.organizationId}/></>
+    return <><OperatorAppV2 userId={session.user.id} organizationId={operatorContext.organizationId} organizationName={operatorContext.organizationName}/><OperatorFleetRepairNotifications userId={session.user.id} organizationId={operatorContext.organizationId}/></>
   }
   if(session&&internalContext)return <><App resolvedSession={session} authResolved/>{['owner','admin','supervisor','mechanic','dispatcher'].includes(internalContext.roleKey)&&<ManagerCompletionNotifications userId={session.user.id} organizationId={internalContext.organizationId}/>}</>
   if(session&&!showCompanySetup)return <UnconnectedAccount session={session} onCreateCompany={()=>setShowCompanySetup(true)}/>
@@ -77,21 +70,6 @@ export default function RoleAwareApp() {
 
 function UnconnectedAccount({session,onCreateCompany}:{session:Session;onCreateCompany:()=>void}){
   const [signingOut,setSigningOut]=useState(false)
-  const signOut=async()=>{
-    setSigningOut(true)
-    await supabase.auth.signOut()
-    const home=new URL(import.meta.env.BASE_URL,window.location.origin).toString()
-    window.location.href=home
-  }
-
-  return <div className="auth-page"><div className="auth-card account-choice-card">
-    <div className="auth-logo">N</div>
-    <h1>Choose how to continue</h1>
-    <p>Signed in as <strong>{session.user.email}</strong>, but this account is not connected to a Northborn workspace yet.</p>
-    <div className="account-choice-actions">
-      <NavLink className="primary account-choice-link" to="/client-join"><KeyRound size={18}/>Use a client access code</NavLink>
-      <button className="secondary" type="button" onClick={onCreateCompany}><Building2 size={18}/>Create a new company</button>
-      <button className="link-button account-signout" type="button" disabled={signingOut} onClick={()=>void signOut()}><LogOut size={17}/>{signingOut?'Signing out…':'Sign out and use another account'}</button>
-    </div>
-  </div></div>
+  const signOut=async()=>{setSigningOut(true);await supabase.auth.signOut();const home=new URL(import.meta.env.BASE_URL,window.location.origin).toString();window.location.href=home}
+  return <div className="auth-page"><div className="auth-card account-choice-card"><div className="auth-logo">N</div><h1>Choose how to continue</h1><p>Signed in as <strong>{session.user.email}</strong>, but this account is not connected to a Northborn workspace yet.</p><div className="account-choice-actions"><NavLink className="primary account-choice-link" to="/client-join"><KeyRound size={18}/>Use a client access code</NavLink><button className="secondary" type="button" onClick={onCreateCompany}><Building2 size={18}/>Create a new company</button><button className="link-button account-signout" type="button" disabled={signingOut} onClick={()=>void signOut()}><LogOut size={17}/>{signingOut?'Signing out…':'Sign out and use another account'}</button></div></div></div>
 }

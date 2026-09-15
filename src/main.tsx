@@ -125,8 +125,11 @@ function NorthbornRouter() {
 }
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '')
+const rootElement = document.getElementById('root')!
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+document.documentElement.dataset.northbornMounted = '1'
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <AppErrorBoundary>
       <BrowserRouter basename={routerBase}>

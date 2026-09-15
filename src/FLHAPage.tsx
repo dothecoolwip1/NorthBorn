@@ -1,0 +1,403 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { NavLink } from 'react-router-dom'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock3,
+  FileDown,
+  HardHat,
+  MapPin,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  Truck,
+  Users,
+} from 'lucide-react'
+import { supabase } from './lib/supabase'
+import './flha.css'
+
+const db = supabase as any
+
+type Props = {
+  organizationId: string
+  userId: string
+  roleKey: string
+  organizationName: string
+}
+
+type Employee = {
+  id: string
+  user_id: string | null
+  first_name: string
+  last_name: string
+  position: string | null
+}
+
+type Job = {
+  id: string
+  job_number: string
+  title: string
+  site_name: string | null
+  site_address: string | null
+  status: string
+  shop_time: string | null
+  onsite_time: string | null
+  scheduled_start: string | null
+}
+
+type Assignment = {
+  id: string
+  job_id: string
+  employee_id: string | null
+  vehicle_id: string | null
+  role: string | null
+}
+
+type Vehicle = {
+  id: string
+  unit_number: string
+  name: string | null
+  vehicle_type: string
+}
+
+type HazardRow = {
+  id: string
+  hazard: string
+  consequence: string
+  initialRisk: Risk
+  controls: string
+  residualRisk: Risk
+}
+
+type CrewSignoff = {
+  id: string
+  name: string
+  acknowledgedAt: string
+}
+
+type Reassessment = {
+  id: string
+  submission_id: string
+  reason: string
+  changes: string
+  new_hazards: string | null
+  added_controls: string
+  safe_to_continue: boolean
+  created_by: string
+  created_at: string
+}
+
+type Submission = {
+  id: string
+  title: string
+  job_id: string | null
+  employee_id: string | null
+  status: string
+  answers: Record<string, any>
+  submitted_at: string | null
+  created_at: string
+}
+
+type Risk = 'Low' | 'Medium' | 'High' | 'Critical'
+
+type Data = {
+  employee: Employee | null
+  jobs: Job[]
+  assignments: Assignment[]
+  vehicles: Vehicle[]
+  submissions: Submission[]
+  reassessments: Reassessment[]
+}
+
+const EMPTY: Data = { employee: null, jobs: [], assignments: [], vehicles: [], submissions: [], reassessments: [] }
+const RISKS: Risk[] = ['Low', 'Medium', 'High', 'Critical']
+const PPE_OPTIONS = ['FR coveralls', 'Hard hat', 'Safety glasses', 'Gloves', 'CSA boots', 'Hearing protection', 'Face shield', 'Respirator', 'Fall protection', 'Chemical suit']
+const PERMIT_OPTIONS = ['Ground disturbance', 'Confined space', 'Hot work', 'Line break', 'Lockout / tagout', 'Working at heights', 'Roadside / traffic control', 'Other permit']
+const HAZARD_PRESETS = [
+  'Vehicle and mobile equipment traffic',
+  'Overhead power lines',
+  'Underground utilities',
+  'High pressure / stored energy',
+  'Vacuum pressure',
+  'Hot water / steam',
+  'Hydrogen sulphide / sour gas',
+  'Flammable vapours',
+  'Chemical exposure',
+  'Slips, trips and uneven ground',
+  'Noise',
+  'Weather / temperature exposure',
+  'Working near excavation',
+  'Pinch points / rotating equipment',
+  'Manual handling',
+]
+
+function uid() { return crypto.randomUUID() }
+function blankHazard(): HazardRow { return { id: uid(), hazard: '', consequence: '', initialRisk: 'Medium', controls: '', residualRisk: 'Low' } }
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return 'Not set'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(parsed)
+}
+function riskClass(value: Risk) { return `flha-risk ${value.toLowerCase()}` }
+function labelVehicle(vehicle: Vehicle) { return `${vehicle.unit_number}${vehicle.name ? ` · ${vehicle.name}` : ''}` }
+
+export default function FLHAPage({ organizationId, userId, roleKey, organizationName }: Props) {
+  const canManage = ['owner', 'admin', 'safety', 'supervisor'].includes(roleKey)
+  const [data, setData] = useState<Data>(EMPTY)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [jobId, setJobId] = useState('')
+  const [workArea, setWorkArea] = useState('')
+  const [task, setTask] = useState('')
+  const [weather, setWeather] = useState('')
+  const [temperature, setTemperature] = useState('')
+  const [visibility, setVisibility] = useState('Good')
+  const [groundConditions, setGroundConditions] = useState('')
+  const [crewInput, setCrewInput] = useState('')
+  const [crew, setCrew] = useState<CrewSignoff[]>([])
+  const [ppe, setPpe] = useState<string[]>(['FR coveralls', 'Hard hat', 'Safety glasses', 'Gloves', 'CSA boots'])
+  const [permits, setPermits] = useState<string[]>([])
+  const [hazards, setHazards] = useState<HazardRow[]>([blankHazard()])
+  const [emergencyPlan, setEmergencyPlan] = useState('')
+  const [musterPoint, setMusterPoint] = useState('')
+  const [nearestMedical, setNearestMedical] = useState('')
+  const [communications, setCommunications] = useState('')
+  const [otherNotes, setOtherNotes] = useState('')
+  const [certified, setCertified] = useState(false)
+  const [submitted, setSubmitted] = useState<Submission | null>(null)
+  const [reassessing, setReassessing] = useState<Submission | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true); setError('')
+    const [employeeResult, jobsResult, assignmentsResult, vehiclesResult, submissionsResult, reassessmentsResult] = await Promise.all([
+      db.from('employees').select('id,user_id,first_name,last_name,position').eq('organization_id', organizationId).eq('user_id', userId).limit(1).maybeSingle(),
+      db.from('jobs').select('id,job_number,title,site_name,site_address,status,shop_time,onsite_time,scheduled_start').eq('organization_id', organizationId).order('onsite_time', { ascending: false, nullsFirst: false }),
+      db.from('dispatch_assignments').select('id,job_id,employee_id,vehicle_id,role').eq('organization_id', organizationId),
+      db.from('fleet_vehicles').select('id,unit_number,name,vehicle_type').eq('organization_id', organizationId).order('unit_number'),
+      db.from('safety_form_submissions').select('id,title,job_id,employee_id,status,answers,submitted_at,created_at').eq('organization_id', organizationId).eq('form_type', 'flha').order('created_at', { ascending: false }).limit(30),
+      db.from('safety_form_reassessments').select('id,submission_id,reason,changes,new_hazards,added_controls,safe_to_continue,created_by,created_at').eq('organization_id', organizationId).order('created_at', { ascending: false }),
+    ])
+    const firstError = employeeResult.error || jobsResult.error || assignmentsResult.error || vehiclesResult.error || submissionsResult.error || reassessmentsResult.error
+    if (firstError) { setError(firstError.message); setLoading(false); return }
+    setData({
+      employee: employeeResult.data as Employee | null,
+      jobs: (jobsResult.data ?? []) as Job[],
+      assignments: (assignmentsResult.data ?? []) as Assignment[],
+      vehicles: (vehiclesResult.data ?? []) as Vehicle[],
+      submissions: (submissionsResult.data ?? []) as Submission[],
+      reassessments: (reassessmentsResult.data ?? []) as Reassessment[],
+    })
+    setLoading(false)
+  }, [organizationId, userId])
+
+  useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    if (!data.employee || crew.length) return
+    setCrew([{ id: uid(), name: `${data.employee.first_name} ${data.employee.last_name}`, acknowledgedAt: new Date().toISOString() }])
+  }, [data.employee, crew.length])
+
+  const selectedJob = useMemo(() => data.jobs.find(job => job.id === jobId) ?? null, [data.jobs, jobId])
+  const selectedUnits = useMemo(() => {
+    if (!jobId) return []
+    const ids = new Set(data.assignments.filter(item => item.job_id === jobId && item.vehicle_id).map(item => item.vehicle_id as string))
+    return data.vehicles.filter(vehicle => ids.has(vehicle.id))
+  }, [data.assignments, data.vehicles, jobId])
+
+  useEffect(() => {
+    if (!selectedJob) return
+    setWorkArea(current => current || [selectedJob.site_name, selectedJob.site_address].filter(Boolean).join(' · '))
+  }, [selectedJob])
+
+  const toggle = (value: string, list: string[], setter: (next: string[]) => void) => setter(list.includes(value) ? list.filter(item => item !== value) : [...list, value])
+
+  const addCrew = () => {
+    const name = crewInput.trim()
+    if (!name) return
+    setCrew(current => [...current, { id: uid(), name, acknowledgedAt: new Date().toISOString() }])
+    setCrewInput('')
+  }
+
+  const updateHazard = (id: string, key: keyof HazardRow, value: string) => setHazards(current => current.map(row => row.id === id ? { ...row, [key]: value } as HazardRow : row))
+
+  const usePreset = (preset: string) => {
+    const empty = hazards.find(row => !row.hazard.trim())
+    if (empty) updateHazard(empty.id, 'hazard', preset)
+    else setHazards(current => [...current, { ...blankHazard(), hazard: preset }])
+  }
+
+  const reset = () => {
+    setJobId(''); setWorkArea(''); setTask(''); setWeather(''); setTemperature(''); setVisibility('Good'); setGroundConditions('')
+    setCrew(data.employee ? [{ id: uid(), name: `${data.employee.first_name} ${data.employee.last_name}`, acknowledgedAt: new Date().toISOString() }] : [])
+    setPpe(['FR coveralls', 'Hard hat', 'Safety glasses', 'Gloves', 'CSA boots']); setPermits([]); setHazards([blankHazard()])
+    setEmergencyPlan(''); setMusterPoint(''); setNearestMedical(''); setCommunications(''); setOtherNotes(''); setCertified(false); setSubmitted(null)
+  }
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); setError('')
+    const validHazards = hazards.filter(row => row.hazard.trim() && row.controls.trim())
+    if (!validHazards.length) return setError('Add at least one hazard and the controls used to manage it.')
+    if (!crew.length) return setError('Add at least one crew acknowledgement.')
+    if (!certified) return setError('Confirm the FLHA was reviewed with the crew before submitting.')
+    setBusy(true)
+    const now = new Date().toISOString()
+    const answers = {
+      schema_version: 2,
+      organization_name: organizationName,
+      work_area: workArea.trim(),
+      task: task.trim(),
+      conditions: { weather: weather.trim(), temperature: temperature.trim(), visibility, ground_conditions: groundConditions.trim() },
+      job_snapshot: selectedJob ? { job_id: selectedJob.id, job_number: selectedJob.job_number, title: selectedJob.title, site_name: selectedJob.site_name, site_address: selectedJob.site_address } : null,
+      unit_snapshot: selectedUnits.map(vehicle => ({ id: vehicle.id, unit_number: vehicle.unit_number, name: vehicle.name, vehicle_type: vehicle.vehicle_type })),
+      crew: crew.map(({ name, acknowledgedAt }) => ({ name, acknowledged_at: acknowledgedAt })),
+      ppe,
+      permits,
+      hazards: validHazards.map(({ id: _id, ...row }) => row),
+      emergency: { plan: emergencyPlan.trim(), muster_point: musterPoint.trim(), nearest_medical: nearestMedical.trim(), communications: communications.trim() },
+      other_notes: otherNotes.trim(),
+      certification: { reviewed_with_crew: true, certified_by_user_id: userId, certified_at: now },
+    }
+    const row = {
+      organization_id: organizationId,
+      employee_id: data.employee?.id ?? null,
+      job_id: jobId || null,
+      form_type: 'flha',
+      title: `FLHA${selectedJob ? ` · ${selectedJob.job_number}` : ''} · ${new Intl.DateTimeFormat('en-CA', { month:'short', day:'numeric' }).format(new Date())}`,
+      answers,
+      status: 'submitted',
+      submitted_by: userId,
+      submitted_at: now,
+      reviewed_by: null,
+      reviewed_at: null,
+      review_notes: null,
+    }
+    const result = await db.from('safety_form_submissions').insert(row).select('id,title,job_id,employee_id,status,answers,submitted_at,created_at').single()
+    setBusy(false)
+    if (result.error) return setError(result.error.message)
+    setSubmitted(result.data as Submission)
+    setSuccess('FLHA submitted. The original assessment is now locked as a safety record.')
+    await load()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  if (loading) return <div className="flha-loading">Loading FLHA workspace…</div>
+
+  return <section className="flha-page">
+    <div className="flha-toolbar no-print">
+      <NavLink to="/safety"><ArrowLeft size={17}/>Safety</NavLink>
+      <div className="flha-toolbar-actions"><button type="button" onClick={() => void load()}><RefreshCw size={16}/>Refresh</button>{submitted && <button type="button" onClick={() => window.print()}><FileDown size={16}/>Print / save PDF</button>}</div>
+    </div>
+
+    <div className="flha-hero">
+      <div><span>FIELD LEVEL HAZARD ASSESSMENT</span><h1>Build the plan before the work starts.</h1><p>Job and unit details are pulled in where available. Hazards, controls and crew acknowledgements stay attached to the submitted record.</p></div>
+      <div className="flha-hero-mark"><ShieldCheck/><strong>FLHA</strong><small>{organizationName}</small></div>
+    </div>
+
+    {error && <div className="flha-message error"><AlertTriangle/><span>{error}</span></div>}
+    {success && <div className="flha-message success"><CheckCircle2/><span>{success}</span></div>}
+
+    {submitted ? <SubmittedSummary submission={submitted} units={selectedUnits} reassessments={data.reassessments.filter(item => item.submission_id === submitted.id)} onNew={reset} onPrint={() => window.print()} onReassess={() => setReassessing(submitted)} /> : <form onSubmit={event => void submit(event)}>
+      <section className="flha-card">
+        <Heading number="01" title="Job and conditions" text="Connect the FLHA to the work and record what the crew is actually walking into." />
+        <div className="flha-grid two">
+          <label>Related job <span>Optional</span><select value={jobId} onChange={event => { setJobId(event.target.value); setWorkArea('') }}><option value="">No job selected</option>{data.jobs.filter(job => !['cancelled','completed'].includes(job.status)).map(job => <option key={job.id} value={job.id}>{job.job_number} · {job.title}</option>)}</select></label>
+          <label>Work area / location<input value={workArea} onChange={event => setWorkArea(event.target.value)} required placeholder="Lease, plant, tank farm, road, excavation…"/></label>
+        </div>
+        {selectedJob && <div className="flha-autofill"><div><MapPin/><span><strong>{selectedJob.site_name || selectedJob.title}</strong><small>{selectedJob.site_address || 'No site address entered'}</small></span></div><div><Truck/><span><strong>{selectedUnits.length ? selectedUnits.map(labelVehicle).join(', ') : 'No unit assigned yet'}</strong><small>Assigned equipment</small></span></div><div><Clock3/><span><strong>{formatDateTime(selectedJob.onsite_time || selectedJob.scheduled_start)}</strong><small>Onsite / scheduled</small></span></div></div>}
+        <label>Work scope / task<textarea value={task} onChange={event => setTask(event.target.value)} required placeholder="What are we doing today? Include the main steps of the job."/></label>
+        <div className="flha-grid four"><label>Weather<input value={weather} onChange={event => setWeather(event.target.value)} placeholder="Clear, snow, rain, wind…"/></label><label>Temperature<input value={temperature} onChange={event => setTemperature(event.target.value)} placeholder="-15°C"/></label><label>Visibility<select value={visibility} onChange={event => setVisibility(event.target.value)}><option>Good</option><option>Reduced</option><option>Poor</option></select></label><label>Ground conditions<input value={groundConditions} onChange={event => setGroundConditions(event.target.value)} placeholder="Dry, ice, mud…"/></label></div>
+      </section>
+
+      <section className="flha-card">
+        <Heading number="02" title="Crew, PPE and permits" text="Make the basics obvious before anyone starts moving equipment." />
+        <div className="flha-subheading"><Users size={18}/><strong>Crew acknowledgement</strong><span>Each name is timestamped when added.</span></div>
+        <div className="flha-crew-add"><input value={crewInput} onChange={event => setCrewInput(event.target.value)} placeholder="Crew member name" onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addCrew() } }}/><button type="button" onClick={addCrew}><Plus/>Add</button></div>
+        <div className="flha-crew-list">{crew.map(member => <div key={member.id}><CheckCircle2/><span><strong>{member.name}</strong><small>Acknowledged {formatDateTime(member.acknowledgedAt)}</small></span><button type="button" aria-label={`Remove ${member.name}`} onClick={() => setCrew(current => current.filter(item => item.id !== member.id))}><Trash2/></button></div>)}</div>
+        <div className="flha-split">
+          <div><div className="flha-subheading"><HardHat size={18}/><strong>Required PPE</strong></div><div className="flha-check-grid">{PPE_OPTIONS.map(item => <button type="button" className={ppe.includes(item) ? 'selected' : ''} key={item} onClick={() => toggle(item, ppe, setPpe)}>{ppe.includes(item) ? <Check/> : <Plus/>}{item}</button>)}</div></div>
+          <div><div className="flha-subheading"><ClipboardCheck size={18}/><strong>Permits / authorizations</strong></div><div className="flha-check-grid">{PERMIT_OPTIONS.map(item => <button type="button" className={permits.includes(item) ? 'selected' : ''} key={item} onClick={() => toggle(item, permits, setPermits)}>{permits.includes(item) ? <Check/> : <Plus/>}{item}</button>)}</div></div>
+        </div>
+      </section>
+
+      <section className="flha-card">
+        <Heading number="03" title="Hazards and controls" text="Use as many rows as needed. Residual risk should reflect the risk after the controls are actually in place." />
+        <div className="flha-presets no-print">{HAZARD_PRESETS.map(item => <button type="button" key={item} onClick={() => usePreset(item)}>+ {item}</button>)}</div>
+        <div className="flha-hazard-list">{hazards.map((row, index) => <div className="flha-hazard" key={row.id}>
+          <div className="flha-hazard-head"><strong>Hazard {index + 1}</strong>{hazards.length > 1 && <button type="button" onClick={() => setHazards(current => current.filter(item => item.id !== row.id))}><Trash2/>Remove</button>}</div>
+          <div className="flha-grid two"><label>Hazard<input value={row.hazard} onChange={event => updateHazard(row.id, 'hazard', event.target.value)} required placeholder="What can hurt someone or damage equipment?"/></label><label>Possible consequence<input value={row.consequence} onChange={event => updateHazard(row.id, 'consequence', event.target.value)} placeholder="What could happen?"/></label></div>
+          <div className="flha-grid risk-grid"><label>Initial risk<select className={riskClass(row.initialRisk)} value={row.initialRisk} onChange={event => updateHazard(row.id, 'initialRisk', event.target.value)}>{RISKS.map(risk => <option key={risk}>{risk}</option>)}</select></label><label className="control-field">Controls<textarea value={row.controls} onChange={event => updateHazard(row.id, 'controls', event.target.value)} required placeholder="Specific actions that reduce the risk: isolate, barricade, spotter, grounding, ventilation, PPE…"/></label><label>Residual risk<select className={riskClass(row.residualRisk)} value={row.residualRisk} onChange={event => updateHazard(row.id, 'residualRisk', event.target.value)}>{RISKS.map(risk => <option key={risk}>{risk}</option>)}</select></label></div>
+        </div>)}
+        <button type="button" className="flha-add-row no-print" onClick={() => setHazards(current => [...current, blankHazard()])}><Plus/>Add another hazard</button>
+      </section>
+
+      <section className="flha-card">
+        <Heading number="04" title="Emergency readiness" text="Keep the response simple enough that the crew can act on it under pressure." />
+        <div className="flha-grid two"><label>Muster point<input value={musterPoint} onChange={event => setMusterPoint(event.target.value)} required placeholder="Where does the crew meet?"/></label><label>Nearest medical / emergency resource<input value={nearestMedical} onChange={event => setNearestMedical(event.target.value)} placeholder="Hospital, medic, first aid room…"/></label></div>
+        <label>Emergency plan<textarea value={emergencyPlan} onChange={event => setEmergencyPlan(event.target.value)} required placeholder="Shutdown, evacuation, spill, fire, rescue and notification expectations."/></label>
+        <label>Communication method<input value={communications} onChange={event => setCommunications(event.target.value)} placeholder="Cell, radio channel, satellite phone…"/></label>
+        <label>Other job specific notes <span>Optional</span><textarea value={otherNotes} onChange={event => setOtherNotes(event.target.value)} placeholder="Anything the crew needs to know that does not fit above."/></label>
+      </section>
+
+      <section className="flha-card flha-submit-card">
+        <Heading number="05" title="Crew review and submit" text="Submitting locks this assessment. If conditions change later, add a reassessment instead of rewriting the original." />
+        <label className="flha-certify"><input type="checkbox" checked={certified} onChange={event => setCertified(event.target.checked)}/><span><strong>I confirm this FLHA was reviewed with the crew before work started.</strong><small>The signed in user and submission time are recorded automatically.</small></span></label>
+        <button className="flha-submit" type="submit" disabled={busy}>{busy ? 'Submitting FLHA…' : 'Submit and lock FLHA'}<ShieldCheck/></button>
+      </section>
+    </form>}
+
+    <section className="flha-card no-print">
+      <Heading number="HISTORY" title={canManage ? 'Recent company FLHAs' : 'My recent FLHAs'} text="Submitted assessments stay available for review and reassessment." />
+      {data.submissions.length ? <div className="flha-history">{data.submissions.map(item => {
+        const answer = item.answers || {}
+        const job = answer.job_snapshot
+        const count = data.reassessments.filter(row => row.submission_id === item.id).length
+        return <div key={item.id}><div><strong>{item.title}</strong><span>{job?.site_name || answer.work_area || 'No location'} · {formatDateTime(item.submitted_at || item.created_at)}</span></div><div className="flha-history-actions"><span>{count} reassessment{count === 1 ? '' : 's'}</span><button type="button" onClick={() => setReassessing(item)}>Reassess</button></div></div>
+      })}</div> : <div className="flha-empty">No submitted FLHAs yet.</div>}
+    </section>
+
+    {reassessing && <ReassessmentModal submission={reassessing} organizationId={organizationId} userId={userId} onClose={() => setReassessing(null)} onSaved={async () => { setReassessing(null); setSuccess('Reassessment added without changing the original FLHA.'); await load() }} onError={setError}/>} 
+  </section>
+}
+
+function Heading({ number, title, text }: { number: string; title: string; text: string }) {
+  return <div className="flha-heading"><span>{number}</span><div><h2>{title}</h2><p>{text}</p></div></div>
+}
+
+function SubmittedSummary({ submission, units, reassessments, onNew, onPrint, onReassess }: { submission: Submission; units: Vehicle[]; reassessments: Reassessment[]; onNew: () => void; onPrint: () => void; onReassess: () => void }) {
+  const a = submission.answers || {}
+  const hazards = Array.isArray(a.hazards) ? a.hazards : []
+  const crew = Array.isArray(a.crew) ? a.crew : []
+  return <section className="flha-card flha-record">
+    <div className="flha-record-title"><CheckCircle2/><div><span>SUBMITTED SAFETY RECORD</span><h2>{submission.title}</h2><p>{formatDateTime(submission.submitted_at || submission.created_at)}</p></div></div>
+    <div className="flha-record-meta"><div><span>Location</span><strong>{a.work_area || 'Not set'}</strong></div><div><span>Task</span><strong>{a.task || 'Not set'}</strong></div><div><span>Unit</span><strong>{units.length ? units.map(labelVehicle).join(', ') : a.unit_snapshot?.map((unit:any) => unit.unit_number).join(', ') || 'Not set'}</strong></div><div><span>Crew</span><strong>{crew.map((member:any) => member.name).join(', ') || 'Not set'}</strong></div></div>
+    <div className="flha-print-hazards">{hazards.map((hazard:any, index:number) => <div key={index}><strong>{index + 1}. {hazard.hazard}</strong><span>{hazard.controls}</span><small>Risk: {hazard.initialRisk} → {hazard.residualRisk}</small></div>)}</div>
+    {reassessments.length > 0 && <div className="flha-record-reassess"><h3>Reassessments</h3>{reassessments.map(item => <div key={item.id}><strong>{formatDateTime(item.created_at)} · {item.reason}</strong><span>{item.changes}</span><small>{item.added_controls}</small></div>)}</div>}
+    <div className="flha-record-actions no-print"><button type="button" onClick={onNew}><Plus/>New FLHA</button><button type="button" onClick={onReassess}><RefreshCw/>Conditions changed</button><button type="button" onClick={onPrint}><FileDown/>Print / save PDF</button></div>
+  </section>
+}
+
+function ReassessmentModal({ submission, organizationId, userId, onClose, onSaved, onError }: { submission: Submission; organizationId: string; userId: string; onClose: () => void; onSaved: () => Promise<void>; onError: (message: string) => void }) {
+  const [reason, setReason] = useState('Conditions changed')
+  const [changes, setChanges] = useState('')
+  const [newHazards, setNewHazards] = useState('')
+  const [controls, setControls] = useState('')
+  const [safe, setSafe] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); onError('')
+    if (!safe) return onError('Confirm the new controls are in place and the crew agrees it is safe to continue.')
+    setBusy(true)
+    const result = await db.from('safety_form_reassessments').insert({ organization_id: organizationId, submission_id: submission.id, reason, changes: changes.trim(), new_hazards: newHazards.trim() || null, added_controls: controls.trim(), safe_to_continue: safe, created_by: userId })
+    setBusy(false)
+    if (result.error) return onError(result.error.message)
+    await onSaved()
+  }
+  return <div className="flha-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}><div className="flha-modal"><div className="flha-modal-head"><div><span>FLHA REASSESSMENT</span><h2>{submission.title}</h2></div><button type="button" onClick={onClose}>×</button></div><form onSubmit={event => void submit(event)}><label>Reason<select value={reason} onChange={event => setReason(event.target.value)}><option>Conditions changed</option><option>New worker or equipment</option><option>Weather changed</option><option>Scope changed</option><option>After break / restart</option><option>New hazard identified</option></select></label><label>What changed?<textarea value={changes} onChange={event => setChanges(event.target.value)} required/></label><label>New hazards <span>Optional</span><textarea value={newHazards} onChange={event => setNewHazards(event.target.value)}/></label><label>Added or changed controls<textarea value={controls} onChange={event => setControls(event.target.value)} required/></label><label className="flha-certify"><input type="checkbox" checked={safe} onChange={event => setSafe(event.target.checked)}/><span><strong>Controls are in place and the crew agrees it is safe to continue.</strong><small>This reassessment receives its own timestamp and audit entry.</small></span></label><div className="flha-modal-actions"><button type="button" onClick={onClose}>Cancel</button><button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Add reassessment'}</button></div></form></div></div>
+}

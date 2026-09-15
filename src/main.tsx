@@ -23,6 +23,7 @@ import { getTestPersona, isTestMode } from './test-lab'
 import './styles.css'
 import './contact-hierarchy.css'
 import './test-lab-overrides.css'
+import './mobile-first.css'
 
 function ProductionRoutes({ normalizedPath, hasInvite }:{ normalizedPath:string; hasInvite:boolean }) {
   if (normalizedPath === '/logout') return <LogoutPage />

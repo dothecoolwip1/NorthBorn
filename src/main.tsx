@@ -18,13 +18,17 @@ import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import SafetyRoutePage from './SafetyRoutePage'
 import GlobalAccountMenu from './GlobalAccountMenu'
 import LogoutPage from './LogoutPage'
-import TestSupabaseBridge from './TestSupabaseBridge'
 import AppErrorBoundary from './AppErrorBoundary'
-import { getTestPersona, isTestMode } from './test-lab'
 import './styles.css'
 import './contact-hierarchy.css'
-import './test-lab-overrides.css'
 import './mobile-first.css'
+
+const RETIRED_TEST_KEYS = [
+  'northborn_test_mode',
+  'northborn_test_persona',
+]
+
+for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)
 
 function ProductionRoutes({ normalizedPath, hasInvite }:{ normalizedPath:string; hasInvite:boolean }) {
   if (normalizedPath === '/logout') return <LogoutPage />
@@ -49,36 +53,7 @@ function NorthbornRouter() {
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/'
   const params = new URLSearchParams(location.search)
   const hasInvite = params.has('invite')
-  const [testMode,setTestMode] = React.useState(() => isTestMode())
-  const [persona,setPersona] = React.useState(() => getTestPersona())
-
-  React.useEffect(() => {
-    const sync = () => { setTestMode(isTestMode()); setPersona(getTestPersona()) }
-    const timer = window.setInterval(sync, 300)
-    window.addEventListener('storage', sync)
-    window.addEventListener('northborn-auth-changed', sync)
-    window.addEventListener('northborn-test-persona-changed', sync)
-    return () => {
-      window.clearInterval(timer)
-      window.removeEventListener('storage', sync)
-      window.removeEventListener('northborn-auth-changed', sync)
-      window.removeEventListener('northborn-test-persona-changed', sync)
-    }
-  }, [])
-
-  if (!testMode) return <ProductionRoutes normalizedPath={normalizedPath} hasInvite={hasInvite} />
-
-  return <TestSupabaseBridge persona={persona}>
-    {normalizedPath === '/logout'
-      ? <LogoutPage />
-      : persona === 'manager'
-        ? <ProductionRoutes normalizedPath={normalizedPath} hasInvite={hasInvite} />
-        : normalizedPath === '/fleet' && persona === 'operator'
-          ? <FleetRoutePage />
-          : (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) && persona === 'operator'
-            ? <SafetyRoutePage />
-            : <><RoleAwareApp /><AuthEnhancements /></>}
-  </TestSupabaseBridge>
+  return <ProductionRoutes normalizedPath={normalizedPath} hasInvite={hasInvite} />
 }
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '')

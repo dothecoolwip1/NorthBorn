@@ -18,17 +18,50 @@
         const clearRecovery = () => {
           try { sessionStorage.removeItem(recoveryKey) } catch {}
         }
+        const freshHomeUrl = () => {
+          let basePath = '/'
+          if (window.location.hostname.endsWith('github.io')) {
+            const firstSegment = window.location.pathname.split('/').filter(Boolean)[0]
+            if (firstSegment) basePath = `/${firstSegment}/`
+          }
+          const url = new URL(basePath, window.location.origin)
+          url.searchParams.set('_northborn', Date.now().toString())
+          return url.toString()
+        }
+        const clearBrowserAppCaches = async () => {
+          try {
+            if ('caches' in window) {
+              const keys = await caches.keys()
+              await Promise.all(keys.map(key => caches.delete(key)))
+            }
+          } catch {}
+          try {
+            if ('serviceWorker' in navigator) {
+              const registrations = await navigator.serviceWorker.getRegistrations()
+              await Promise.all(registrations.map(registration => registration.unregister()))
+            }
+          } catch {}
+        }
+        const loadLatest = async () => {
+          clearRecovery()
+          await clearBrowserAppCaches()
+          window.location.assign(freshHomeUrl())
+        }
         const showRecovery = () => {
           const root = document.getElementById('root')
           if (!root || rootReady()) return
           document.body.style.margin = '0'
           document.body.style.background = '#081019'
-          root.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#081019;color:#eef2f7;font-family:system-ui,sans-serif"><div style="width:min(430px,100%);padding:28px;border-radius:20px;border:1px solid #26364b;background:#101923;text-align:center"><div style="font-size:28px;font-weight:900;margin-bottom:10px;color:#d58a34">N</div><h1 style="margin:0 0 10px;font-size:24px">Northborn needs a refresh</h1><p style="margin:0 0 18px;color:#96a3b5;line-height:1.5">A newer test build was published while this browser still had an older copy open.</p><button id="northborn-reload-latest" style="width:100%;padding:12px 16px;border:0;border-radius:12px;background:#d58a34;color:#17120b;font-weight:800">Load latest version</button></div></div>'
-          document.getElementById('northborn-reload-latest')?.addEventListener('click', () => {
-            clearRecovery()
-            const url = new URL(window.location.href)
-            url.searchParams.set('_northborn', Date.now().toString())
-            window.location.replace(url.toString())
+          root.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#081019;color:#eef2f7;font-family:system-ui,sans-serif"><div style="width:min(430px,100%);padding:28px;border-radius:20px;border:1px solid #26364b;background:#101923;text-align:center"><div style="font-size:28px;font-weight:900;margin-bottom:10px;color:#d58a34">N</div><h1 style="margin:0 0 10px;font-size:24px">Northborn needs a refresh</h1><p style="margin:0 0 18px;color:#96a3b5;line-height:1.5">A newer test build was published while this browser still had an older copy open.</p><button id="northborn-reload-latest" style="width:100%;min-height:48px;padding:12px 16px;border:0;border-radius:12px;background:#d58a34;color:#17120b;font-weight:800">Load latest version</button><p id="northborn-reload-status" style="display:none;margin:12px 0 0;color:#96a3b5;font-size:13px">Clearing the old app files and loading the newest build…</p></div></div>'
+          document.getElementById('northborn-reload-latest')?.addEventListener('click', async event => {
+            const button = event.currentTarget
+            const status = document.getElementById('northborn-reload-status')
+            if (button) {
+              button.disabled = true
+              button.textContent = 'Loading latest version…'
+            }
+            if (status) status.style.display = 'block'
+            await loadLatest()
           })
         }
         const recover = () => {
@@ -40,9 +73,7 @@
             }
             sessionStorage.setItem(recoveryKey, '1')
           } catch {}
-          const url = new URL(window.location.href)
-          url.searchParams.set('_northborn', Date.now().toString())
-          window.location.replace(url.toString())
+          window.location.assign(freshHomeUrl())
         }
 
         window.addEventListener('error', event => {

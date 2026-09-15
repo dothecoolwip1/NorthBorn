@@ -40,7 +40,7 @@ function ProductionRoutes({ normalizedPath, hasInvite }:{ normalizedPath:string;
   if (normalizedPath === '/maintenance') return <ManagerMaintenancePage />
   if (normalizedPath === '/invoices') return <ManagerInvoicesPageV2 />
   if (normalizedPath === '/pricing') return <ManagerPricingPage />
-  if (normalizedPath === '/safety') return <SafetyRoutePage />
+  if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) return <SafetyRoutePage />
   return <><RoleAwareApp /><AuthEnhancements /></>
 }
 
@@ -75,7 +75,7 @@ function NorthbornRouter() {
         ? <ProductionRoutes normalizedPath={normalizedPath} hasInvite={hasInvite} />
         : normalizedPath === '/fleet' && persona === 'operator'
           ? <FleetRoutePage />
-          : normalizedPath === '/safety' && persona === 'operator'
+          : (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) && persona === 'operator'
             ? <SafetyRoutePage />
             : <><RoleAwareApp /><AuthEnhancements /></>}
   </TestSupabaseBridge>

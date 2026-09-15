@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import OperatorJobCompletionActions from './OperatorJobCompletionActions'
 import './operator-app.css'
 
 const db = supabase as any
@@ -233,7 +234,7 @@ export default function OperatorAppV2({ userId, organizationId, organizationName
       <nav className="field-mobile-nav">{NAV.map(([name,path,Icon]) => <NavLink key={path} to={path} end={path === '/'}><Icon size={20}/><span>{name}</span></NavLink>)}</nav>
 
       {notice && <NoticeCard notice={notice} data={data} onDismiss={() => void dismissNotice()} onOpenJob={jobId => { if (data.jobs.some(job => job.id === jobId)) setSelectedJobId(jobId); void dismissNotice() }}/>} 
-      {selectedJob && <JobModal job={selectedJob} data={data} onClose={() => setSelectedJobId(null)}/>} 
+      {selectedJob && <JobModal job={selectedJob} data={data} organizationId={organizationId} organizationName={organizationName} onCompleted={()=>load(true)} onClose={() => setSelectedJobId(null)}/>} 
     </div>
   )
 }
@@ -267,7 +268,7 @@ function NoticeCard({ notice, data, onDismiss, onOpenJob }: { notice:Notificatio
   return <div className={removed?'field-assignment-alert field-removal-alert':'field-assignment-alert'} role="alert" aria-live="assertive"><button className="field-alert-close" onClick={onDismiss}><X size={18}/></button><div className="field-alert-icon">{removed?<X size={24}/>:equipment?<Truck size={24}/>:<BellRing size={24}/>}</div><div className="field-alert-copy"><span className="field-eyebrow">{removed?'REMOVED FROM JOB':equipment?'JOB EQUIPMENT UPDATED':'NEW JOB ASSIGNED'}</span><strong>{jobTitle}</strong>{notice.message&&notice.message!==jobTitle&&<span>{notice.message}</span>}{onsite&&<span>On site {formatDate(onsite)}</span>}</div>{canOpen&&notice.entity_id&&<button className="field-alert-action" onClick={()=>onOpenJob(notice.entity_id!)}>View job</button>}</div>
 }
 
-function JobModal({ job, data, onClose }: { job:Job; data:Data; onClose:()=>void }) {
+function JobModal({ job, data, organizationId, organizationName, onCompleted, onClose }: { job:Job; data:Data; organizationId:string; organizationName:string; onCompleted:()=>Promise<unknown>; onClose:()=>void }) {
   const [copied,setCopied]=useState(false)
   const contacts=useMemo(()=>data.contacts.filter(item=>item.job_id===job.id).sort((a,b)=>Number(b.is_primary)-Number(a.is_primary)),[data.contacts,job.id])
   const client=contacts[0]
@@ -282,7 +283,9 @@ function JobModal({ job, data, onClose }: { job:Job; data:Data; onClose:()=>void
       <section className="field-detail-section field-contacts-section"><div className="field-detail-heading"><Building2 size={19}/><span>Client</span></div>{client?<><strong>{client.customer_name}</strong>{client.customer_phone?<a href={`tel:${client.customer_phone}`}><Phone size={15}/><span>Main/company: {client.customer_phone}</span></a>:<span className="field-detail-muted">No main company number entered.</span>}<div className="field-contact-subheading">Field contacts</div>{fieldContacts.length?fieldContacts.map(contact=><div className="field-contact-card" key={contact.contact_id||`${job.id}-${contact.contact_name}`}><div><strong>{contact.contact_name||'Contact'}</strong>{contact.contact_title&&<span>{contact.contact_title}</span>}{contact.is_primary&&<small>Primary field contact</small>}</div>{contact.contact_phone&&<a href={`tel:${contact.contact_phone}`}><Phone size={15}/>{contact.contact_phone}</a>}{contact.contact_email&&<a href={`mailto:${contact.contact_email}`}><Mail size={15}/>{contact.contact_email}</a>}</div>):<span className="field-detail-muted">No field contact selected for this job.</span>}</>:<span className="field-detail-muted">Client contact information is unavailable.</span>}</section>
       <section className="field-detail-section"><div className="field-detail-heading"><Truck size={19}/><span>Assigned equipment</span></div>{units.length?units.map(unit=><span key={unit.id}>Unit {unit.unit_number} · {unit.name||unit.vehicle_type}</span>):<span className="field-detail-muted">No unit assigned.</span>}</section>
       <section className="field-detail-section field-notes-section"><div className="field-detail-heading"><FileText size={19}/><span>Job notes</span></div><p>{job.notes?.trim()||'No job notes have been added.'}</p></section>
-    </div><button className="field-modal-done" onClick={onClose}>Done</button>
+    </div>
+    <OperatorJobCompletionActions job={job} organizationId={organizationId} organizationName={organizationName} onCompleted={onCompleted}/>
+    <button className="field-modal-done" onClick={onClose}>Done</button>
   </section></div>
 }
 

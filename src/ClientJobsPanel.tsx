@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, BriefcaseBusiness, CalendarDays, ChevronRight, Clock3, FilePlus2, Headphones, MapPin, Phone, StickyNote, UserRound, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import { isTestMode, TEST_ORG, TEST_USERS } from './test-lab'
 import './client-jobs.css'
 
 const db = supabase as any
+const TEST_NOTIFICATION_KEY='northborn_test_table_v1_user_notifications'
 
 export type ClientPortalContact = {
   id:string
@@ -49,12 +51,23 @@ type ClientRequest = {
   client_notes:string|null
   status:string
   linked_job_id:string|null
+  decision_type:string|null
+  decision_reason:string|null
+  reviewed_at:string|null
   created_at:string
 }
 
 const readError=(e:unknown)=>e instanceof Error?e.message:String((e as {message?:string})?.message||e||'Something went wrong.')
 const statusLabel=(v:string)=>v.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())
 const fmt=(value:string|null)=>value?new Intl.DateTimeFormat('en-CA',{weekday:'short',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(value)):'Not scheduled'
+
+function addTestManagerRequestNotification(title:string,requestId:string){
+  let rows:any[]=[]
+  try{rows=JSON.parse(localStorage.getItem(TEST_NOTIFICATION_KEY)||'[]')}catch{}
+  rows.unshift({id:crypto.randomUUID(),organization_id:TEST_ORG.id,recipient_user_id:TEST_USERS.manager.id,notification_type:'job_request_submitted',title:'New client job request',message:`Northborn Test Client Company requested: ${title}`,entity_type:'job_request',entity_id:requestId,payload:{customer_name:'Northborn Test Client Company'},read_at:null,created_at:new Date().toISOString()})
+  localStorage.setItem(TEST_NOTIFICATION_KEY,JSON.stringify(rows))
+  window.dispatchEvent(new Event('northborn-test-notifications-changed'))
+}
 
 export default function ClientJobsPanel({customerId,portalRole,contacts,onMessage}:{customerId:string;portalRole:string;contacts:ClientPortalContact[];onMessage:(message:string)=>void}){
   const [jobs,setJobs]=useState<ClientJob[]>([])
@@ -72,7 +85,7 @@ export default function ClientJobsPanel({customerId,portalRole,contacts,onMessag
       db.rpc('get_my_customer_job_requests',{_customer_id:customerId}),
     ])
     if(j.error)onMessage(j.error.message);else setJobs(j.data||[])
-    if(r.error)onMessage(r.error.message);else setRequests(r.data||[])
+    if(r.error)onMessage(r.error.message);else setRequests((r.data||[]).map((item:any)=>({...item,decision_type:item.decision_type||null,decision_reason:item.decision_reason||null,reviewed_at:item.reviewed_at||null,status:item.status==='pending'?'submitted':item.status})))
     setLoading(false)
   },[customerId,onMessage])
 
@@ -127,8 +140,9 @@ export default function ClientJobsPanel({customerId,portalRole,contacts,onMessag
 
 function RequestList({requests}:{requests:ClientRequest[]}){
   return <div className="client-request-list">{requests.map(request=><div className="client-request-row" key={request.request_id}>
-    <div><span>{statusLabel(request.status)}</span><strong>{request.title}</strong><small>{request.site_name||request.site_address||'Site not set'}</small></div>
+    <div><span>{statusLabel(request.decision_type||request.status)}</span><strong>{request.title}</strong><small>{request.site_name||request.site_address||'Site not set'}</small></div>
     <div><b>Requested</b><span>{fmt(request.requested_start)}</span>{request.onsite_contact_name&&<small>Onsite: {request.onsite_contact_name}</small>}</div>
+    {request.decision_reason&&<div className="client-request-decision"><b>{request.decision_type==='declined'?'Reason':'Changes from your request'}</b><span>{request.decision_reason}</span>{request.reviewed_at&&<small>Reviewed {fmt(request.reviewed_at)}</small>}</div>}
     {request.linked_job_id&&<span className="client-request-linked">Job created</span>}
   </div>)}{!requests.length&&<div className="portal-empty">No job requests yet.</div>}</div>
 }
@@ -170,7 +184,7 @@ function ClientJobModal({customerId,job,contacts,canEdit,onClose,onSaved,onMessa
 
     <label className="client-job-field"><span><StickyNote size={14}/>Your company notes</span>{canEdit?<textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Add notes your team wants attached to this job."/>:<div className="client-readonly-field">{job.client_notes||'No client notes.'}</div>}</label>
 
-    <div className="client-invoice-placeholder"><b>Invoices</b><span>Invoices tied to this job will appear here when billing is enabled.</span></div>
+    <div className="client-invoice-placeholder"><b>Invoices</b><span>Issued invoices for this work are available in the Invoices section of your client portal.</span></div>
     <div className="portal-modal-actions"><button className="portal-secondary" onClick={onClose}>Close</button>{canEdit&&<button className="portal-primary" disabled={busy} onClick={()=>void save()}>{busy?'Saving…':'Save changes'}</button>}</div>
   </section></div>
 }
@@ -191,7 +205,8 @@ function RequestJobModal({customerId,contacts,onClose,onCreated,onMessage}:{cust
         _client_notes:form.client_notes.trim(),
       })
       if(r.error)throw r.error
-      onMessage('Job request submitted.')
+      if(isTestMode())addTestManagerRequestNotification(form.title.trim(),String(r.data||crypto.randomUUID()))
+      onMessage('Job request submitted. Your service provider has been notified.')
       await onCreated()
     }catch(err){onMessage(readError(err))}finally{setBusy(false)}
   }

@@ -45,7 +45,7 @@ const OPERATOR_NAV = [
   ['Home', '/', Home],
   ['My Jobs', '/jobs', BriefcaseBusiness],
   ['Safety', '/safety', ShieldCheck],
-  ['FLHA', '/safety/flha', ClipboardCheck],
+  ['Tickets', '/tickets', ClipboardCheck],
   ['Timesheets', '/timesheets', HardHat],
 ] as const
 
@@ -144,6 +144,7 @@ export default function SafetyRoutePage() {
       </aside>
       <main className="field-main">
         <header className="field-topbar"><div><span className="field-top-label">FIELD WORKSPACE</span><strong>{context.organizationName}</strong></div><div className={online ? 'field-connection online' : 'field-connection offline'}>{online ? <Wifi size={15}/> : <WifiOff size={15}/>} {online ? 'Online' : 'Offline'}</div></header>
+        {!isFlha && <div className="operator-flha-shortcut no-print"><NavLink to="/safety/flha"><ClipboardCheck size={18}/><span><strong>Start full FLHA</strong><small>Job autofill, hazard rows, crew sign on and reassessments</small></span></NavLink></div>}
         {safetyContent}
       </main>
       <nav className="field-mobile-nav">{OPERATOR_NAV.map(([name, path, Icon]) => <NavLink key={path} to={path} end={path === '/'}><Icon size={20}/><span>{name}</span></NavLink>)}</nav>

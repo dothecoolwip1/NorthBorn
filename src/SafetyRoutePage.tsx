@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { MouseEvent, Session } from '@supabase/supabase-js'
+import type { MouseEvent } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import { Navigate, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   BriefcaseBusiness,

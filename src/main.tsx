@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, useLocation } from 'react-router-dom'
+import type { Session } from '@supabase/supabase-js'
 import RoleAwareApp from './RoleAwareApp'
 import AuthEnhancements from './AuthEnhancements'
 import TeamAccessPage from './TeamAccessPage'
@@ -19,33 +20,51 @@ import SafetyRoutePage from './SafetyRoutePage'
 import GlobalAccountMenu from './GlobalAccountMenu'
 import LogoutPage from './LogoutPage'
 import AppErrorBoundary from './AppErrorBoundary'
+import { supabase } from './lib/supabase'
 import './styles.css'
 import './contact-hierarchy.css'
 import './mobile-first.css'
 
-const RETIRED_TEST_KEYS = [
-  'northborn_test_mode',
-  'northborn_test_persona',
-]
-
+const RETIRED_TEST_KEYS = ['northborn_test_mode', 'northborn_test_persona']
 for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)
 
-function ProductionRoutes({ normalizedPath, hasInvite }:{ normalizedPath:string; hasInvite:boolean }) {
+type RouteRole = 'loading' | 'guest' | 'manager' | 'operator' | 'client'
+const db = supabase as any
+
+function StandardApp() {
+  return <><RoleAwareApp /><AuthEnhancements /></>
+}
+
+function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole }) {
   if (normalizedPath === '/logout') return <LogoutPage />
-  if (normalizedPath === '/team-access') return <TeamAccessPage />
   if (normalizedPath === '/client-join') return <ClientJoinPage />
   if (normalizedPath === '/join' || (hasInvite && normalizedPath !== '/client-join')) return <JoinOrganizationPage />
-  if (normalizedPath === '/dispatch') return <ManagerDispatchPage />
-  if (normalizedPath === '/calendar') return <OperationsCalendarPage />
-  if (normalizedPath === '/customers') return <ManagerClientsPage />
-  if (normalizedPath === '/jobs') return <ManagerJobsPage />
-  if (normalizedPath === '/fleet') return <FleetRoutePage />
-  if (normalizedPath === '/fleet-access') return <EmployeeFleetAccessPage />
-  if (normalizedPath === '/maintenance') return <ManagerMaintenancePage />
-  if (normalizedPath === '/invoices') return <ManagerInvoicesPageV2 />
-  if (normalizedPath === '/pricing') return <ManagerPricingPage />
-  if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) return <SafetyRoutePage />
-  return <><RoleAwareApp /><AuthEnhancements /></>
+
+  if (routeRole === 'loading') return <div className="center-screen">Loading your Northborn workspace…</div>
+
+  if (routeRole === 'operator') {
+    if (normalizedPath === '/fleet') return <FleetRoutePage />
+    if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) return <SafetyRoutePage />
+    return <StandardApp />
+  }
+
+  if (routeRole === 'client') return <StandardApp />
+
+  if (routeRole === 'manager') {
+    if (normalizedPath === '/team-access') return <TeamAccessPage />
+    if (normalizedPath === '/dispatch') return <ManagerDispatchPage />
+    if (normalizedPath === '/calendar') return <OperationsCalendarPage />
+    if (normalizedPath === '/customers') return <ManagerClientsPage />
+    if (normalizedPath === '/jobs') return <ManagerJobsPage />
+    if (normalizedPath === '/fleet') return <FleetRoutePage />
+    if (normalizedPath === '/fleet-access') return <EmployeeFleetAccessPage />
+    if (normalizedPath === '/maintenance') return <ManagerMaintenancePage />
+    if (normalizedPath === '/invoices') return <ManagerInvoicesPageV2 />
+    if (normalizedPath === '/pricing') return <ManagerPricingPage />
+    if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) return <SafetyRoutePage />
+  }
+
+  return <StandardApp />
 }
 
 function NorthbornRouter() {
@@ -53,7 +72,56 @@ function NorthbornRouter() {
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/'
   const params = new URLSearchParams(location.search)
   const hasInvite = params.has('invite')
-  return <ProductionRoutes normalizedPath={normalizedPath} hasInvite={hasInvite} />
+  const [session, setSession] = React.useState<Session | null>(null)
+  const [routeRole, setRouteRole] = React.useState<RouteRole>('loading')
+
+  React.useEffect(() => {
+    let active = true
+    void supabase.auth.getSession().then(({ data }) => { if (active) setSession(data.session) })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => { if (active) setSession(next) })
+    return () => { active = false; listener.subscription.unsubscribe() }
+  }, [])
+
+  React.useEffect(() => {
+    let active = true
+    const resolveRole = async () => {
+      if (!session?.user.id) {
+        if (active) setRouteRole('guest')
+        return
+      }
+
+      setRouteRole('loading')
+      const membership = await db.from('organization_members')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle()
+
+      if (!active) return
+      if (!membership.error && membership.data?.id) {
+        const roles = await db.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id)
+        if (!active) return
+        const roleKey = roles.data?.[0]?.role?.key || ''
+        setRouteRole(roleKey === 'operator' ? 'operator' : 'manager')
+        return
+      }
+
+      const portal = await db.rpc('get_my_customer_portal_context')
+      if (!active) return
+      if (!portal.error && portal.data?.length) {
+        setRouteRole('client')
+        return
+      }
+
+      setRouteRole('guest')
+    }
+
+    void resolveRole()
+    return () => { active = false }
+  }, [session?.user.id])
+
+  return <RoutedWorkspace normalizedPath={normalizedPath} hasInvite={hasInvite} routeRole={routeRole} />
 }
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '')

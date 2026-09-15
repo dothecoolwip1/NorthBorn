@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { useNavigate } from 'react-router-dom'
-import { BellRing, Building2, Check, CircleDollarSign, HardHat, LogOut, Menu, ShieldCheck, Trash2, Truck, UserRound, Users, X } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, CircleDollarSign, ClipboardCheck, ContactRound, Gauge, HardHat, LogOut, Menu, ReceiptText, ShieldCheck, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { FUNCTIONAL_TEST_USERS, personaFromSession, switchFunctionalTestPersona, type FunctionalTestPersona } from './functional-test-auth'
 import './global-account-menu.css'
@@ -11,6 +11,28 @@ const personas = [
   ['manager', FUNCTIONAL_TEST_USERS.manager.email, ShieldCheck],
   ['operator', FUNCTIONAL_TEST_USERS.operator.email, HardHat],
   ['client', FUNCTIONAL_TEST_USERS.client.email, Building2],
+] as const
+
+const managerNavigation = [
+  ['Dashboard','/',Gauge],
+  ['Calendar','/calendar',CalendarDays],
+  ['Dispatch','/dispatch',CalendarDays],
+  ['Jobs','/jobs',BriefcaseBusiness],
+  ['Customers','/customers',ContactRound],
+  ['Employees','/employees',Users],
+  ['Fleet','/fleet',Truck],
+  ['Maintenance','/maintenance',Wrench],
+  ['Safety','/safety',ShieldCheck],
+  ['Invoices','/invoices',ReceiptText],
+] as const
+
+const operatorNavigation = [
+  ['Home','/',Gauge],
+  ['My jobs','/jobs',BriefcaseBusiness],
+  ['Safety','/safety',ShieldCheck],
+  ['Tickets','/tickets',ClipboardCheck],
+  ['Timesheets','/timesheets',HardHat],
+  ['My unit','/fleet',Truck],
 ] as const
 
 type Notification = {
@@ -34,6 +56,7 @@ const fmt = (value: string) => new Intl.DateTimeFormat('en-CA', {
 
 export default function GlobalAccountMenu() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [session, setSession] = useState<Session | null>(null)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -51,6 +74,8 @@ export default function GlobalAccountMenu() {
   const canTeam = ['owner', 'admin'].includes(effectiveRole)
   const canPricing = ['owner', 'admin', 'accounting'].includes(effectiveRole)
   const isOperator = effectiveRole === 'operator'
+  const isClient = effectiveRole === 'client'
+  const navigation = isClient ? [['Portal home','/',Building2] as const] : isOperator ? operatorNavigation : managerNavigation
 
   useEffect(() => {
     let active = true
@@ -199,6 +224,11 @@ export default function GlobalAccountMenu() {
     {open && <div className="northborn-account-popover" role="dialog" aria-label="Northborn menu">
       <div className="northborn-account-heading"><UserRound size={18}/><div><strong>{isFunctionalTest ? 'Test account' : 'Northborn account'}</strong><span>{persona ? FUNCTIONAL_TEST_USERS[persona].email : session.user.email}</span></div></div>
 
+      <div className="northborn-account-section-title">Navigation</div>
+      <div className="northborn-menu-links northborn-navigation-links">
+        {navigation.map(([name,path,Icon]) => <button type="button" key={path} className={location.pathname===path?'active':''} onClick={()=>go(path)}><Icon size={18}/><span><strong>{name}</strong></span></button>)}
+      </div>
+
       <div className="northborn-account-section-title northborn-notification-title">
         <span>Notifications {unreadCount > 0 && <b>{unreadCount}</b>}</span>
         <div>{unreadCount > 0 && <button type="button" onClick={() => void markAllRead()}><Check size={14}/>Read</button>}{notifications.length > 0 && <button type="button" className="clear" onClick={() => void clearAll()}><Trash2 size={14}/>Clear</button>}</div>
@@ -208,10 +238,9 @@ export default function GlobalAccountMenu() {
         {!notifications.length && <div className="northborn-notification-empty">No notifications yet.</div>}
       </div>
 
-      {(canTeam || canPricing || isOperator) && <><div className="northborn-account-section-title">Quick access</div><div className="northborn-menu-links">
+      {(canTeam || canPricing) && <><div className="northborn-account-section-title">Quick access</div><div className="northborn-menu-links">
         {canTeam && <button type="button" onClick={() => go('/team-access')}><Users size={18}/><span><strong>Team access</strong><small>Invite and manage staff</small></span></button>}
         {canPricing && <button type="button" onClick={() => go('/pricing')}><CircleDollarSign size={18}/><span><strong>Price sheet</strong><small>Standard and client rates</small></span></button>}
-        {isOperator && <button type="button" onClick={() => go('/fleet')}><Truck size={18}/><span><strong>My unit</strong><small>Assigned fleet information</small></span></button>}
       </div></>}
 
       {isFunctionalTest && <><div className="northborn-account-section-title">Switch test account</div><div className="northborn-test-account-list">

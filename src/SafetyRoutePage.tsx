@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { Session } from '@supabase/supabase-js'
-import { Navigate, NavLink, useLocation } from 'react-router-dom'
+import type { MouseEvent, Session } from '@supabase/supabase-js'
+import { Navigate, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   BriefcaseBusiness,
   CalendarDays,
@@ -60,6 +60,7 @@ type Context = {
 
 export default function SafetyRoutePage() {
   const location = useLocation()
+  const navigate = useNavigate()
   const [session, setSession] = useState<Session | null>(null)
   const [context, setContext] = useState<Context | null>(null)
   const [loading, setLoading] = useState(true)
@@ -124,6 +125,19 @@ export default function SafetyRoutePage() {
     window.location.href = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
   }
 
+  const interceptLegacyFlha = (event: MouseEvent<HTMLElement>) => {
+    if (location.pathname.replace(/\/+$/, '') === '/safety/flha') return
+    const target = event.target as HTMLElement
+    const button = target.closest('button')
+    if (!button) return
+    const isOverviewFlha = button.textContent?.includes('Complete an FLHA')
+    const isFormGridFlha = Boolean(button.closest('.safety-form-grid')) && button.querySelector('strong')?.textContent?.trim() === 'FLHA'
+    if (!isOverviewFlha && !isFormGridFlha) return
+    event.preventDefault()
+    event.stopPropagation()
+    navigate('/safety/flha')
+  }
+
   if (loading) return <div className="center-screen">Loading safety workspace…</div>
   if (!session) return <Navigate to="/" replace />
   if (error) return <div className="center-screen"><div className="safety-route-error"><ShieldCheck size={36}/><strong>Safety workspace unavailable</strong><span>{error}</span><NavLink to="/">Back to Northborn</NavLink></div></div>
@@ -142,7 +156,7 @@ export default function SafetyRoutePage() {
         <nav className="field-nav">{OPERATOR_NAV.map(([name, path, Icon]) => <NavLink key={path} to={path} end={path === '/'}><Icon size={19}/><span>{name}</span></NavLink>)}</nav>
         <button className="field-signout" onClick={() => void signOut()}><LogOut size={18}/>Sign out</button>
       </aside>
-      <main className="field-main">
+      <main className="field-main" onClickCapture={interceptLegacyFlha}>
         <header className="field-topbar"><div><span className="field-top-label">FIELD WORKSPACE</span><strong>{context.organizationName}</strong></div><div className={online ? 'field-connection online' : 'field-connection offline'}>{online ? <Wifi size={15}/> : <WifiOff size={15}/>} {online ? 'Online' : 'Offline'}</div></header>
         {!isFlha && <div className="operator-flha-shortcut no-print"><NavLink to="/safety/flha"><ClipboardCheck size={18}/><span><strong>Start full FLHA</strong><small>Job autofill, hazard rows, crew sign on and reassessments</small></span></NavLink></div>}
         {safetyContent}
@@ -158,7 +172,7 @@ export default function SafetyRoutePage() {
       <nav>{MANAGER_NAV.map(([name, path, Icon]) => <NavLink key={path} to={path} end={path === '/'} onClick={() => setMobileOpen(false)}><Icon size={19}/><span>{name}</span></NavLink>)}</nav>
       <button className="signout" onClick={() => void signOut()}><LogOut size={18}/>Sign out</button>
     </aside>
-    <main className="content">
+    <main className="content" onClickCapture={interceptLegacyFlha}>
       <header><button className="menu-button" aria-label="Open navigation" onClick={() => setMobileOpen(current => !current)}><Menu/></button><div className="header-actions"><div className={online ? 'connection online' : 'connection offline'}>{online ? <Wifi size={16}/> : <WifiOff size={16}/>} {online ? 'Online' : 'Offline'}</div></div></header>
       {safetyContent}
     </main>

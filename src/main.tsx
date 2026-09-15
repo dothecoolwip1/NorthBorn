@@ -11,6 +11,7 @@ import ManagerDispatchPage from './ManagerDispatchPage'
 import OperationsCalendarPage from './OperationsCalendarPage'
 import ManagerClientsPage from './ManagerClientsPage'
 import ManagerJobsPage from './ManagerJobsPage'
+import ManagerEmployeesPage from './ManagerEmployeesPage'
 import FleetRoutePage from './FleetRoutePage'
 import ManagerMaintenancePage from './ManagerMaintenancePage'
 import ManagerInvoicesPageV2 from './ManagerInvoicesPageV2'
@@ -24,6 +25,7 @@ import { supabase } from './lib/supabase'
 import './styles.css'
 import './contact-hierarchy.css'
 import './mobile-first.css'
+import './mobile-polish.css'
 
 const RETIRED_TEST_KEYS = ['northborn_test_mode', 'northborn_test_persona']
 for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)
@@ -56,6 +58,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
     if (normalizedPath === '/calendar') return <OperationsCalendarPage />
     if (normalizedPath === '/customers') return <ManagerClientsPage />
     if (normalizedPath === '/jobs') return <ManagerJobsPage />
+    if (normalizedPath === '/employees') return <ManagerEmployeesPage />
     if (normalizedPath === '/fleet') return <FleetRoutePage />
     if (normalizedPath === '/fleet-access') return <EmployeeFleetAccessPage />
     if (normalizedPath === '/maintenance') return <ManagerMaintenancePage />

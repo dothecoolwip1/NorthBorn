@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { supabase } from './lib/supabase'
+import { signInFunctionalTestAdmin } from './functional-test-auth'
 import './auth-enhancements.css'
 
 const PRODUCTION_URL = 'https://northborn.vercel.app'
@@ -23,8 +24,6 @@ function showAuthMessage(card: Element, message: string) {
 function enhanceAuthCard() {
   const card = document.querySelector('.auth-card')
   if (!card) return
-
-  card.querySelector('.test-login-hint')?.remove()
 
   const passwordInput = Array.from(card.querySelectorAll<HTMLInputElement>('input')).find(
     input => input.type === 'password' || input.dataset.northbornPassword === 'true',
@@ -55,21 +54,19 @@ function enhanceAuthCard() {
   if (form && form.dataset.northbornRealAuth !== 'true') {
     form.dataset.northbornRealAuth = 'true'
     form.addEventListener('submit', async event => {
-      event.preventDefault()
-      event.stopPropagation()
-
       const inputs = Array.from(form.querySelectorAll<HTMLInputElement>('input'))
       const emailInput = inputs.find(input => input !== passwordInput && input.type !== 'hidden')
       const submitButton = form.querySelector<HTMLButtonElement>('button[type="submit"]')
       const email = emailInput?.value.trim() || ''
       const password = passwordInput?.value || ''
       const creating = Boolean(submitButton?.textContent?.toLowerCase().includes('create account'))
+      const normalized = email.toLowerCase()
 
       if (!email || !password) return
-      if (!email.includes('@')) {
-        showAuthMessage(card, 'Use a real email address. The old admin test login has been retired so Northborn can test real email, uploads and database actions.')
-        return
-      }
+
+      event.preventDefault()
+      event.stopPropagation()
+      event.stopImmediatePropagation()
 
       const oldText = submitButton?.textContent || ''
       if (submitButton) {
@@ -78,26 +75,41 @@ function enhanceAuthCard() {
       }
       showAuthMessage(card, '')
 
-      const result = creating
-        ? await supabase.auth.signUp({
-            email,
-            password,
-            options: { emailRedirectTo: getAuthRedirectUrl() },
-          })
-        : await supabase.auth.signInWithPassword({ email, password })
+      try {
+        if (!creating && normalized === 'admin') {
+          await signInFunctionalTestAdmin(email, password)
+          window.location.replace(getAuthRedirectUrl())
+          return
+        }
 
-      if (submitButton) {
-        submitButton.disabled = false
-        submitButton.textContent = oldText
-      }
+        if (!email.includes('@')) {
+          showAuthMessage(card, 'Enter admin / admin for the functional test workspace, or use a real email address.')
+          return
+        }
 
-      if (result.error) {
-        showAuthMessage(card, result.error.message)
-        return
-      }
+        const result = creating
+          ? await supabase.auth.signUp({
+              email,
+              password,
+              options: { emailRedirectTo: getAuthRedirectUrl() },
+            })
+          : await supabase.auth.signInWithPassword({ email, password })
 
-      if (creating && !result.data.session) {
-        showAuthMessage(card, 'Check your email to confirm your Northborn account.')
+        if (result.error) {
+          showAuthMessage(card, result.error.message)
+          return
+        }
+
+        if (creating && !result.data.session) {
+          showAuthMessage(card, 'Check your email to confirm your Northborn account.')
+        }
+      } catch (caught) {
+        showAuthMessage(card, caught instanceof Error ? caught.message : String(caught))
+      } finally {
+        if (submitButton) {
+          submitButton.disabled = false
+          submitButton.textContent = oldText
+        }
       }
     }, true)
   }

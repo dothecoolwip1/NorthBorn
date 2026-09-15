@@ -36,7 +36,7 @@ async function signInPersona(persona: FunctionalTestPersona, enteredPassword: st
   })
   if (result.error) {
     if (result.error.message.toLowerCase().includes('invalid login')) {
-      throw new Error('The Northborn functional test users have not been initialized yet.')
+      throw new Error('Test accounts need one time activation. Sign in with your existing Northborn owner account, open the hamburger menu, and tap Activate admin test login. After that, admin / admin works normally.')
     }
     throw result.error
   }

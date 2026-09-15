@@ -1,9 +1,12 @@
 export const TEST_MODE_KEY = 'northborn_test_mode'
 export const TEST_PERSONA_KEY = 'northborn_test_persona'
 export const TEST_DATA_KEY = 'northborn_test_data_v3'
+export const TEST_SCHEMA_VERSION_KEY = 'northborn_test_schema_version'
 export const TEST_CLIENT_REQUESTS_KEY = 'northborn_test_client_requests_v1'
 export const TEST_CLIENT_CONTACTS_KEY = 'northborn_test_client_contacts_v1'
 export const TEST_CLIENT_JOB_META_KEY = 'northborn_test_client_job_meta_v1'
+
+const CURRENT_TEST_SCHEMA_VERSION = '2'
 
 export type TestPersona = 'manager' | 'operator' | 'client'
 
@@ -57,6 +60,85 @@ function seed(): TestLabData {
   }
 }
 
+function normalizeTestData(value: unknown): TestLabData | null {
+  if (!value || typeof value !== 'object') return null
+  const parsed = value as Partial<TestLabData>
+  if (![parsed.customers, parsed.employees, parsed.vehicles, parsed.jobs, parsed.assignments].every(Array.isArray)) return null
+
+  const customers = parsed.customers!.map(customer => ({
+    id: customer.id || uid(),
+    organization_id: TEST_ORG.id,
+    name: customer.name || 'Test Client',
+    billing_email: customer.billing_email ?? null,
+    phone: customer.phone ?? null,
+    address: customer.address ?? null,
+    notes: customer.notes ?? null,
+    status: customer.status || 'active',
+  }))
+
+  const employees = parsed.employees!.map(employee => ({
+    id: employee.id || uid(),
+    organization_id: TEST_ORG.id,
+    user_id: employee.user_id ?? null,
+    first_name: employee.first_name || 'Test',
+    last_name: employee.last_name || 'Employee',
+    email: employee.email ?? null,
+    phone: employee.phone ?? null,
+    position: employee.position ?? null,
+    status: employee.status || 'active',
+  }))
+
+  const operator = employees.find(employee => employee.position?.toLowerCase() === 'operator')
+  if (operator) {
+    operator.user_id = TEST_USERS.operator.id
+    operator.email = operator.email || TEST_USERS.operator.email
+  }
+
+  const vehicles = parsed.vehicles!.map(vehicle => ({
+    id: vehicle.id || uid(),
+    organization_id: TEST_ORG.id,
+    unit_number: vehicle.unit_number || 'TEST',
+    name: vehicle.name ?? null,
+    vehicle_type: vehicle.vehicle_type || 'Truck',
+    plate: vehicle.plate ?? null,
+    status: vehicle.status || 'available',
+    odometer_km: vehicle.odometer_km ?? null,
+    engine_hours: vehicle.engine_hours ?? null,
+  }))
+
+  const jobs = parsed.jobs!.map(job => ({
+    id: job.id || uid(),
+    organization_id: TEST_ORG.id,
+    customer_id: job.customer_id || customers[0]?.id || 'test-customer',
+    job_number: job.job_number || `TEST-${Date.now()}`,
+    title: job.title || 'Test Job',
+    site_name: job.site_name ?? null,
+    site_address: job.site_address ?? null,
+    scheduled_start: job.scheduled_start ?? job.onsite_time ?? null,
+    scheduled_end: job.scheduled_end ?? null,
+    status: job.status || 'scheduled',
+    notes: job.notes ?? null,
+    shop_time: job.shop_time ?? null,
+    onsite_time: job.onsite_time ?? job.scheduled_start ?? null,
+    completed_at: job.completed_at ?? null,
+  }))
+
+  const assignments = parsed.assignments!.map(assignment => ({
+    id: assignment.id || uid(),
+    organization_id: TEST_ORG.id,
+    job_id: assignment.job_id,
+    employee_id: assignment.employee_id ?? null,
+    vehicle_id: assignment.vehicle_id ?? null,
+    role: assignment.role ?? null,
+  })).filter(assignment => Boolean(assignment.job_id))
+
+  return { customers, employees, vehicles, jobs, assignments }
+}
+
+function storeSchemaVersion() {
+  try { localStorage.setItem(TEST_SCHEMA_VERSION_KEY, CURRENT_TEST_SCHEMA_VERSION) } catch {}
+}
+
 export function isTestMode() { return localStorage.getItem(TEST_MODE_KEY) === '1' }
 export function getTestPersona(): TestPersona {
   const value = localStorage.getItem(TEST_PERSONA_KEY)
@@ -75,11 +157,13 @@ export function readTestLabData(): TestLabData {
   try {
     const raw = localStorage.getItem(TEST_DATA_KEY)
     if (raw) {
-      const parsed = JSON.parse(raw) as Partial<TestLabData>
-      if (parsed.customers && parsed.employees && parsed.vehicles && parsed.jobs && parsed.assignments) {
-        const operator = parsed.employees.find(e => e.position?.toLowerCase() === 'operator')
-        if (operator && operator.user_id !== TEST_USERS.operator.id) operator.user_id = TEST_USERS.operator.id
-        return parsed as TestLabData
+      const normalized = normalizeTestData(JSON.parse(raw))
+      if (normalized) {
+        if (localStorage.getItem(TEST_SCHEMA_VERSION_KEY) !== CURRENT_TEST_SCHEMA_VERSION) {
+          localStorage.setItem(TEST_DATA_KEY, JSON.stringify(normalized))
+          storeSchemaVersion()
+        }
+        return normalized
       }
     }
   } catch {}
@@ -88,7 +172,9 @@ export function readTestLabData(): TestLabData {
   return fresh
 }
 export function writeTestLabData(data: TestLabData) {
-  localStorage.setItem(TEST_DATA_KEY, JSON.stringify(data))
+  const normalized = normalizeTestData(data) || seed()
+  localStorage.setItem(TEST_DATA_KEY, JSON.stringify(normalized))
+  storeSchemaVersion()
   window.dispatchEvent(new Event('northborn-test-data-changed'))
 }
 export function resetTestLabData() {
@@ -117,7 +203,10 @@ export type TestClientContact = { id:string; name:string; title:string|null; pho
 export function readTestClientContacts(): TestClientContact[] {
   try {
     const raw = localStorage.getItem(TEST_CLIENT_CONTACTS_KEY)
-    if (raw) return JSON.parse(raw) as TestClientContact[]
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed as TestClientContact[]
+    }
   } catch {}
   const contacts: TestClientContact[] = [
     { id:uid(), name:'Site Contact', title:'Field Supervisor', phone:'403-555-0199', email:'site@test.com', contact_type:'field', status:'active', updated_at:new Date().toISOString() },
@@ -127,6 +216,6 @@ export function readTestClientContacts(): TestClientContact[] {
   return contacts
 }
 export function writeTestClientContacts(contacts: TestClientContact[]) {
-  localStorage.setItem(TEST_CLIENT_CONTACTS_KEY, JSON.stringify(contacts))
+  localStorage.setItem(TEST_CLIENT_CONTACTS_KEY, JSON.stringify(Array.isArray(contacts) ? contacts : []))
   window.dispatchEvent(new Event('northborn-test-data-changed'))
 }

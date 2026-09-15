@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { Building2, HardHat, LogOut, ShieldCheck, UserRound } from 'lucide-react'
+import { Building2, HardHat, LogOut, Menu, ShieldCheck, UserRound, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { clearTestLab, getTestPersona, isTestMode, setTestPersona, TEST_USERS, type TestPersona } from './test-lab'
 import './global-account-menu.css'
@@ -62,26 +62,31 @@ export default function GlobalAccountMenu() {
   const activeUser = TEST_USERS[persona]
 
   return <div className="northborn-account-menu">
-    {open && <div className="northborn-account-popover">
+    {open && <button className="northborn-account-scrim" type="button" aria-label="Close menu" onClick={() => setOpen(false)} />}
+    {open && <div className="northborn-account-popover" role="dialog" aria-label="Northborn menu">
       <div className="northborn-account-heading">
         <UserRound size={18}/>
         <div>
-          <strong>{testMode ? 'Northborn test accounts' : 'Northborn account'}</strong>
+          <strong>{testMode ? 'Test account' : 'Northborn account'}</strong>
           <span>{testMode ? activeUser.email : session?.user.email}</span>
         </div>
       </div>
 
       {testMode && <>
-        <p className="northborn-account-note">These use the real Northborn screens and one shared test workspace. Switching accounts does not require another login.</p>
+        <div className="northborn-account-section-title">Switch workspace</div>
         <div className="northborn-test-account-list">
           {personas.map(([key,email,Icon]) => <button key={key} type="button" className={persona===key?'active':''} onClick={()=>switchPersona(key)}>
-            <Icon size={17}/><div><strong>{email}</strong><span>{key[0].toUpperCase()+key.slice(1)} account</span></div>{persona===key&&<em>Active</em>}
+            <Icon size={18}/><div><strong>{key[0].toUpperCase()+key.slice(1)}</strong><span>{email}</span></div>{persona===key&&<em>Active</em>}
           </button>)}
         </div>
       </>}
 
-      <button className="northborn-account-signout" type="button" disabled={busy} onClick={() => void signOut()}><LogOut size={16}/>{busy ? 'Signing out…' : 'Sign out'}</button>
+      <button className="northborn-account-signout" type="button" disabled={busy} onClick={() => void signOut()}><LogOut size={17}/>{busy ? 'Signing out…' : 'Sign out'}</button>
     </div>}
-    <button className="northborn-account-trigger" type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-label="Open account menu"><UserRound size={17}/><span>{testMode ? activeUser.email : 'Account'}</span></button>
+    <button className="northborn-account-trigger" type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-label={open ? 'Close Northborn menu' : 'Open Northborn menu'}>
+      <span className="northborn-account-mobile-icon">{open ? <X size={22}/> : <Menu size={23}/>}</span>
+      <span className="northborn-account-desktop-icon"><UserRound size={17}/></span>
+      <span className="northborn-account-trigger-label">{testMode ? activeUser.email : 'Account'}</span>
+    </button>
   </div>
 }

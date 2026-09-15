@@ -6,16 +6,16 @@ const PRODUCTION_URL = 'https://northborn.vercel.app'
 
 function getAuthRedirectUrl() {
   if (window.location.hostname.endsWith('vercel.app')) return PRODUCTION_URL
-  return window.location.origin
+  return new URL(import.meta.env.BASE_URL, window.location.origin).toString()
 }
 
-function showOauthError(card: Element, message: string) {
+function showAuthMessage(card: Element, message: string) {
   let messageBox = card.querySelector<HTMLDivElement>('.oauth-message')
   if (!messageBox) {
     messageBox = document.createElement('div')
     messageBox.className = 'message oauth-message'
-    const googleButton = card.querySelector('.google-auth-button')
-    googleButton?.insertAdjacentElement('afterend', messageBox)
+    const form = card.querySelector('form')
+    form?.insertAdjacentElement('afterend', messageBox)
   }
   messageBox.textContent = message
 }
@@ -23,6 +23,8 @@ function showOauthError(card: Element, message: string) {
 function enhanceAuthCard() {
   const card = document.querySelector('.auth-card')
   if (!card) return
+
+  card.querySelector('.test-login-hint')?.remove()
 
   const passwordInput = Array.from(card.querySelectorAll<HTMLInputElement>('input')).find(
     input => input.type === 'password' || input.dataset.northbornPassword === 'true',
@@ -49,10 +51,58 @@ function enhanceAuthCard() {
     }
   }
 
-  // Only the real sign-in/sign-up card has a password field. This prevents
-  // Google OAuth controls from appearing on company onboarding screens.
+  const form = passwordInput?.closest('form') as HTMLFormElement | null
+  if (form && form.dataset.northbornRealAuth !== 'true') {
+    form.dataset.northbornRealAuth = 'true'
+    form.addEventListener('submit', async event => {
+      event.preventDefault()
+      event.stopPropagation()
+
+      const inputs = Array.from(form.querySelectorAll<HTMLInputElement>('input'))
+      const emailInput = inputs.find(input => input !== passwordInput && input.type !== 'hidden')
+      const submitButton = form.querySelector<HTMLButtonElement>('button[type="submit"]')
+      const email = emailInput?.value.trim() || ''
+      const password = passwordInput?.value || ''
+      const creating = Boolean(submitButton?.textContent?.toLowerCase().includes('create account'))
+
+      if (!email || !password) return
+      if (!email.includes('@')) {
+        showAuthMessage(card, 'Use a real email address. The old admin test login has been retired so Northborn can test real email, uploads and database actions.')
+        return
+      }
+
+      const oldText = submitButton?.textContent || ''
+      if (submitButton) {
+        submitButton.disabled = true
+        submitButton.textContent = 'Working…'
+      }
+      showAuthMessage(card, '')
+
+      const result = creating
+        ? await supabase.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: getAuthRedirectUrl() },
+          })
+        : await supabase.auth.signInWithPassword({ email, password })
+
+      if (submitButton) {
+        submitButton.disabled = false
+        submitButton.textContent = oldText
+      }
+
+      if (result.error) {
+        showAuthMessage(card, result.error.message)
+        return
+      }
+
+      if (creating && !result.data.session) {
+        showAuthMessage(card, 'Check your email to confirm your Northborn account.')
+      }
+    }, true)
+  }
+
   if (passwordInput && !card.querySelector('.google-auth-button')) {
-    const form = card.querySelector('form')
     if (!form) return
 
     const divider = document.createElement('div')
@@ -71,7 +121,7 @@ function enhanceAuthCard() {
       })
       if (error) {
         googleButton.removeAttribute('disabled')
-        showOauthError(card, error.message)
+        showAuthMessage(card, error.message)
       }
     })
 

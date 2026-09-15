@@ -5,8 +5,10 @@ import { BellRing, Building2, Check, CircleDollarSign, HardHat, LogOut, Menu, Sh
 import { supabase } from './lib/supabase'
 import {
   clearFunctionalTestUnlock,
+  deriveFunctionalTestPassword,
   FUNCTIONAL_TEST_USERS,
   personaFromSession,
+  signInFunctionalTestAdmin,
   switchFunctionalTestPersona,
   type FunctionalTestPersona,
 } from './functional-test-auth'
@@ -43,6 +45,7 @@ export default function GlobalAccountMenu() {
   const [session, setSession] = useState<Session | null>(null)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [initializing, setInitializing] = useState(false)
   const [switching, setSwitching] = useState<FunctionalTestPersona | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [toast, setToast] = useState<Toast | null>(null)
@@ -58,6 +61,7 @@ export default function GlobalAccountMenu() {
   const canTeam = ['owner', 'admin'].includes(effectiveRole)
   const canPricing = ['owner', 'admin', 'accounting'].includes(effectiveRole)
   const isOperator = effectiveRole === 'operator'
+  const canInitializeTest = !isFunctionalTest && ['owner', 'admin'].includes(roleKey)
 
   const loadRole = async (activeSession: Session | null = session) => {
     if (!activeSession?.user.id) { setRoleKey(''); return }
@@ -154,6 +158,24 @@ export default function GlobalAccountMenu() {
     if (type.includes('safety') || notification.notification_type.includes('safety')) { navigate('/safety'); return }
   }
 
+  const initializeFunctionalTest = async () => {
+    setInitializing(true)
+    try {
+      const response = await supabase.functions.invoke('initialize-functional-test-users', {
+        body: { testPassword: deriveFunctionalTestPassword('admin') },
+      })
+      if (response.error) throw response.error
+      if (!response.data?.ok) throw new Error(response.data?.error || 'Unable to initialize the functional test accounts.')
+      await signInFunctionalTestAdmin('admin', 'admin')
+      const home = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
+      window.location.replace(home)
+    } catch (caught) {
+      setToast({ title: 'Test account setup failed', message: caught instanceof Error ? caught.message : String(caught) })
+    } finally {
+      setInitializing(false)
+    }
+  }
+
   const switchPersona = async (next: FunctionalTestPersona) => {
     if (next === persona) { setOpen(false); return }
     setSwitching(next)
@@ -200,7 +222,8 @@ export default function GlobalAccountMenu() {
         {!notifications.length && <div className="northborn-notification-empty">No notifications yet.</div>}
       </div>
 
-      {(canTeam || canPricing || isOperator) && <><div className="northborn-account-section-title">Quick access</div><div className="northborn-menu-links">
+      {(canTeam || canPricing || isOperator || canInitializeTest) && <><div className="northborn-account-section-title">Quick access</div><div className="northborn-menu-links">
+        {canInitializeTest && <button type="button" disabled={initializing} onClick={() => void initializeFunctionalTest()}><ShieldCheck size={18}/><span><strong>{initializing ? 'Setting up test accounts…' : 'Activate admin test login'}</strong><small>One time setup for real Manager, Operator and Client test accounts</small></span></button>}
         {canTeam && <button type="button" onClick={() => go('/team-access')}><Users size={18}/><span><strong>Team access</strong><small>Invite and manage staff</small></span></button>}
         {canPricing && <button type="button" onClick={() => go('/pricing')}><CircleDollarSign size={18}/><span><strong>Price sheet</strong><small>Standard and client rates</small></span></button>}
         {isOperator && <button type="button" onClick={() => go('/fleet')}><Truck size={18}/><span><strong>My unit</strong><small>Assigned fleet information</small></span></button>}

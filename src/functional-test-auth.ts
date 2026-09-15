@@ -30,32 +30,53 @@ export function isFunctionalTestSession(session: Session | null) {
 
 async function signInPersona(persona: FunctionalTestPersona, enteredPassword: string) {
   const account = FUNCTIONAL_TEST_USERS[persona]
-  const result = await supabase.auth.signInWithPassword({
+  return supabase.auth.signInWithPassword({
     email: account.email,
     password: deriveFunctionalTestPassword(enteredPassword),
   })
-  if (result.error) {
-    if (result.error.message.toLowerCase().includes('invalid login')) {
-      throw new Error('Test accounts need one time activation. Sign in with your existing Northborn owner account, open the hamburger menu, and tap Activate admin test login. After that, admin / admin works normally.')
-    }
-    throw result.error
-  }
-  return result.data.session
+}
+
+async function bootstrapFunctionalTestUsers(username: string, password: string) {
+  const response = await supabase.functions.invoke('initialize-functional-test-users', {
+    body: {
+      username,
+      password,
+      testPassword: deriveFunctionalTestPassword(password),
+    },
+  })
+  if (response.error) throw response.error
+  if (!response.data?.ok) throw new Error(response.data?.error || 'Unable to prepare the Northborn test accounts.')
 }
 
 export async function signInFunctionalTestAdmin(username: string, password: string) {
-  if (username.trim().toLowerCase() !== 'admin' || password.toLowerCase() !== 'admin') {
+  const normalizedUsername = username.trim().toLowerCase()
+  const normalizedPassword = password.toLowerCase()
+  if (normalizedUsername !== 'admin' || normalizedPassword !== 'admin') {
     throw new Error('Invalid login credentials')
   }
-  const session = await signInPersona('manager', password)
+
+  let result = await signInPersona('manager', password)
+
+  if (result.error) {
+    const message = result.error.message.toLowerCase()
+    if (!message.includes('invalid login') && !message.includes('email not confirmed')) throw result.error
+
+    await bootstrapFunctionalTestUsers(normalizedUsername, normalizedPassword)
+    result = await signInPersona('manager', password)
+  }
+
+  if (result.error) throw result.error
+
   sessionStorage.setItem(TEST_UNLOCK_KEY, password)
-  return session
+  return result.data.session
 }
 
 export async function switchFunctionalTestPersona(persona: FunctionalTestPersona) {
   const password = sessionStorage.getItem(TEST_UNLOCK_KEY)
-  if (!password) throw new Error('Enter admin / admin again once to unlock test account switching in this browser tab.')
-  return signInPersona(persona, password)
+  if (!password) throw new Error('Sign in with admin / admin again to switch test accounts.')
+  const result = await signInPersona(persona, password)
+  if (result.error) throw result.error
+  return result.data.session
 }
 
 export function clearFunctionalTestUnlock() {

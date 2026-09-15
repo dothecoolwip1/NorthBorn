@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, useLocation } from 'react-router-dom'
 import RoleAwareApp from './RoleAwareApp'
 import AuthEnhancements from './AuthEnhancements'
-import { TeamAccessLauncher } from './TeamAccess'
 import TeamAccessPage from './TeamAccessPage'
 import JoinOrganizationPage from './JoinOrganizationPage'
 import ClientJoinPage from './ClientJoinPage'
@@ -14,6 +13,7 @@ import ManagerJobsPage from './ManagerJobsPage'
 import FleetRoutePage from './FleetRoutePage'
 import ManagerMaintenancePage from './ManagerMaintenancePage'
 import ManagerInvoicesPageV2 from './ManagerInvoicesPageV2'
+import ManagerPricingPage from './ManagerPricingPage'
 import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import SafetyRoutePage from './SafetyRoutePage'
 import GlobalAccountMenu from './GlobalAccountMenu'
@@ -39,8 +39,9 @@ function ProductionRoutes({ normalizedPath, hasInvite }:{ normalizedPath:string;
   if (normalizedPath === '/fleet-access') return <EmployeeFleetAccessPage />
   if (normalizedPath === '/maintenance') return <ManagerMaintenancePage />
   if (normalizedPath === '/invoices') return <ManagerInvoicesPageV2 />
+  if (normalizedPath === '/pricing') return <ManagerPricingPage />
   if (normalizedPath === '/safety') return <SafetyRoutePage />
-  return <><RoleAwareApp /><AuthEnhancements /><TeamAccessLauncher /></>
+  return <><RoleAwareApp /><AuthEnhancements /></>
 }
 
 function NorthbornRouter() {

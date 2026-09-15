@@ -3,22 +3,15 @@ import type { Session } from '@supabase/supabase-js'
 import { useNavigate } from 'react-router-dom'
 import { BellRing, Building2, Check, CircleDollarSign, HardHat, LogOut, Menu, ShieldCheck, Trash2, Truck, UserRound, Users, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
-import {
-  clearFunctionalTestUnlock,
-  deriveFunctionalTestPassword,
-  FUNCTIONAL_TEST_USERS,
-  personaFromSession,
-  signInFunctionalTestAdmin,
-  switchFunctionalTestPersona,
-  type FunctionalTestPersona,
-} from './functional-test-auth'
+import { clearTestLab, getTestPersona, isTestMode, setTestPersona, TEST_USERS, type TestPersona } from './test-lab'
 import './global-account-menu.css'
 
 const db = supabase as any
+const TEST_NOTIFICATION_KEY = 'northborn_test_table_v1_user_notifications'
 const personas = [
-  ['manager', FUNCTIONAL_TEST_USERS.manager.email, ShieldCheck],
-  ['operator', FUNCTIONAL_TEST_USERS.operator.email, HardHat],
-  ['client', FUNCTIONAL_TEST_USERS.client.email, Building2],
+  ['manager', TEST_USERS.manager.email, ShieldCheck],
+  ['operator', TEST_USERS.operator.email, HardHat],
+  ['client', TEST_USERS.client.email, Building2],
 ] as const
 
 type Notification = {
@@ -40,69 +33,134 @@ const fmt = (value: string) => new Intl.DateTimeFormat('en-CA', {
   month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
 }).format(new Date(value))
 
+function readTestNotifications(userId: string): Notification[] {
+  try {
+    return (JSON.parse(localStorage.getItem(TEST_NOTIFICATION_KEY) || '[]') as Notification[])
+      .filter(row => row.recipient_user_id === userId)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+  } catch {
+    return []
+  }
+}
+
+function writeAllTestNotifications(rows: Notification[]) {
+  localStorage.setItem(TEST_NOTIFICATION_KEY, JSON.stringify(rows))
+  window.dispatchEvent(new Event('northborn-test-notifications-changed'))
+}
+
 export default function GlobalAccountMenu() {
   const navigate = useNavigate()
   const [session, setSession] = useState<Session | null>(null)
+  const [testMode, setTestMode] = useState(() => isTestMode())
+  const [persona, setPersonaState] = useState<TestPersona>(() => getTestPersona())
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [initializing, setInitializing] = useState(false)
-  const [switching, setSwitching] = useState<FunctionalTestPersona | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [toast, setToast] = useState<Toast | null>(null)
   const [roleKey, setRoleKey] = useState('')
   const previousIdentity = useRef('')
 
-  const persona = personaFromSession(session)
-  const isFunctionalTest = persona !== null
-  const userId = session?.user.id || ''
-  const identity = session?.user.id || ''
-  const effectiveRole = persona === 'client' ? 'client' : roleKey
+  const activeUser = TEST_USERS[persona]
+  const userId = testMode ? activeUser.id : session?.user.id || ''
+  const identity = testMode ? `test:${persona}` : session?.user.id ? `real:${session.user.id}` : ''
+  const effectiveRole = testMode ? persona === 'manager' ? 'owner' : persona : roleKey
   const unreadCount = useMemo(() => notifications.filter(item => !item.read_at).length, [notifications])
   const canTeam = ['owner', 'admin'].includes(effectiveRole)
   const canPricing = ['owner', 'admin', 'accounting'].includes(effectiveRole)
   const isOperator = effectiveRole === 'operator'
-  const canInitializeTest = !isFunctionalTest && ['owner', 'admin'].includes(roleKey)
 
-  const loadRole = async (activeSession: Session | null = session) => {
-    if (!activeSession?.user.id) { setRoleKey(''); return }
-    const membership = await db.from('organization_members').select('id').eq('user_id', activeSession.user.id).eq('status', 'active').limit(1).maybeSingle()
-    if (membership.error || !membership.data?.id) { setRoleKey(''); return }
+  const loadRole = async () => {
+    if (testMode) {
+      setRoleKey(persona === 'manager' ? 'owner' : persona)
+      return
+    }
+    if (!session?.user.id) {
+      setRoleKey('')
+      return
+    }
+    const membership = await db.from('organization_members').select('id').eq('user_id', session.user.id).eq('status', 'active').limit(1).maybeSingle()
+    if (membership.error || !membership.data?.id) {
+      setRoleKey('')
+      return
+    }
     const roles = await db.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id)
     setRoleKey(roles.data?.[0]?.role?.key || '')
   }
 
-  const loadNotifications = async () => {
-    if (!userId) { setNotifications([]); return }
+  const loadNotifications = async (showLatest = false) => {
+    if (!userId) {
+      setNotifications([])
+      return
+    }
+    if (testMode) {
+      const rows = readTestNotifications(userId)
+      setNotifications(rows)
+      const latest = rows.find(item => !item.read_at)
+      if (showLatest && latest) setToast({ title: latest.title, message: latest.message || '', notification: latest })
+      return
+    }
     const result = await db.from('user_notifications')
       .select('id,recipient_user_id,notification_type,title,message,entity_type,entity_id,payload,read_at,created_at')
       .eq('recipient_user_id', userId)
       .order('created_at', { ascending: false })
       .limit(50)
-    if (!result.error) setNotifications((result.data || []) as Notification[])
+    if (!result.error) {
+      const rows = (result.data || []) as Notification[]
+      setNotifications(rows)
+      const latest = rows.find(item => !item.read_at)
+      if (showLatest && latest) setToast({ title: latest.title, message: latest.message || '', notification: latest })
+    }
   }
 
   useEffect(() => {
     let active = true
+    const sync = () => {
+      if (!active) return
+      setTestMode(isTestMode())
+      setPersonaState(getTestPersona())
+    }
     void supabase.auth.getSession().then(({ data }) => { if (active) setSession(data.session) })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => { if (active) setSession(next) })
-    return () => { active = false; listener.subscription.unsubscribe() }
+    const timer = window.setInterval(sync, 500)
+    window.addEventListener('storage', sync)
+    window.addEventListener('northborn-auth-changed', sync)
+    window.addEventListener('northborn-test-persona-changed', sync)
+    return () => {
+      active = false
+      listener.subscription.unsubscribe()
+      window.clearInterval(timer)
+      window.removeEventListener('storage', sync)
+      window.removeEventListener('northborn-auth-changed', sync)
+      window.removeEventListener('northborn-test-persona-changed', sync)
+    }
   }, [])
 
-  useEffect(() => { void loadRole(session) }, [identity])
+  useEffect(() => { void loadRole() }, [identity, testMode, persona, session?.user.id])
 
   useEffect(() => {
-    if (!identity) { previousIdentity.current = ''; setNotifications([]); return }
+    if (!identity) return
     const changed = previousIdentity.current !== identity
     previousIdentity.current = identity
-    void loadNotifications()
+    void loadNotifications(changed)
     if (changed) {
-      const display = persona ? FUNCTIONAL_TEST_USERS[persona].email : session?.user.email || 'your account'
-      setToast({ title: 'Signed in', message: `You are signed in as ${display}.` })
+      const name = testMode ? activeUser.email : session?.user.email || 'your account'
+      window.setTimeout(() => setToast(current => current || { title: 'Signed in', message: `You are signed in as ${name}.` }), 180)
     }
   }, [identity])
 
   useEffect(() => {
     if (!userId) return
+    const refresh = () => void loadNotifications(false)
+    window.addEventListener('northborn-test-notifications-changed', refresh)
+    window.addEventListener('northborn-test-data-changed', refresh)
+
+    if (testMode) {
+      return () => {
+        window.removeEventListener('northborn-test-notifications-changed', refresh)
+        window.removeEventListener('northborn-test-data-changed', refresh)
+      }
+    }
+
     const channel = supabase.channel(`global-notifications-${userId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_notifications', filter: `recipient_user_id=eq.${userId}` }, payload => {
         const row = payload.new as Notification
@@ -110,8 +168,13 @@ export default function GlobalAccountMenu() {
         setToast({ title: row.title, message: row.message || '', notification: row })
       })
       .subscribe()
-    return () => { void supabase.removeChannel(channel) }
-  }, [userId])
+
+    return () => {
+      window.removeEventListener('northborn-test-notifications-changed', refresh)
+      window.removeEventListener('northborn-test-data-changed', refresh)
+      void supabase.removeChannel(channel)
+    }
+  }, [userId, testMode])
 
   useEffect(() => {
     if (!toast) return
@@ -119,25 +182,40 @@ export default function GlobalAccountMenu() {
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  if (!session) return null
+  if (!session && !testMode) return null
 
   const markRead = async (notification: Notification) => {
     if (notification.read_at) return
     const at = new Date().toISOString()
-    const result = await db.from('user_notifications').update({ read_at: at }).eq('id', notification.id).eq('recipient_user_id', userId)
-    if (!result.error) setNotifications(current => current.map(item => item.id === notification.id ? { ...item, read_at: at } : item))
+    if (testMode) {
+      let all: Notification[] = []
+      try { all = JSON.parse(localStorage.getItem(TEST_NOTIFICATION_KEY) || '[]') } catch {}
+      writeAllTestNotifications(all.map(row => row.id === notification.id ? { ...row, read_at: at } : row))
+    } else {
+      await db.from('user_notifications').update({ read_at: at }).eq('id', notification.id).eq('recipient_user_id', userId)
+    }
+    setNotifications(current => current.map(row => row.id === notification.id ? { ...row, read_at: at } : row))
   }
 
   const markAllRead = async () => {
-    const at = new Date().toISOString()
-    const result = await db.from('user_notifications').update({ read_at: at }).eq('recipient_user_id', userId).is('read_at', null)
-    if (!result.error) setNotifications(current => current.map(item => item.read_at ? item : { ...item, read_at: at }))
+    for (const item of notifications.filter(notification => !notification.read_at)) await markRead(item)
   }
 
   const clearAll = async () => {
     if (!notifications.length) return
+    if (testMode) {
+      let all: Notification[] = []
+      try { all = JSON.parse(localStorage.getItem(TEST_NOTIFICATION_KEY) || '[]') } catch {}
+      writeAllTestNotifications(all.filter(row => row.recipient_user_id !== userId))
+      setNotifications([])
+      setToast(null)
+      return
+    }
     const result = await db.rpc('clear_my_notifications')
-    if (!result.error) { setNotifications([]); setToast(null) }
+    if (!result.error) {
+      setNotifications([])
+      setToast(null)
+    }
   }
 
   const openNotification = async (notification: Notification) => {
@@ -158,48 +236,25 @@ export default function GlobalAccountMenu() {
     if (type.includes('safety') || notification.notification_type.includes('safety')) { navigate('/safety'); return }
   }
 
-  const initializeFunctionalTest = async () => {
-    setInitializing(true)
-    try {
-      const response = await supabase.functions.invoke('initialize-functional-test-users', {
-        body: { testPassword: deriveFunctionalTestPassword('admin') },
-      })
-      if (response.error) throw response.error
-      if (!response.data?.ok) throw new Error(response.data?.error || 'Unable to initialize the functional test accounts.')
-      await signInFunctionalTestAdmin('admin', 'admin')
-      const home = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
-      window.location.replace(home)
-    } catch (caught) {
-      setToast({ title: 'Test account setup failed', message: caught instanceof Error ? caught.message : String(caught) })
-    } finally {
-      setInitializing(false)
-    }
-  }
-
-  const switchPersona = async (next: FunctionalTestPersona) => {
-    if (next === persona) { setOpen(false); return }
-    setSwitching(next)
-    try {
-      await switchFunctionalTestPersona(next)
-      setOpen(false)
-      const home = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
-      window.location.replace(home)
-    } catch (caught) {
-      setToast({ title: 'Unable to switch test account', message: caught instanceof Error ? caught.message : String(caught) })
-    } finally {
-      setSwitching(null)
-    }
+  const switchPersona = (next: TestPersona) => {
+    setTestPersona(next)
+    setPersonaState(next)
+    setOpen(false)
+    navigate('/')
   }
 
   const signOut = async () => {
     setBusy(true)
-    clearFunctionalTestUnlock()
-    await supabase.auth.signOut()
+    if (testMode) clearTestLab()
+    if (session) await supabase.auth.signOut()
     const home = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
     window.location.replace(home)
   }
 
-  const go = (path: string) => { setOpen(false); navigate(path) }
+  const go = (path: string) => {
+    setOpen(false)
+    navigate(path)
+  }
 
   return <div className="northborn-account-menu">
     {toast && <div className="northborn-notification-toast">
@@ -211,7 +266,7 @@ export default function GlobalAccountMenu() {
 
     {open && <button className="northborn-account-scrim" type="button" aria-label="Close menu" onClick={() => setOpen(false)}/>} 
     {open && <div className="northborn-account-popover" role="dialog" aria-label="Northborn menu">
-      <div className="northborn-account-heading"><UserRound size={18}/><div><strong>{isFunctionalTest ? 'Functional test account' : 'Northborn account'}</strong><span>{persona ? FUNCTIONAL_TEST_USERS[persona].email : session.user.email}</span></div></div>
+      <div className="northborn-account-heading"><UserRound size={18}/><div><strong>{testMode ? 'Test account' : 'Northborn account'}</strong><span>{testMode ? activeUser.email : session?.user.email}</span></div></div>
 
       <div className="northborn-account-section-title northborn-notification-title">
         <span>Notifications {unreadCount > 0 && <b>{unreadCount}</b>}</span>
@@ -222,15 +277,14 @@ export default function GlobalAccountMenu() {
         {!notifications.length && <div className="northborn-notification-empty">No notifications yet.</div>}
       </div>
 
-      {(canTeam || canPricing || isOperator || canInitializeTest) && <><div className="northborn-account-section-title">Quick access</div><div className="northborn-menu-links">
-        {canInitializeTest && <button type="button" disabled={initializing} onClick={() => void initializeFunctionalTest()}><ShieldCheck size={18}/><span><strong>{initializing ? 'Setting up test accounts…' : 'Activate admin test login'}</strong><small>One time setup for real Manager, Operator and Client test accounts</small></span></button>}
+      {(canTeam || canPricing || isOperator) && <><div className="northborn-account-section-title">Quick access</div><div className="northborn-menu-links">
         {canTeam && <button type="button" onClick={() => go('/team-access')}><Users size={18}/><span><strong>Team access</strong><small>Invite and manage staff</small></span></button>}
         {canPricing && <button type="button" onClick={() => go('/pricing')}><CircleDollarSign size={18}/><span><strong>Price sheet</strong><small>Standard and client rates</small></span></button>}
         {isOperator && <button type="button" onClick={() => go('/fleet')}><Truck size={18}/><span><strong>My unit</strong><small>Assigned fleet information</small></span></button>}
       </div></>}
 
-      {isFunctionalTest && <><div className="northborn-account-section-title">Switch test account</div><div className="northborn-test-account-list">
-        {personas.map(([key, email, Icon]) => <button key={key} type="button" disabled={Boolean(switching)} className={persona === key ? 'active' : ''} onClick={() => void switchPersona(key)}><Icon size={18}/><div><strong>{FUNCTIONAL_TEST_USERS[key].label}</strong><span>{email}</span></div>{persona === key ? <em>Active</em> : switching === key ? <em>Opening…</em> : null}</button>)}
+      {testMode && <><div className="northborn-account-section-title">Switch workspace</div><div className="northborn-test-account-list">
+        {personas.map(([key, email, Icon]) => <button key={key} type="button" className={persona === key ? 'active' : ''} onClick={() => switchPersona(key)}><Icon size={18}/><div><strong>{key[0].toUpperCase() + key.slice(1)}</strong><span>{email}</span></div>{persona === key && <em>Active</em>}</button>)}
       </div></>}
 
       <button className="northborn-account-signout" type="button" disabled={busy} onClick={() => void signOut()}><LogOut size={17}/>{busy ? 'Signing out…' : 'Sign out'}</button>

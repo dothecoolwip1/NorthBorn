@@ -1,4 +1,4 @@
-const CACHE_NAME = 'northborn-shell-v0.4.0'
+const CACHE_NAME = 'northborn-shell-v0.5.0'
 const CORE_ASSETS = ['/', '/manifest.webmanifest', '/icons/northborn-icon.svg']
 
 self.addEventListener('install', event => {

@@ -74,7 +74,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
   }
 
   if (routeRole === 'client') {
-    if (normalizedPath === '/client-tickets') return <ClientFieldTicketsPage />
+    if (normalizedPath === '/tickets' || normalizedPath === '/client-tickets') return <ClientFieldTicketsPage />
     if (normalizedPath === '/client-ticket-print') return <ClientTicketPrintPage />
     return <StandardApp />
   }

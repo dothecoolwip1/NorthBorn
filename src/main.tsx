@@ -50,6 +50,10 @@ function StandardApp() {
   return <><RoleAwareApp /><AuthEnhancements /></>
 }
 
+function WorkspaceNotFound({ homeLabel = 'Back to dashboard' }:{ homeLabel?:string }) {
+  return <div className="center-screen"><div className="auth-card account-choice-card"><div className="auth-logo">N</div><h1>Page not found</h1><p>This Northborn page is unavailable or the link is out of date.</p><div className="account-choice-actions"><a className="primary account-choice-link" href={import.meta.env.BASE_URL}>{homeLabel}</a><button className="secondary" type="button" onClick={()=>window.history.back()}>Go back</button></div></div></div>
+}
+
 function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole }) {
   if (normalizedPath === '/logout') return <LogoutPage />
   if (normalizedPath === '/client-join') return <ClientJoinPage />
@@ -65,18 +69,20 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
   if (routeRole === 'unconnected') return <StandardApp />
 
   if (routeRole === 'operator') {
+    if (normalizedPath === '/') return <StandardApp />
     if (normalizedPath === '/fleet') return <FleetRoutePage />
     if (normalizedPath === '/tickets') return <FieldTicketsPage />
     if (normalizedPath === '/ticket-print') return <TicketPrintPage />
     if (normalizedPath === '/timesheets') return <TimesheetsRoutePage />
     if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) return <SafetyRoutePage />
-    return <StandardApp />
+    return <WorkspaceNotFound homeLabel="Back to my jobs" />
   }
 
   if (routeRole === 'client') {
+    if (normalizedPath === '/') return <StandardApp />
     if (normalizedPath === '/tickets' || normalizedPath === '/client-tickets') return <ClientFieldTicketsPage />
     if (normalizedPath === '/client-ticket-print') return <ClientTicketPrintPage />
-    return <StandardApp />
+    return <WorkspaceNotFound homeLabel="Back to client portal" />
   }
 
   if (routeRole === 'manager') {
@@ -98,6 +104,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
     if (normalizedPath === '/ticket-print') return <TicketPrintPage />
     if (normalizedPath === '/timesheets') return <TimesheetsRoutePage />
     if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) return <SafetyRoutePage />
+    return <WorkspaceNotFound />
   }
 
   return <StandardApp />

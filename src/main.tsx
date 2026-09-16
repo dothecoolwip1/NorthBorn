@@ -16,6 +16,7 @@ import FleetRoutePage from './FleetRoutePage'
 import ManagerMaintenancePage from './ManagerMaintenancePage'
 import ManagerInvoicesPageV2 from './ManagerInvoicesPageV2'
 import ManagerPricingPage from './ManagerPricingPage'
+import ManagerReportsPage from './ManagerReportsPage'
 import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import SafetyRoutePage from './SafetyRoutePage'
 import GlobalAccountMenu from './GlobalAccountMenu'
@@ -67,6 +68,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
     if (normalizedPath === '/maintenance') return <ManagerMaintenancePage />
     if (normalizedPath === '/invoices') return <ManagerInvoicesPageV2 />
     if (normalizedPath === '/pricing') return <ManagerPricingPage />
+    if (normalizedPath === '/reports') return <ManagerReportsPage />
     if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) return <SafetyRoutePage />
   }
 

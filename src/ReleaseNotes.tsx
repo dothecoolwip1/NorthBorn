@@ -12,6 +12,13 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.3.0':[
+    'Added Timesheets with weekly hours, draft and submit workflows, and manager approval or return.',
+    'Added Field Tickets with job and unit links, service items, disposal details, customer signatures, and manager review.',
+    'Added a public Northborn homepage explaining the platform, its field-first origin, and the industries it is built for.',
+    'Hardened sensitive Supabase RPC access so signed-out users cannot execute operational or billing functions.',
+    'Improved update delivery so installed copies receive this new application shell.',
+  ],
   '0.2.3':[
     'Update notifications now show the patch notes before you choose to install a new version.',
     'Automatic updates still apply in the background and show what changed after the new version loads.',

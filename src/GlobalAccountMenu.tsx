@@ -33,6 +33,16 @@ const managerNavigation = [
   ['Reports','/reports',Activity],
 ] as const
 
+const ROLE_NAV_PATHS:Record<string,readonly string[]> = {
+  owner: managerNavigation.map(([,path])=>path),
+  admin: managerNavigation.map(([,path])=>path),
+  supervisor: ['/', '/calendar', '/dispatch', '/jobs', '/customers', '/employees', '/fleet', '/maintenance', '/safety', '/tickets', '/timesheets', '/reports'],
+  dispatcher: ['/', '/calendar', '/dispatch', '/jobs', '/customers', '/employees', '/fleet', '/maintenance', '/safety', '/tickets', '/timesheets', '/reports'],
+  safety: ['/', '/calendar', '/jobs', '/customers', '/employees', '/fleet', '/maintenance', '/safety', '/tickets', '/timesheets', '/reports'],
+  mechanic: ['/', '/calendar', '/jobs', '/employees', '/fleet', '/maintenance', '/safety', '/timesheets'],
+  accounting: ['/', '/customers', '/employees', '/tickets', '/timesheets', '/invoices', '/billing', '/reports'],
+}
+
 const operatorNavigation = [
   ['Home','/',Gauge],
   ['My jobs','/jobs',BriefcaseBusiness],
@@ -96,7 +106,8 @@ export default function GlobalAccountMenu() {
   const canPricing = ['owner', 'admin', 'accounting'].includes(effectiveRole)
   const isOperator = effectiveRole === 'operator'
   const isClient = effectiveRole === 'client'
-  const navigation = isClient ? clientNavigation : isOperator ? operatorNavigation : managerNavigation
+  const allowedManagerPaths = ROLE_NAV_PATHS[effectiveRole] || ['/']
+  const navigation = isClient ? clientNavigation : isOperator ? operatorNavigation : managerNavigation.filter(([,path])=>allowedManagerPaths.includes(path))
 
   useEffect(() => {
     let active = true

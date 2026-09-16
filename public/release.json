@@ -1,0 +1,9 @@
+{
+  "version": "0.2.3",
+  "title": "Update notifications and patch notes",
+  "notes": [
+    "Update notifications now show patch notes before you choose to install a new version.",
+    "Automatic updates still apply automatically and show what changed after the new version loads.",
+    "Includes the latest Reports dashboard, cleaner navigation and editable employee records."
+  ]
+}

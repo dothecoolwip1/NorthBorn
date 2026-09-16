@@ -6,13 +6,10 @@
 a[href="/tickets"],
 a[href="/timesheets"]{display:none!important}
 
-/* The global menu uses buttons instead of links. On the operator workspace, items 4 and 5 are Tickets and Timesheets. */
-body:has(.field-shell) .northborn-navigation-links button:nth-child(4),
-body:has(.field-shell) .northborn-navigation-links button:nth-child(5){display:none!important}
-
 /* The fixed hamburger is the mobile navigation control for every authenticated role. */
 @media(max-width:720px){
   .app-shell .sidebar{display:none!important}
   .app-shell .content{margin-left:0!important;width:100%!important}
   .field-mobile-nav{padding-right:68px}
+  body:has(.northborn-account-menu) header{padding-right:68px!important}
 }

@@ -1,1 +1,22 @@
-.northborn-test-account-list{display:none!important}.northborn-account-section-title:has(+ .northborn-test-account-list){display:none!important}.app-shell .menu-button{display:none!important}
+.northborn-test-account-list{display:none!important}
+.northborn-account-section-title:has(+ .northborn-test-account-list){display:none!important}
+.app-shell .menu-button{display:none!important}
+
+/* Keep unfinished modules out of the live navigation until their data workflows are production ready. */
+.app-shell .sidebar a[href="/tickets"],
+.app-shell .sidebar a[href="/timesheets"],
+.field-sidebar a[href="/tickets"],
+.field-sidebar a[href="/timesheets"],
+.field-mobile-nav a[href="/tickets"],
+.field-mobile-nav a[href="/timesheets"]{display:none!important}
+
+/* The global menu uses buttons instead of links. On the operator workspace, items 4 and 5 are Tickets and Timesheets. */
+body:has(.field-shell) .northborn-navigation-links button:nth-child(4),
+body:has(.field-shell) .northborn-navigation-links button:nth-child(5){display:none!important}
+
+/* The fixed hamburger is the mobile navigation control for every authenticated role. */
+@media(max-width:720px){
+  .app-shell .sidebar{display:none!important}
+  .app-shell .content{margin-left:0!important;width:100%!important}
+  .field-mobile-nav{padding-right:68px}
+}

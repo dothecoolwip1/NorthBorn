@@ -12,6 +12,13 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.5.0':[
+    'Replaced the manager home screen with a role-aware command centre focused on work that needs attention now.',
+    'Updated the universal hamburger so accounting, safety, mechanic, dispatcher and supervisor accounts only see relevant modules.',
+    'Added secure client access to approved field tickets through the existing client Tickets entry.',
+    'Clients can search approved paperwork, review work and service details, and view captured customer signatures.',
+    'Clients can print or save approved field tickets as clean PDF copies without seeing internal operator notes or pricing snapshots.',
+  ],
   '0.4.0':[
     'Added Billing Queue for owner, admin and accounting roles so approved field tickets are easy to hand off to invoicing.',
     'Approved field tickets can now create invoice drafts without retyping customer, job, PO/AFE, work description or service quantities.',

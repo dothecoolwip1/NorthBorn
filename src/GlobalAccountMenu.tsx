@@ -29,6 +29,7 @@ const managerNavigation = [
   ['Tickets','/tickets',ClipboardCheck],
   ['Timesheets','/timesheets',FileClock],
   ['Invoices','/invoices',ReceiptText],
+  ['Billing queue','/billing',ReceiptText],
   ['Reports','/reports',Activity],
 ] as const
 
@@ -332,6 +333,7 @@ export default function GlobalAccountMenu() {
         {(canTeam || canPricing) && <><div className="northborn-account-section-title">Quick access</div><div className="northborn-menu-links">
           {canTeam && <button type="button" onClick={() => go('/team-access')}><Users size={18}/><span><strong>Team access</strong><small>Invite and manage staff</small></span></button>}
           {canPricing && <button type="button" onClick={() => go('/pricing')}><CircleDollarSign size={18}/><span><strong>Price sheet</strong><small>Standard and client rates</small></span></button>}
+          {canPricing && <button type="button" onClick={() => go('/billing')}><ReceiptText size={18}/><span><strong>Billing queue</strong><small>Approved tickets ready to invoice</small></span></button>}
         </div></>}
 
         {isFunctionalTest && <><div className="northborn-account-section-title">Switch test account</div><div className="northborn-test-account-list">

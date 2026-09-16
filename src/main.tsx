@@ -27,6 +27,7 @@ import TicketPrintPage from './TicketPrintPage'
 import BillingQueuePage from './BillingQueuePage'
 import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import SafetyRoutePage from './SafetyRoutePage'
+import TemplateManagerPage from './TemplateManagerPage'
 import GlobalAccountMenu from './GlobalAccountMenu'
 import TestRoleSwitcher from './TestRoleSwitcher'
 import ReleaseNotes from './ReleaseNotes'
@@ -100,6 +101,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
     if (normalizedPath === '/billing') return <BillingQueuePage />
     if (normalizedPath === '/pricing') return <ManagerPricingPage />
     if (normalizedPath === '/reports') return <ManagerReportsPage />
+    if (normalizedPath === '/templates') return <TemplateManagerPage />
     if (normalizedPath === '/tickets') return <FieldTicketsPage />
     if (normalizedPath === '/ticket-print') return <TicketPrintPage />
     if (normalizedPath === '/timesheets') return <TimesheetsRoutePage />

@@ -49,6 +49,7 @@ export default function ClientTicketPrintPage(){
   if(loading)return <main className="client-print-loading">Preparing customer ticket copy…</main>
   if(!context&&error.includes('access'))return <Navigate to="/" replace/>
   if(error||!detail)return <main className="client-print-loading"><div><strong>Ticket unavailable</strong><p>{error||'Unable to load this ticket.'}</p><button type="button" onClick={()=>window.close()}>Close</button></div></main>
+  if(!context)return <Navigate to="/" replace/>
 
   const ticket=detail.ticket
   const totalHours=num(ticket.travel_hours)+num(ticket.work_hours)+num(ticket.standby_hours)

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Activity, BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLeft, CircleDollarSign, ContactRound, Download, FileClock, Gauge, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
+import { Activity, BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLeft, CircleDollarSign, ClipboardCheck, ContactRound, Download, FileClock, Gauge, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
 import packageInfo from '../package.json'
 import { supabase } from './lib/supabase'
 import { FUNCTIONAL_TEST_USERS, personaFromSession, switchFunctionalTestPersona, type FunctionalTestPersona } from './functional-test-auth'
@@ -26,6 +26,7 @@ const managerNavigation = [
   ['Fleet','/fleet',Truck],
   ['Maintenance','/maintenance',Wrench],
   ['Safety','/safety',ShieldCheck],
+  ['Tickets','/tickets',ClipboardCheck],
   ['Timesheets','/timesheets',FileClock],
   ['Invoices','/invoices',ReceiptText],
   ['Reports','/reports',Activity],
@@ -34,6 +35,7 @@ const managerNavigation = [
 const operatorNavigation = [
   ['Home','/',Gauge],
   ['My jobs','/jobs',BriefcaseBusiness],
+  ['Tickets','/tickets',ClipboardCheck],
   ['Timesheets','/timesheets',FileClock],
   ['Safety','/safety',ShieldCheck],
   ['My unit','/fleet',Truck],
@@ -222,6 +224,7 @@ export default function GlobalAccountMenu() {
       navigate(effectiveRole === 'client' ? '/' : '/jobs')
       return
     }
+    if (type.includes('ticket') || notification.notification_type.includes('ticket')) { navigate('/tickets'); return }
     if (type.includes('fleet') || notification.notification_type.includes('fleet')) { navigate('/fleet'); return }
     if (type.includes('safety') || notification.notification_type.includes('safety')) { navigate('/safety'); return }
   }

@@ -19,6 +19,7 @@ import ManagerInvoicesPageV2 from './ManagerInvoicesPageV2'
 import ManagerPricingPage from './ManagerPricingPage'
 import ManagerReportsPage from './ManagerReportsPage'
 import TimesheetsRoutePage from './TimesheetsRoutePage'
+import FieldTicketsPage from './FieldTicketsPage'
 import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import SafetyRoutePage from './SafetyRoutePage'
 import GlobalAccountMenu from './GlobalAccountMenu'
@@ -60,6 +61,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
 
   if (routeRole === 'operator') {
     if (normalizedPath === '/fleet') return <FleetRoutePage />
+    if (normalizedPath === '/tickets') return <FieldTicketsPage />
     if (normalizedPath === '/timesheets') return <TimesheetsRoutePage />
     if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) return <SafetyRoutePage />
     return <StandardApp />
@@ -80,6 +82,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
     if (normalizedPath === '/invoices') return <ManagerInvoicesPageV2 />
     if (normalizedPath === '/pricing') return <ManagerPricingPage />
     if (normalizedPath === '/reports') return <ManagerReportsPage />
+    if (normalizedPath === '/tickets') return <FieldTicketsPage />
     if (normalizedPath === '/timesheets') return <TimesheetsRoutePage />
     if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) return <SafetyRoutePage />
   }

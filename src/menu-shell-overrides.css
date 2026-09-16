@@ -2,9 +2,6 @@
 .northborn-account-section-title:has(+ .northborn-test-account-list){display:none!important}
 .app-shell .menu-button{display:none!important}
 
-/* Keep unfinished modules out of the live experience until their data workflows are production ready. */
-a[href="/tickets"]{display:none!important}
-
 /* The fixed hamburger is the mobile navigation control for every authenticated role. */
 @media(max-width:720px){
   .app-shell .sidebar{display:none!important}

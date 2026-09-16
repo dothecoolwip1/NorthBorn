@@ -1,11 +1,11 @@
 {
-  "version": "0.5.0",
-  "title": "Command centre and client paperwork",
+  "version": "0.6.0",
+  "title": "Document Template Manager",
   "notes": [
-    "Replaced the manager home screen with a role-aware command centre focused on dispatch gaps, ticket review, billing readiness, A/R, timesheets, fleet availability and maintenance attention.",
-    "Updated the universal hamburger so accounting, safety, mechanic, dispatcher and supervisor accounts only see modules relevant to their role.",
-    "Added secure client access to approved field tickets through the existing client Tickets entry.",
-    "Clients can search approved field paperwork, review customer-facing work details and service rows, and view captured signatures.",
-    "Clients can print or save approved field tickets as clean PDF customer copies without exposing internal operator notes or pricing snapshots."
+    "Added an owner and administrator Template Manager for invoices, FLHAs, pre trips, field tickets, incident reports, timesheets, work orders and custom documents.",
+    "Added Northborn-built starter templates with editable fields, required controls, reusable data bindings and live previews.",
+    "Added PDF template uploads with automatic fillable-field inspection and smart binding suggestions for common Northborn job, customer, fleet, safety and billing data.",
+    "Added template versions, active and archived states, document defaults, duplication and secure organization-scoped PDF storage support.",
+    "Added local preview storage so the Template Manager remains testable before the new database migration is enabled in a workspace."
   ]
 }

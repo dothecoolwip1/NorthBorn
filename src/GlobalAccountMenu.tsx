@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLeft, CircleDollarSign, ClipboardCheck, ContactRound, Download, Gauge, HardHat, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
+import { Activity, BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLeft, CircleDollarSign, ClipboardCheck, ContactRound, Download, Gauge, HardHat, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
 import packageInfo from '../package.json'
 import { supabase } from './lib/supabase'
 import { FUNCTIONAL_TEST_USERS, personaFromSession, switchFunctionalTestPersona, type FunctionalTestPersona } from './functional-test-auth'
@@ -27,6 +27,7 @@ const managerNavigation = [
   ['Maintenance','/maintenance',Wrench],
   ['Safety','/safety',ShieldCheck],
   ['Invoices','/invoices',ReceiptText],
+  ['Reports','/reports',Activity],
 ] as const
 
 const operatorNavigation = [

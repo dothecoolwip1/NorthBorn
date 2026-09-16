@@ -1,11 +1,11 @@
 {
-  "version": "0.3.0",
-  "title": "Field workflow release",
+  "version": "0.4.0",
+  "title": "Field-to-billing release",
   "notes": [
-    "Added Timesheets with weekly hours, draft and submit workflows, and manager approval or return.",
-    "Added Field Tickets with job and unit links, service items, disposal details, customer signatures, and manager review.",
-    "Added a public Northborn homepage explaining the platform, its field-first origin, and the industries it is built for.",
-    "Hardened sensitive Supabase RPC access so signed-out users cannot execute operational or billing functions.",
-    "Improved update delivery so installed copies show release notes and receive the new application shell."
+    "Added Billing Queue for owner, admin and accounting roles so approved field tickets are clearly separated from work still waiting on review.",
+    "Approved field tickets can now create invoice drafts without retyping the customer, job, PO/AFE, work description or service quantities.",
+    "Existing customer-specific and standard price-sheet matches are used when Northborn can identify the ticket service item.",
+    "Added printable field ticket customer copies with company, job, unit, operator, time, quantities, disposal details, service rows and captured signature.",
+    "Printable ticket copies can be printed or saved as PDF directly from the billing workflow."
   ]
 }

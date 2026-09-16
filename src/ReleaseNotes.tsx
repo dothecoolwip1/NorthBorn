@@ -12,6 +12,13 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.4.0':[
+    'Added Billing Queue for owner, admin and accounting roles so approved field tickets are easy to hand off to invoicing.',
+    'Approved field tickets can now create invoice drafts without retyping customer, job, PO/AFE, work description or service quantities.',
+    'Customer-specific and standard price-sheet matches are used when Northborn can identify a ticket service item.',
+    'Added printable field ticket customer copies with work details, hours, service items, disposal details and captured signatures.',
+    'Printable ticket copies can be printed or saved as PDF directly from the billing workflow.',
+  ],
   '0.3.0':[
     'Added Timesheets with weekly hours, draft and submit workflows, and manager approval or return.',
     'Added Field Tickets with job and unit links, service items, disposal details, customer signatures, and manager review.',

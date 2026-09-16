@@ -4,6 +4,7 @@ import { BrowserRouter, useLocation } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import RoleAwareApp from './RoleAwareApp'
 import AuthEnhancements from './AuthEnhancements'
+import MarketingHome from './MarketingHome'
 import TeamAccessPage from './TeamAccessPage'
 import JoinOrganizationPage from './JoinOrganizationPage'
 import ClientJoinPage from './ClientJoinPage'
@@ -35,7 +36,7 @@ import './menu-shell-overrides.css'
 const RETIRED_TEST_KEYS = ['northborn_test_mode', 'northborn_test_persona']
 for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)
 
-type RouteRole = 'loading' | 'guest' | 'manager' | 'operator' | 'client'
+type RouteRole = 'loading' | 'guest' | 'unconnected' | 'manager' | 'operator' | 'client'
 const db = supabase as any
 
 function StandardApp() {
@@ -48,6 +49,13 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
   if (normalizedPath === '/join' || (hasInvite && normalizedPath !== '/client-join')) return <JoinOrganizationPage />
 
   if (routeRole === 'loading') return <div className="center-screen">Loading your Northborn workspace…</div>
+
+  if (routeRole === 'guest') {
+    if (normalizedPath === '/') return <MarketingHome />
+    return <StandardApp />
+  }
+
+  if (routeRole === 'unconnected') return <StandardApp />
 
   if (routeRole === 'operator') {
     if (normalizedPath === '/fleet') return <FleetRoutePage />
@@ -123,7 +131,7 @@ function NorthbornRouter() {
         return
       }
 
-      setRouteRole('guest')
+      setRouteRole('unconnected')
     }
 
     void resolveRole()

@@ -21,6 +21,7 @@ import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import SafetyRoutePage from './SafetyRoutePage'
 import GlobalAccountMenu from './GlobalAccountMenu'
 import TestRoleSwitcher from './TestRoleSwitcher'
+import ReleaseNotes from './ReleaseNotes'
 import LogoutPage from './LogoutPage'
 import AppErrorBoundary from './AppErrorBoundary'
 import { supabase } from './lib/supabase'
@@ -145,6 +146,7 @@ ReactDOM.createRoot(rootElement).render(
         <NorthbornRouter />
         <GlobalAccountMenu />
         <TestRoleSwitcher />
+        <ReleaseNotes />
       </BrowserRouter>
     </AppErrorBoundary>
   </React.StrictMode>,

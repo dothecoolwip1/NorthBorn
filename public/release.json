@@ -1,11 +1,11 @@
 {
-  "version": "0.4.0",
-  "title": "Field-to-billing release",
+  "version": "0.5.0",
+  "title": "Command centre and client paperwork",
   "notes": [
-    "Added Billing Queue for owner, admin and accounting roles so approved field tickets are clearly separated from work still waiting on review.",
-    "Approved field tickets can now create invoice drafts without retyping the customer, job, PO/AFE, work description or service quantities.",
-    "Existing customer-specific and standard price-sheet matches are used when Northborn can identify the ticket service item.",
-    "Added printable field ticket customer copies with company, job, unit, operator, time, quantities, disposal details, service rows and captured signature.",
-    "Printable ticket copies can be printed or saved as PDF directly from the billing workflow."
+    "Replaced the manager home screen with a role-aware command centre focused on dispatch gaps, ticket review, billing readiness, A/R, timesheets, fleet availability and maintenance attention.",
+    "Updated the universal hamburger so accounting, safety, mechanic, dispatcher and supervisor accounts only see modules relevant to their role.",
+    "Added secure client access to approved field tickets through the existing client Tickets entry.",
+    "Clients can search approved field paperwork, review customer-facing work details and service rows, and view captured signatures.",
+    "Clients can print or save approved field tickets as clean PDF customer copies without exposing internal operator notes or pricing snapshots."
   ]
 }

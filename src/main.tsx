@@ -8,6 +8,7 @@ import MarketingHome from './MarketingHome'
 import TeamAccessPage from './TeamAccessPage'
 import JoinOrganizationPage from './JoinOrganizationPage'
 import ClientJoinPage from './ClientJoinPage'
+import ManagerDashboardV2 from './ManagerDashboardV2'
 import ManagerDispatchPage from './ManagerDispatchPage'
 import OperationsCalendarPage from './OperationsCalendarPage'
 import ManagerClientsPage from './ManagerClientsPage'
@@ -73,6 +74,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
   if (routeRole === 'client') return <StandardApp />
 
   if (routeRole === 'manager') {
+    if (normalizedPath === '/') return <ManagerDashboardV2 />
     if (normalizedPath === '/team-access') return <TeamAccessPage />
     if (normalizedPath === '/dispatch') return <ManagerDispatchPage />
     if (normalizedPath === '/calendar') return <OperationsCalendarPage />

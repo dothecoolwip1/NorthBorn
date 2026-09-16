@@ -28,6 +28,7 @@ import './styles.css'
 import './contact-hierarchy.css'
 import './mobile-first.css'
 import './mobile-polish.css'
+import './menu-shell-overrides.css'
 
 const RETIRED_TEST_KEYS = ['northborn_test_mode', 'northborn_test_persona']
 for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, FileSignature, ReceiptText, RefreshCw, Send, TicketCheck } from 'lucide-react'
+import { CheckCircle2, FileSignature, Printer, ReceiptText, RefreshCw, Send, TicketCheck } from 'lucide-react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import './billing-queue.css'
@@ -60,6 +60,13 @@ export default function BillingQueuePage(){
   const unsigned=ready.filter(ticket=>!ticket.customer_signed_at).length
   const zeroRateItems=useMemo(()=>ready.reduce((count,ticket)=>count+items.filter(item=>item.ticket_id===ticket.id&&item.rate_snapshot===null).length,0),[ready,items])
 
+  const openTicketCopy=(ticket:Ticket)=>{
+    const base=new URL(import.meta.env.BASE_URL,window.location.origin)
+    const url=new URL('ticket-print',base)
+    url.searchParams.set('ticket',ticket.id)
+    window.open(url.toString(),'_blank','noopener,noreferrer')
+  }
+
   const createInvoice=async(ticket:Ticket)=>{
     if(!organization)return
     setBusyId(ticket.id);setError('');setNotice('')
@@ -83,7 +90,7 @@ export default function BillingQueuePage(){
 
     <section className="billing-section"><div className="billing-section-head"><div><span>READY</span><h2>Approved, not yet invoiced</h2></div></div>{ready.length?<div className="billing-list">{ready.map(ticket=>{
       const customer=customers.find(item=>item.id===ticket.customer_id),job=jobs.find(item=>item.id===ticket.job_id),ticketItems=items.filter(item=>item.ticket_id===ticket.id),hours=num(ticket.work_hours)+num(ticket.travel_hours)+num(ticket.standby_hours)
-      return <article className="billing-card" key={ticket.id}><div className="billing-card-icon"><TicketCheck size={21}/></div><div className="billing-card-main"><div className="billing-card-title"><span>{ticket.ticket_number}</span><strong>{ticket.work_description||label(ticket.ticket_type)}</strong></div><div className="billing-card-meta"><span>{customer?.name||'Customer'}</span>{job&&<span>{job.job_number} · {job.title}</span>}<span>{dateLabel(ticket.work_date)}</span>{hours>0&&<span>{hours} h</span>}</div><div className="billing-card-flags">{ticket.customer_signed_at?<span className="signed"><FileSignature size={13}/>Signed by {ticket.customer_signed_by||'customer'}</span>:<span className="warn">No customer signature</span>}{ticket.purchase_order&&<span>PO {ticket.purchase_order}</span>}{ticket.afe_number&&<span>AFE {ticket.afe_number}</span>}<span>{ticketItems.length} service item{ticketItems.length===1?'':'s'}</span></div></div><button type="button" className="billing-primary" disabled={busyId===ticket.id} onClick={()=>void createInvoice(ticket)}><Send size={15}/>{busyId===ticket.id?'Creating…':'Create invoice draft'}</button></article>})}</div>:<div className="billing-empty"><CheckCircle2 size={30}/><strong>Billing queue is clear</strong><span>Approved field tickets will appear here until they are converted to invoice drafts.</span></div>}</section>
+      return <article className="billing-card" key={ticket.id}><div className="billing-card-icon"><TicketCheck size={21}/></div><div className="billing-card-main"><div className="billing-card-title"><span>{ticket.ticket_number}</span><strong>{ticket.work_description||label(ticket.ticket_type)}</strong></div><div className="billing-card-meta"><span>{customer?.name||'Customer'}</span>{job&&<span>{job.job_number} · {job.title}</span>}<span>{dateLabel(ticket.work_date)}</span>{hours>0&&<span>{hours} h</span>}</div><div className="billing-card-flags">{ticket.customer_signed_at?<span className="signed"><FileSignature size={13}/>Signed by {ticket.customer_signed_by||'customer'}</span>:<span className="warn">No customer signature</span>}{ticket.purchase_order&&<span>PO {ticket.purchase_order}</span>}{ticket.afe_number&&<span>AFE {ticket.afe_number}</span>}<span>{ticketItems.length} service item{ticketItems.length===1?'':'s'}</span></div></div><div className="billing-card-actions"><button type="button" className="billing-ticket-copy" onClick={()=>openTicketCopy(ticket)}><Printer size={15}/>Ticket copy</button><button type="button" className="billing-primary" disabled={busyId===ticket.id} onClick={()=>void createInvoice(ticket)}><Send size={15}/>{busyId===ticket.id?'Creating…':'Create invoice draft'}</button></div></article>})}</div>:<div className="billing-empty"><CheckCircle2 size={30}/><strong>Billing queue is clear</strong><span>Approved field tickets will appear here until they are converted to invoice drafts.</span></div>}</section>
 
     {converted.length>0&&<section className="billing-section converted"><div className="billing-section-head"><div><span>RECENTLY CONVERTED</span><h2>Already sent to invoicing</h2></div></div><div className="billing-compact-list">{converted.slice(0,20).map(ticket=>{const customer=customers.find(item=>item.id===ticket.customer_id);return <button type="button" key={ticket.id} onClick={()=>navigate('/invoices')}><div><strong>{ticket.ticket_number}</strong><span>{customer?.name||'Customer'} · {dateLabel(ticket.work_date)}</span></div><ReceiptText size={17}/></button>})}</div></section>}
   </main>

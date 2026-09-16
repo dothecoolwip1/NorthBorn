@@ -22,6 +22,7 @@ import GlobalAccountMenu from './GlobalAccountMenu'
 import LogoutPage from './LogoutPage'
 import AppErrorBoundary from './AppErrorBoundary'
 import { supabase } from './lib/supabase'
+import { initializeNorthbornPwa } from './pwa'
 import './styles.css'
 import './contact-hierarchy.css'
 import './mobile-first.css'
@@ -131,6 +132,7 @@ const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.en
 const rootElement = document.getElementById('root')!
 
 document.documentElement.dataset.northbornMounted = '1'
+if (import.meta.env.PROD) initializeNorthbornPwa()
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>

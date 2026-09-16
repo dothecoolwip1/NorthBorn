@@ -1,0 +1,11 @@
+{
+  "version": "0.2.1",
+  "released_at": "2026-09-16T00:00:00-06:00",
+  "title": "Navigation and mobile polish",
+  "notes": [
+    "Cleaner role-aware navigation with one consistent hamburger menu.",
+    "Improved mobile touch targets, focus states and safe-area spacing.",
+    "Unfinished Tickets, Timesheets and Reports links are hidden until those modules are ready.",
+    "PWA install, update mode and version controls remain available from Settings."
+  ]
+}

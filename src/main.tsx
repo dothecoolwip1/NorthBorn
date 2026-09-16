@@ -8,6 +8,8 @@ import MarketingHome from './MarketingHome'
 import TeamAccessPage from './TeamAccessPage'
 import JoinOrganizationPage from './JoinOrganizationPage'
 import ClientJoinPage from './ClientJoinPage'
+import ClientFieldTicketsPage from './ClientFieldTicketsPage'
+import ClientTicketPrintPage from './ClientTicketPrintPage'
 import ManagerDashboardV2 from './ManagerDashboardV2'
 import ManagerDispatchPage from './ManagerDispatchPage'
 import OperationsCalendarPage from './OperationsCalendarPage'
@@ -71,7 +73,11 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
     return <StandardApp />
   }
 
-  if (routeRole === 'client') return <StandardApp />
+  if (routeRole === 'client') {
+    if (normalizedPath === '/client-tickets') return <ClientFieldTicketsPage />
+    if (normalizedPath === '/client-ticket-print') return <ClientTicketPrintPage />
+    return <StandardApp />
+  }
 
   if (routeRole === 'manager') {
     if (normalizedPath === '/') return <ManagerDashboardV2 />

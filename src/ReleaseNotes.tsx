@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, X } from 'lucide-react'
 import packageInfo from '../package.json'
+import { supabase } from './lib/supabase'
 import './release-notes.css'
 
 const VERSION=packageInfo.version
@@ -17,10 +18,16 @@ const NOTES:Record<string,string[]>={
 export default function ReleaseNotes(){
   const [open,setOpen]=useState(false)
   useEffect(()=>{
-    if(!NOTES[VERSION]?.length)return
-    if(localStorage.getItem(SEEN_KEY)==='1')return
-    const timer=window.setTimeout(()=>setOpen(true),900)
-    return()=>window.clearTimeout(timer)
+    let active=true
+    let timer:number|undefined
+    const consider=(signedIn:boolean)=>{
+      if(!active||!signedIn||!NOTES[VERSION]?.length||localStorage.getItem(SEEN_KEY)==='1')return
+      if(timer)window.clearTimeout(timer)
+      timer=window.setTimeout(()=>{if(active)setOpen(true)},900)
+    }
+    void supabase.auth.getSession().then(({data})=>consider(Boolean(data.session)))
+    const {data:listener}=supabase.auth.onAuthStateChange((_event,session)=>consider(Boolean(session)))
+    return()=>{active=false;if(timer)window.clearTimeout(timer);listener.subscription.unsubscribe()}
   },[])
   if(!open)return null
   const close=()=>{localStorage.setItem(SEEN_KEY,'1');setOpen(false)}

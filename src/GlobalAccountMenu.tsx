@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Activity, BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLeft, CircleDollarSign, ClipboardCheck, ContactRound, Download, FileClock, Gauge, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
+import { Activity, BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLeft, CircleDollarSign, ClipboardCheck, ContactRound, Download, FileClock, FileText, Gauge, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
 import packageInfo from '../package.json'
 import { supabase } from './lib/supabase'
 import { FUNCTIONAL_TEST_USERS, personaFromSession, switchFunctionalTestPersona, type FunctionalTestPersona } from './functional-test-auth'
@@ -30,6 +30,7 @@ const managerNavigation = [
   ['Timesheets','/timesheets',FileClock],
   ['Invoices','/invoices',ReceiptText],
   ['Billing queue','/billing',ReceiptText],
+  ['Templates','/templates',FileText],
   ['Reports','/reports',Activity],
 ] as const
 
@@ -103,6 +104,7 @@ export default function GlobalAccountMenu() {
   const effectiveRole = persona === 'client' ? 'client' : persona === 'operator' ? 'operator' : roleKey
   const unreadCount = useMemo(() => notifications.filter(item => !item.read_at).length, [notifications])
   const canTeam = ['owner', 'admin'].includes(effectiveRole)
+  const canTemplates = ['owner', 'admin'].includes(effectiveRole)
   const canPricing = ['owner', 'admin', 'accounting'].includes(effectiveRole)
   const isOperator = effectiveRole === 'operator'
   const isClient = effectiveRole === 'client'
@@ -341,8 +343,9 @@ export default function GlobalAccountMenu() {
           {!notifications.length && <div className="northborn-notification-empty">No notifications yet.</div>}
         </div>
 
-        {(canTeam || canPricing) && <><div className="northborn-account-section-title">Quick access</div><div className="northborn-menu-links">
+        {(canTeam || canPricing || canTemplates) && <><div className="northborn-account-section-title">Quick access</div><div className="northborn-menu-links">
           {canTeam && <button type="button" onClick={() => go('/team-access')}><Users size={18}/><span><strong>Team access</strong><small>Invite and manage staff</small></span></button>}
+          {canTemplates && <button type="button" onClick={() => go('/templates')}><FileText size={18}/><span><strong>Template manager</strong><small>PDFs, fields and document defaults</small></span></button>}
           {canPricing && <button type="button" onClick={() => go('/pricing')}><CircleDollarSign size={18}/><span><strong>Price sheet</strong><small>Standard and client rates</small></span></button>}
           {canPricing && <button type="button" onClick={() => go('/billing')}><ReceiptText size={18}/><span><strong>Billing queue</strong><small>Approved tickets ready to invoice</small></span></button>}
         </div></>}

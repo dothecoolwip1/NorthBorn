@@ -1,0 +1,27 @@
+{
+  "name": "Northborn Field Operations",
+  "short_name": "Northborn",
+  "description": "Field operations, dispatch, fleet, safety, invoicing and customer workspaces for Northborn companies.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#081019",
+  "theme_color": "#111827",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/northborn-icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/northborn-icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

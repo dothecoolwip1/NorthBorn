@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Activity, BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLeft, CircleDollarSign, ClipboardCheck, ContactRound, Download, Gauge, HardHat, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
+import { Activity, BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLeft, CircleDollarSign, ContactRound, Download, Gauge, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
 import packageInfo from '../package.json'
 import { supabase } from './lib/supabase'
 import { FUNCTIONAL_TEST_USERS, personaFromSession, switchFunctionalTestPersona, type FunctionalTestPersona } from './functional-test-auth'
@@ -12,7 +12,7 @@ const db = supabase as any
 const APP_VERSION = packageInfo.version
 const personas = [
   ['manager', FUNCTIONAL_TEST_USERS.manager.email, ShieldCheck],
-  ['operator', FUNCTIONAL_TEST_USERS.operator.email, HardHat],
+  ['operator', FUNCTIONAL_TEST_USERS.operator.email, Building2],
   ['client', FUNCTIONAL_TEST_USERS.client.email, Building2],
 ] as const
 
@@ -34,8 +34,6 @@ const operatorNavigation = [
   ['Home','/',Gauge],
   ['My jobs','/jobs',BriefcaseBusiness],
   ['Safety','/safety',ShieldCheck],
-  ['Tickets','/tickets',ClipboardCheck],
-  ['Timesheets','/timesheets',HardHat],
   ['My unit','/fleet',Truck],
 ] as const
 

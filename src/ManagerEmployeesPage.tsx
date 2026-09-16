@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, HardHat, Mail, Plus, RefreshCw, Send, UserRound, X } from 'lucide-react'
+import { CheckCircle2, ChevronRight, HardHat, Mail, Pencil, Plus, RefreshCw, Send, UserRound, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import RoleAwareApp from './RoleAwareApp'
 import './manager-employees.css'
@@ -18,10 +18,9 @@ const ACCESS_ROLES = [
 
 type Organization = { id:string; name:string }
 type Employee = { id:string; user_id:string|null; first_name:string; last_name:string; email:string|null; phone:string|null; position:string|null; status:string }
-
 type Form = { first_name:string; last_name:string; email:string; phone:string; position:string; role_key:string }
-const EMPTY_FORM:Form = { first_name:'', last_name:'', email:'', phone:'', position:'Operator', role_key:'operator' }
 
+const EMPTY_FORM:Form = { first_name:'', last_name:'', email:'', phone:'', position:'Operator', role_key:'operator' }
 const readError = (error:unknown) => error instanceof Error ? error.message : String((error as {message?:string})?.message || error || 'Something went wrong.')
 
 function currentBaseUrl() {
@@ -37,6 +36,7 @@ export default function ManagerEmployeesPage() {
   const [error,setError] = useState('')
   const [notice,setNotice] = useState('')
   const [open,setOpen] = useState(false)
+  const [selected,setSelected] = useState<Employee|null>(null)
   const [form,setForm] = useState<Form>(EMPTY_FORM)
 
   const canManage = ['owner','admin'].includes(roleKey)
@@ -56,13 +56,18 @@ export default function ManagerEmployeesPage() {
     setOrganization(org)
     const result = await db.from('employees').select('id,user_id,first_name,last_name,email,phone,position,status').eq('organization_id',org.id).order('last_name').order('first_name')
     if (result.error) setError(result.error.message)
-    else setEmployees(result.data || [])
+    else {
+      const rows=(result.data || []) as Employee[]
+      setEmployees(rows)
+      setSelected(current=>current ? rows.find(employee=>employee.id===current.id) || null : null)
+    }
     setLoading(false)
   },[])
 
   useEffect(() => { void load() },[load])
 
-  const pendingCount = useMemo(() => employees.filter(employee => !employee.user_id && employee.email).length,[employees])
+  const pendingCount = useMemo(() => employees.filter(employee => !employee.user_id && employee.email && employee.status==='active').length,[employees])
+  const activeCount = useMemo(() => employees.filter(employee => employee.status==='active').length,[employees])
 
   const sendAccessEmail = async(employee:Employee, role = 'operator') => {
     if (!organization || !employee.email) throw new Error('An email address is required before sending Northborn access.')
@@ -144,21 +149,24 @@ export default function ManagerEmployeesPage() {
 
   return <main className="manager-employees-page">
     <section className="manager-employees-hero">
-      <div><span>WORKFORCE</span><h1>Employees</h1><p>Add employees and send the real Northborn authentication email they use to activate their account and finish their profile.</p></div>
+      <div><span>WORKFORCE</span><h1>Employees</h1><p>Open any employee to review their record. Owners and administrators can update details and account status.</p></div>
       {canManage && <button type="button" onClick={()=>setOpen(true)}><Plus size={18}/>Add employee</button>}
     </section>
 
     {error && <div className="manager-employees-error">{error}</div>}
     {notice && <div className="manager-employees-notice"><CheckCircle2 size={17}/>{notice}</div>}
 
-    <div className="manager-employees-summary"><HardHat size={20}/><strong>{employees.length}</strong><span>employees</span><Mail size={20}/><strong>{pendingCount}</strong><span>waiting for account setup</span></div>
+    <div className="manager-employees-summary"><HardHat size={20}/><strong>{activeCount}</strong><span>active</span><Mail size={20}/><strong>{pendingCount}</strong><span>waiting for account setup</span></div>
 
     <section className="manager-employees-list">
       {employees.map(employee => <article key={employee.id} className="manager-employee-card">
-        <div className="manager-employee-avatar"><UserRound size={20}/></div>
-        <div className="manager-employee-copy"><strong>{employee.first_name} {employee.last_name}</strong><span>{employee.position || 'Employee'}</span><small>{employee.email || 'No email'}{employee.phone ? ` · ${employee.phone}` : ''}</small></div>
-        <div className="manager-employee-state">{employee.user_id ? <span className="active">Account active</span> : <span>Setup pending</span>}</div>
-        {canManage && !employee.user_id && employee.email && <button className="manager-employee-resend" type="button" disabled={busy} onClick={()=>void resend(employee)}><RefreshCw size={15}/>Send access email</button>}
+        <button type="button" className="manager-employee-open" onClick={()=>setSelected(employee)} aria-label={`Open ${employee.first_name} ${employee.last_name}`}>
+          <div className="manager-employee-avatar"><UserRound size={20}/></div>
+          <div className="manager-employee-copy"><strong>{employee.first_name} {employee.last_name}</strong><span>{employee.position || 'Employee'}</span><small>{employee.email || 'No email'}{employee.phone ? ` · ${employee.phone}` : ''}</small></div>
+          <div className="manager-employee-state">{employee.user_id ? <span className="active">Account active</span> : <span>Setup pending</span>} {employee.status!=='active'&&<span className="inactive">{employee.status}</span>}</div>
+          <ChevronRight className="manager-employee-chevron" size={19}/>
+        </button>
+        {canManage && !employee.user_id && employee.email && employee.status==='active' && <button className="manager-employee-resend" type="button" disabled={busy} onClick={()=>void resend(employee)}><RefreshCw size={15}/>Send access email</button>}
       </article>)}
       {!employees.length && <div className="manager-employees-empty">No employees have been added yet.</div>}
     </section>
@@ -175,5 +183,52 @@ export default function ManagerEmployeesPage() {
       </div>
       <footer><button type="button" onClick={()=>setOpen(false)} disabled={busy}>Cancel</button><button className="primary" disabled={busy}><Send size={17}/>{busy?'Adding and sending…':'Add employee & send email'}</button></footer>
     </form></div>}
+
+    {selected && <EmployeeRecordModal employee={selected} organization={organization} canManage={canManage} busy={busy} onBusy={setBusy} onNotice={setNotice} onError={setError} onClose={()=>setSelected(null)} onSaved={load} onResend={resend}/>} 
   </main>
+}
+
+function EmployeeRecordModal({employee,organization,canManage,busy,onBusy,onNotice,onError,onClose,onSaved,onResend}:{employee:Employee;organization:Organization;canManage:boolean;busy:boolean;onBusy:(value:boolean)=>void;onNotice:(value:string)=>void;onError:(value:string)=>void;onClose:()=>void;onSaved:()=>Promise<void>;onResend:(employee:Employee)=>Promise<void>}){
+  const [edit,setEdit]=useState(false)
+  const [form,setForm]=useState({first_name:employee.first_name,last_name:employee.last_name,email:employee.email||'',phone:employee.phone||'',position:employee.position||'',status:employee.status})
+
+  const save=async(event:React.FormEvent)=>{
+    event.preventDefault();onBusy(true);onError('');onNotice('')
+    try{
+      const result=await db.from('employees').update({
+        first_name:form.first_name.trim(),
+        last_name:form.last_name.trim(),
+        email:form.email.trim().toLowerCase()||null,
+        phone:form.phone.trim()||null,
+        position:form.position.trim()||null,
+        status:form.status,
+      }).eq('id',employee.id).eq('organization_id',organization.id)
+      if(result.error)throw result.error
+      onNotice(`${form.first_name.trim()} ${form.last_name.trim()} was updated.`)
+      setEdit(false)
+      await onSaved()
+    }catch(caught){onError(readError(caught))}
+    finally{onBusy(false)}
+  }
+
+  return <div className="manager-employee-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)onClose()}}><section className="manager-employee-modal manager-employee-record">
+    <header><div><span>EMPLOYEE RECORD</span><h2>{employee.first_name} {employee.last_name}</h2></div><button type="button" onClick={onClose} disabled={busy}><X size={20}/></button></header>
+    {edit ? <form onSubmit={save}>
+      <div className="manager-employee-form">
+        <label>First name<input value={form.first_name} onChange={event=>setForm({...form,first_name:event.target.value})} required/></label>
+        <label>Last name<input value={form.last_name} onChange={event=>setForm({...form,last_name:event.target.value})} required/></label>
+        <label className="wide">Email<input type="email" value={form.email} onChange={event=>setForm({...form,email:event.target.value})}/></label>
+        <label>Phone<input type="tel" value={form.phone} onChange={event=>setForm({...form,phone:event.target.value})}/></label>
+        <label>Position<input value={form.position} onChange={event=>setForm({...form,position:event.target.value})}/></label>
+        <label>Status<select value={form.status} onChange={event=>setForm({...form,status:event.target.value})}><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></label>
+      </div>
+      <footer><button type="button" onClick={()=>setEdit(false)} disabled={busy}>Cancel</button><button className="primary" disabled={busy}>{busy?'Saving…':'Save changes'}</button></footer>
+    </form> : <>
+      <div className="manager-employee-record-body">
+        <div className="manager-employee-record-avatar"><UserRound size={28}/></div>
+        <div className="manager-employee-record-grid"><div><span>Position</span><strong>{employee.position||'Not set'}</strong></div><div><span>Status</span><strong>{employee.status}</strong></div><div><span>Email</span><strong>{employee.email||'Not set'}</strong></div><div><span>Phone</span><strong>{employee.phone||'Not set'}</strong></div><div><span>Northborn account</span><strong>{employee.user_id?'Active':'Setup pending'}</strong></div></div>
+      </div>
+      <footer>{canManage&&!employee.user_id&&employee.email&&employee.status==='active'&&<button type="button" disabled={busy} onClick={()=>void onResend(employee)}><RefreshCw size={16}/>Send access email</button>}{canManage&&<button type="button" className="primary" onClick={()=>setEdit(true)}><Pencil size={16}/>Edit employee</button>}</footer>
+    </>}
+  </section></div>
 }

@@ -5,7 +5,7 @@ import { BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLef
 import packageInfo from '../package.json'
 import { supabase } from './lib/supabase'
 import { FUNCTIONAL_TEST_USERS, personaFromSession, switchFunctionalTestPersona, type FunctionalTestPersona } from './functional-test-auth'
-import { applyNorthbornUpdate, checkForNorthbornUpdate, getPwaUpdateMode, hasInstallPrompt, isNorthbornInstalled, promptNorthbornInstall, setPwaUpdateMode, type NorthbornUpdateMode } from './pwa'
+import { applyNorthbornUpdate, checkForNorthbornUpdate, consumeNorthbornUpdateNotice, getNorthbornReleaseInfo, getPwaUpdateMode, hasInstallPrompt, isNorthbornInstalled, promptNorthbornInstall, setPwaUpdateMode, type NorthbornReleaseInfo, type NorthbornUpdateMode } from './pwa'
 import './global-account-menu.css'
 
 const db = supabase as any
@@ -81,6 +81,7 @@ export default function GlobalAccountMenu() {
   const [canInstall, setCanInstall] = useState(hasInstallPrompt())
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateMode, setUpdateModeState] = useState<NorthbornUpdateMode>(getPwaUpdateMode())
+  const [releaseInfo, setReleaseInfo] = useState<NorthbornReleaseInfo | null>(null)
   const previousIdentity = useRef('')
 
   const persona = personaFromSession(session)
@@ -122,7 +123,17 @@ export default function GlobalAccountMenu() {
       setInstalled(isNorthbornInstalled())
       setCanInstall(hasInstallPrompt())
     }
-    const onUpdate = () => setUpdateAvailable(true)
+    const onUpdate = () => {
+      setUpdateAvailable(true)
+      void getNorthbornReleaseInfo().then(info => {
+        if (!info) return
+        setReleaseInfo(info)
+        setToast({
+          title: `Northborn ${info.version} is ready`,
+          message: info.notes.slice(0, 2).join(' ') || 'A new version is ready to install.',
+        })
+      })
+    }
     window.addEventListener('northborn-install-available', syncInstallState)
     window.addEventListener('northborn-installed', syncInstallState)
     window.addEventListener('northborn-update-available', onUpdate)
@@ -135,6 +146,13 @@ export default function GlobalAccountMenu() {
       window.removeEventListener('northborn-update-available', onUpdate)
     }
   }, [])
+
+  useEffect(() => {
+    if (!open || panel !== 'settings') return
+    let active = true
+    void getNorthbornReleaseInfo().then(info => { if (active && info) setReleaseInfo(info) })
+    return () => { active = false }
+  }, [open, panel])
 
   useEffect(() => {
     let active = true
@@ -172,6 +190,17 @@ export default function GlobalAccountMenu() {
 
     return () => { active = false; void supabase.removeChannel(channel) }
   }, [userId, persona, session?.user.email])
+
+  useEffect(() => {
+    if (!userId) return
+    const info = consumeNorthbornUpdateNotice()
+    if (!info) return
+    setReleaseInfo(info)
+    setToast({
+      title: `Northborn updated to ${info.version}`,
+      message: [info.title, ...info.notes.slice(0, 2)].filter(Boolean).join(' '),
+    })
+  }, [userId])
 
   useEffect(() => {
     if (!toast) return
@@ -266,7 +295,7 @@ export default function GlobalAccountMenu() {
   const changeUpdateMode = (mode: NorthbornUpdateMode) => {
     setPwaUpdateMode(mode)
     setUpdateModeState(mode)
-    setToast({ title: mode === 'auto' ? 'Automatic updates on' : 'Update notifications on', message: mode === 'auto' ? 'Northborn will apply new versions automatically.' : 'Northborn will tell you when a new version is ready.' })
+    setToast({ title: mode === 'auto' ? 'Automatic updates on' : 'Update notifications on', message: mode === 'auto' ? 'Northborn will apply new versions automatically and show what changed.' : 'Northborn will tell you what changed before you choose to update.' })
   }
 
   const isNavigationActive = (path: string) => {
@@ -299,10 +328,11 @@ export default function GlobalAccountMenu() {
 
         <div className="northborn-account-section-title">Updates</div>
         <div className="northborn-update-mode">
-          <button type="button" className={updateMode === 'auto' ? 'active' : ''} onClick={() => changeUpdateMode('auto')}><strong>Automatic</strong><small>Apply new versions when they are ready.</small></button>
-          <button type="button" className={updateMode === 'notify' ? 'active' : ''} onClick={() => changeUpdateMode('notify')}><strong>Notify me</strong><small>Tell me first, then I choose when to update.</small></button>
+          <button type="button" className={updateMode === 'auto' ? 'active' : ''} onClick={() => changeUpdateMode('auto')}><strong>Automatic</strong><small>Apply new versions automatically and show what changed.</small></button>
+          <button type="button" className={updateMode === 'notify' ? 'active' : ''} onClick={() => changeUpdateMode('notify')}><strong>Notify me</strong><small>Show patch notes first, then I choose when to update.</small></button>
         </div>
         {updateAvailable ? <button type="button" className="northborn-update-ready" onClick={() => applyNorthbornUpdate()}><RefreshCw size={16}/>Update Northborn now</button> : <button type="button" className="northborn-settings-check" onClick={() => { checkForNorthbornUpdate(); setToast({ title: 'Checking for updates', message: 'Northborn is checking for a newer version.' }) }}><RefreshCw size={16}/>Check for updates</button>}
+        {releaseInfo && <div className="northborn-release-card"><strong>{releaseInfo.title || `Northborn ${releaseInfo.version}`}</strong><span>Version {releaseInfo.version}</span>{releaseInfo.notes.length > 0 && <ul>{releaseInfo.notes.slice(0, 5).map(note => <li key={note}>{note}</li>)}</ul>}</div>}
 
         <div className="northborn-account-section-title">About</div>
         <div className="northborn-version-card"><div className="northborn-version-logo">N</div><div><strong>Northborn</strong><span>Version {APP_VERSION}</span></div></div>

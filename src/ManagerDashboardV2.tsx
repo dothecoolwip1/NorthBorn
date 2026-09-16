@@ -51,7 +51,6 @@ const num=(value:unknown)=>Number(value||0)
 const currency=(value:number)=>new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD',maximumFractionDigits:0}).format(value)
 const label=(value:string)=>value.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())
 const localDay=(date=new Date())=>{const copy=new Date(date.getTime()-date.getTimezoneOffset()*60000);return copy.toISOString().slice(0,10)}
-const dateLabel=(value:string|null)=>value?new Intl.DateTimeFormat('en-CA',{month:'short',day:'numeric',year:'numeric'}).format(new Date(value.length===10?`${value}T12:00:00`:value)):'Not set'
 const timeLabel=(value:string|null)=>value?new Intl.DateTimeFormat('en-CA',{hour:'numeric',minute:'2-digit'}).format(new Date(value)):'Time not set'
 const readError=(error:unknown)=>error instanceof Error?error.message:String((error as {message?:string})?.message||error||'Something went wrong.')
 
@@ -180,7 +179,7 @@ export default function ManagerDashboardV2(){
     </section>
 
     <section className="manager-home-columns">
-      <div className="manager-home-panel attention-panel"><PanelHeading eyebrow="NEEDS ATTENTION" title="What should happen next"/><div className="attention-list">{attention.length?attention.map(item=><AttentionRow key={item.key} {...item}/>):<div className="manager-home-clear"><CheckCircle2 size={27}/><div><strong>No urgent workflow gaps</strong><span>Northborn has nothing critical waiting in the areas available to your role.</span></div></div>}</div></div>
+      <div className="manager-home-panel attention-panel"><PanelHeading eyebrow="NEEDS ATTENTION" title="What should happen next"/><div className="attention-list">{attention.length?attention.map(({key,...item})=><AttentionRow key={key} {...item}/>):<div className="manager-home-clear"><CheckCircle2 size={27}/><div><strong>No urgent workflow gaps</strong><span>Northborn has nothing critical waiting in the areas available to your role.</span></div></div>}</div></div>
 
       {canOps&&<div className="manager-home-panel"><PanelHeading eyebrow="TODAY" title="Today's work" link="/dispatch"/><div className="today-job-list">{metrics.todayJobs.length?metrics.todayJobs.slice(0,8).map(job=><TodayJob key={job.id} job={job} workspace={workspace}/>):<EmptyBlock icon={CalendarDays} title="No jobs scheduled today" copy="Upcoming jobs will appear here once they have a shop, onsite or scheduled time."/>}</div></div>}
     </section>

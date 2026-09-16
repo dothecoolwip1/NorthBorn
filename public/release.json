@@ -1,9 +1,11 @@
 {
-  "version": "0.2.3",
-  "title": "Update notifications and patch notes",
+  "version": "0.3.0",
+  "title": "Field workflow release",
   "notes": [
-    "Update notifications now show patch notes before you choose to install a new version.",
-    "Automatic updates still apply automatically and show what changed after the new version loads.",
-    "Includes the latest Reports dashboard, cleaner navigation and editable employee records."
+    "Added Timesheets with weekly hours, draft and submit workflows, and manager approval or return.",
+    "Added Field Tickets with job and unit links, service items, disposal details, customer signatures, and manager review.",
+    "Added a public Northborn homepage explaining the platform, its field-first origin, and the industries it is built for.",
+    "Hardened sensitive Supabase RPC access so signed-out users cannot execute operational or billing functions.",
+    "Improved update delivery so installed copies show release notes and receive the new application shell."
   ]
 }

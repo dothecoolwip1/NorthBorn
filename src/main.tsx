@@ -41,6 +41,7 @@ import './contact-hierarchy.css'
 import './mobile-first.css'
 import './mobile-polish.css'
 import './menu-shell-overrides.css'
+import './qa-final-polish.css'
 
 const RETIRED_TEST_KEYS = ['northborn_test_mode', 'northborn_test_persona']
 for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)
@@ -184,6 +185,19 @@ function NorthbornRouter() {
 
 function NorthbornOnlyChrome() {
   const location = useLocation()
+
+  React.useEffect(() => {
+    const applyAccessibleNames = () => {
+      document.querySelectorAll<HTMLAnchorElement>('.opfleet-shell > header > a').forEach(link => {
+        if (!link.getAttribute('aria-label') && !(link.textContent || '').trim()) link.setAttribute('aria-label', 'Back to dashboard')
+      })
+    }
+    applyAccessibleNames()
+    const observer = new MutationObserver(applyAccessibleNames)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
+
   if (isMallardPath(location.pathname)) return null
   return <><GlobalAccountMenu /><TestRoleSwitcher /><ReleaseNotes /></>
 }

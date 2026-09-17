@@ -1,11 +1,9 @@
 {
-  "version": "0.8.2",
-  "title": "Mallard Sample Deletion",
+  "version": "0.8.3",
+  "title": "Automatic Version Correction",
   "notes": [
-    "Added permanent sample deletion from the sample detail screen.",
-    "Deletion requires a confirmation message that names the sample number and warns that the action cannot be undone.",
-    "Deleting a sample also removes its related lab test rows and history through database cascades without leaving orphaned records.",
-    "Deleted sample numbers are not returned to the numbering pool or reused.",
-    "Kept Archive as a separate non-destructive option for records that should only be hidden from the active list."
+    "Synchronized Northborn package, lockfile and release versions.",
+    "Applied the mandatory version bump rule automatically after detecting inconsistent or unversioned changes.",
+    "No user data or operational records were changed by this correction."
   ]
 }

@@ -1,9 +1,10 @@
 {
-  "version": "0.7.2",
-  "title": "Automatic Version Correction",
+  "version": "0.7.3",
+  "title": "Production QA Routing Fixes",
   "notes": [
-    "Synchronized Northborn package, lockfile and release versions.",
-    "Applied the mandatory version bump rule automatically after detecting inconsistent or unversioned changes.",
-    "No user data or operational records were changed by this correction."
+    "Fixed the operator My Jobs route so the hamburger menu no longer leads to a dead page.",
+    "Corrected the production browser test login selector so the QA suite can test every signed-in role and route.",
+    "Improved automatic version synchronization so the lockfile follows an intentional Northborn release without creating an extra version bump.",
+    "Continued the full-site production QA pass across desktop and mobile workflows."
   ]
 }

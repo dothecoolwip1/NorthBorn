@@ -36,6 +36,7 @@ function nextPatch(version) {
 
 const rootLockVersion = lock?.packages?.['']?.version || ''
 const versionsAligned = pkg.version === lock.version && pkg.version === rootLockVersion && pkg.version === release.version
+const packageAndReleaseAligned = pkg.version === release.version
 const previousVersion = parentVersion()
 const files = changedFiles()
 const versionFiles = new Set([packagePath, lockPath, releasePath])
@@ -56,6 +57,16 @@ if (!repair) {
 
 const output = process.env.GITHUB_OUTPUT
 if (!versionsAligned || missingRequiredBump) {
+  if (!missingRequiredBump && packageAndReleaseAligned) {
+    if (!lock.packages || !lock.packages['']) throw new Error('package-lock.json is missing its root package entry.')
+    lock.version = pkg.version
+    lock.packages[''].version = pkg.version
+    writeJson(lockPath, lock)
+    console.log(`Northborn lockfile synchronized to v${pkg.version}.`)
+    if (output) fs.appendFileSync(output, `changed=true\nversion=${pkg.version}\n`)
+    process.exit(0)
+  }
+
   const next = nextPatch(pkg.version)
   pkg.version = next
   lock.version = next

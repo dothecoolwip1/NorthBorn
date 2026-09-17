@@ -77,7 +77,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
   if (routeRole === 'unconnected') return <StandardApp />
 
   if (routeRole === 'operator') {
-    if (normalizedPath === '/') return <StandardApp />
+    if (normalizedPath === '/' || normalizedPath === '/jobs') return <StandardApp />
     if (normalizedPath === '/fleet') return <FleetRoutePage />
     if (normalizedPath === '/tickets') return <FieldTicketsPage />
     if (normalizedPath === '/ticket-print') return <TicketPrintPage />

@@ -79,9 +79,9 @@ async function auditPage(page, path, issues, mobile = false) {
 async function loginManager(page) {
   await page.goto(absolute('/login'))
   await settle(page)
-  await page.getByLabel('Email or username').fill('admin')
-  await page.getByLabel('Password').fill('admin')
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByLabel('Email or username', { exact: true }).fill('admin')
+  await page.getByLabel('Password', { exact: true }).fill('admin')
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
 }
 
@@ -118,8 +118,8 @@ test('guest, login, and isolated Mallard routes are healthy', async ({ page }) =
 
   await page.goto(absolute('/login'))
   await auditPage(page, '/login', issues)
-  await expect(page.getByLabel('Email or username')).toBeVisible()
-  await expect(page.getByLabel('Password')).toBeVisible()
+  await expect(page.getByLabel('Email or username', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
 
   await page.goto(absolute('/mallard'))
   await settle(page)

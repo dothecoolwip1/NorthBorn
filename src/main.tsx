@@ -28,6 +28,7 @@ import BillingQueuePage from './BillingQueuePage'
 import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import SafetyRoutePage from './SafetyRoutePage'
 import TemplateManagerPage from './TemplateManagerPage'
+import MallardSampleTracker from './MallardSampleTracker'
 import GlobalAccountMenu from './GlobalAccountMenu'
 import TestRoleSwitcher from './TestRoleSwitcher'
 import ReleaseNotes from './ReleaseNotes'
@@ -47,6 +48,11 @@ for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)
 type RouteRole = 'loading' | 'guest' | 'unconnected' | 'manager' | 'operator' | 'client'
 const db = supabase as any
 
+function isMallardPath(pathname: string) {
+  const path = pathname.replace(/\/+$/, '') || '/'
+  return path === '/mallard' || path.startsWith('/mallard/')
+}
+
 function StandardApp() {
   return <><RoleAwareApp /><AuthEnhancements /></>
 }
@@ -56,6 +62,7 @@ function WorkspaceNotFound({ homeLabel = 'Back to dashboard' }:{ homeLabel?:stri
 }
 
 function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole }) {
+  if (isMallardPath(normalizedPath)) return <MallardSampleTracker />
   if (normalizedPath === '/logout') return <LogoutPage />
   if (normalizedPath === '/client-join') return <ClientJoinPage />
   if (normalizedPath === '/join' || (hasInvite && normalizedPath !== '/client-join')) return <JoinOrganizationPage />
@@ -121,6 +128,14 @@ function NorthbornRouter() {
   const [routeRole, setRouteRole] = React.useState<RouteRole>('loading')
 
   React.useEffect(() => {
+    if (isMallardPath(normalizedPath)) {
+      document.title = 'Mallard Environmental Sample Tracker'
+      return
+    }
+    document.title = 'Northborn'
+  }, [normalizedPath])
+
+  React.useEffect(() => {
     let active = true
     void supabase.auth.getSession().then(({ data }) => { if (active) setSession(data.session) })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => { if (active) setSession(next) })
@@ -128,6 +143,7 @@ function NorthbornRouter() {
   }, [])
 
   React.useEffect(() => {
+    if (isMallardPath(normalizedPath)) return
     let active = true
     const resolveRole = async () => {
       if (!session?.user.id) {
@@ -164,9 +180,15 @@ function NorthbornRouter() {
 
     void resolveRole()
     return () => { active = false }
-  }, [session?.user.id])
+  }, [normalizedPath, session?.user.id])
 
   return <RoutedWorkspace normalizedPath={normalizedPath} hasInvite={hasInvite} routeRole={routeRole} />
+}
+
+function NorthbornOnlyChrome() {
+  const location = useLocation()
+  if (isMallardPath(location.pathname)) return null
+  return <><GlobalAccountMenu /><TestRoleSwitcher /><ReleaseNotes /></>
 }
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '')
@@ -180,9 +202,7 @@ ReactDOM.createRoot(rootElement).render(
     <AppErrorBoundary>
       <BrowserRouter basename={routerBase}>
         <NorthbornRouter />
-        <GlobalAccountMenu />
-        <TestRoleSwitcher />
-        <ReleaseNotes />
+        <NorthbornOnlyChrome />
       </BrowserRouter>
     </AppErrorBoundary>
   </React.StrictMode>,

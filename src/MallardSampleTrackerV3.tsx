@@ -157,6 +157,9 @@ const eventLabels: Record<string, string> = {
   test_added: 'Test result added',
   test_updated: 'Test result updated',
   test_removed: 'Test result removed',
+  attachment_uploaded: 'Test paperwork uploaded',
+  attachment_parsed: 'Test paperwork read',
+  attachment_parse_review: 'Test paperwork needs review',
 }
 
 const matrixOptions = ['Unknown', 'Water', 'Soil', 'Sludge', 'Hydrocarbon / product', 'Mixed waste', 'Other']
@@ -701,7 +704,7 @@ export default function MallardSampleTrackerV3() {
   const deleteSample = async () => {
     if (!selected) return
     const confirmed = window.confirm(
-      `Permanently delete sample ${selected.sample_number}?\n\nThis deletes the sample, its lab results and its history. This cannot be undone.\n\nSample number ${selected.sample_number} will not be reused.`
+      `Permanently delete sample ${selected.sample_number}?\n\nThis deletes the sample, its uploaded test files, lab results and history. This cannot be undone.\n\nSample number ${selected.sample_number} will not be reused.`
     )
     if (!confirmed) return
     setSaving(true)

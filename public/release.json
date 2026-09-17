@@ -1,10 +1,12 @@
 {
-  "version": "0.7.5",
-  "title": "Mallard Sample Numbering Correction",
+  "version": "0.7.6",
+  "title": "Mallard Sample Tracker V2",
   "notes": [
-    "Corrected Mallard sample numbering so the 1000 series is Oilfield and the 2000 series is Non Oilfield.",
-    "Corrected existing sample 1001 to Oilfield and reserved physical sample 2001 for Non Oilfield.",
-    "Future automatic numbering now continues at 1002 for Oilfield, 2002 for Non Oilfield and 3001 for Odd / Weird.",
-    "Added range validation so manually supplied sample numbers cannot be assigned to the wrong category."
+    "Restored the original Mallard numbering: 1000 series Non Oilfield, 2000 series Oilfield and 3000 series Odd / Weird.",
+    "Added disposal tracking with quick choices for MROR, Secure and One Environmental plus custom facilities, dump date, reference and notes.",
+    "Upgraded the mobile interface with exact next-number previews, faster search and filters, priority samples, sample matrix, repeat-sample cloning and clearer record sections.",
+    "Added record revisions and conflict protection so one device does not silently overwrite a newer edit from another device.",
+    "Expanded audit history to include field edits, lab edits, disposal changes and lab test add, edit and remove events.",
+    "Hardened sample identity so assigned sample numbers and their category cannot be changed from the browser."
   ]
 }

@@ -1,9 +1,10 @@
 {
   "version": "0.7.1",
-  "title": "Internal Tool Identity Polish",
+  "title": "Full Site QA Foundation",
   "notes": [
-    "Separated the internal operational tool's browser identity from Northborn branding.",
-    "Normal Northborn navigation, roles and install behaviour remain unchanged.",
-    "Added a dedicated install manifest and icon for the isolated internal tool."
+    "Added automated production browser testing for guest, manager, operator and client workflows on desktop and mobile layouts.",
+    "Added checks for broken routes, runtime crashes, server failures, horizontal overflow, inaccessible controls and undersized touch targets.",
+    "Added functional coverage for the company field ticket template workflow and the isolated Mallard sample tracker.",
+    "Added automatic version discipline checks so product changes cannot silently ship without a Northborn version change."
   ]
 }

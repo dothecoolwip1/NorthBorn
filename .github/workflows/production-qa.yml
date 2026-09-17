@@ -1,0 +1,85 @@
+name: Northborn Production QA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: northborn-production-qa
+  cancel-in-progress: true
+
+jobs:
+  production-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Enforce Northborn version rule
+        id: version_guard
+        run: node scripts/version-guard.mjs --repair
+
+      - name: Commit automatic version correction
+        if: steps.version_guard.outputs.changed == 'true'
+        run: |
+          git config user.name "Northborn QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add package.json package-lock.json public/release.json
+          git commit -m "Bump Northborn to ${{ steps.version_guard.outputs.version }}"
+          git push origin HEAD:main
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Install browser test runner
+        run: |
+          npm install --no-save --package-lock=false @playwright/test@1.63.0
+          npx playwright install --with-deps chromium
+
+      - name: Wait for matching production deployment
+        env:
+          EXPECTED_VERSION: ${{ steps.version_guard.outputs.version }}
+        run: |
+          for attempt in $(seq 1 48); do
+            body="$(curl -fsS "https://northborn.vercel.app/release.json?qa=${GITHUB_SHA}-${attempt}" || true)"
+            if echo "$body" | grep -q "\"version\": \"${EXPECTED_VERSION}\""; then
+              echo "Production is running Northborn v${EXPECTED_VERSION}."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Production never reported Northborn v${EXPECTED_VERSION}."
+          exit 1
+
+      - name: Run production browser QA
+        env:
+          NORTHBORN_BASE_URL: https://northborn.vercel.app
+          NORTHBORN_VERSION: ${{ steps.version_guard.outputs.version }}
+        run: npx playwright test tests/e2e/production-smoke.spec.mjs --workers=1 --reporter=line --timeout=45000
+
+      - name: Upload browser failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: northborn-production-qa-${{ github.run_id }}
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: ignore
+          retention-days: 7

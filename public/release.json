@@ -1,9 +1,9 @@
 {
-  "version": "0.7.0",
-  "title": "Internal Infrastructure Update",
+  "version": "0.7.1",
+  "title": "Internal Tool Identity Polish",
   "notes": [
-    "Added isolated internal operational tooling outside normal Northborn navigation.",
-    "Normal Northborn menus, roles, customer workflows and operator workflows are unchanged.",
-    "Added supporting database structures and mobile interface infrastructure for the isolated tool."
+    "Separated the internal operational tool's browser identity from Northborn branding.",
+    "Normal Northborn navigation, roles and install behaviour remain unchanged.",
+    "Added a dedicated install manifest and icon for the isolated internal tool."
   ]
 }

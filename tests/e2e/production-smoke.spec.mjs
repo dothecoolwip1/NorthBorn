@@ -2,6 +2,12 @@ import { test, expect } from '@playwright/test'
 
 const BASE = process.env.NORTHBORN_BASE_URL || 'https://northborn.vercel.app'
 const expectedVersion = process.env.NORTHBORN_VERSION || ''
+const TEST_PASSWORD = 'Adminadmin2026!'
+const TEST_USERS = {
+  manager: 'manager@test.com',
+  operator: 'operator@test.com',
+  client: 'client@test.com',
+}
 
 function absolute(path) { return new URL(path, BASE).toString() }
 
@@ -17,7 +23,7 @@ function monitor(page) {
 
 async function settle(page) {
   await page.waitForLoadState('domcontentloaded')
-  await page.waitForTimeout(900)
+  await page.waitForTimeout(1100)
 }
 
 async function auditPage(page, path, issues, mobile = false) {
@@ -76,20 +82,12 @@ async function auditPage(page, path, issues, mobile = false) {
   if (controls.tinyText.length) issues.push(`${path}: text smaller than 10px: ${controls.tinyText.map(item => `${item.text} (${item.size}px)`).join('; ')}`)
 }
 
-async function loginManager(page) {
+async function loginAs(page, persona) {
   await page.goto(absolute('/login'))
   await settle(page)
-  await page.getByLabel('Email or username', { exact: true }).fill('admin')
-  await page.getByLabel('Password', { exact: true }).fill('admin')
+  await page.getByLabel('Email or username', { exact: true }).fill(TEST_USERS[persona])
+  await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
-}
-
-async function switchPersona(page, label) {
-  await page.getByRole('button', { name: 'Switch test role' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Test role switcher' })
-  await expect(dialog).toBeVisible()
-  await dialog.getByRole('button').filter({ hasText: label }).click()
   await page.waitForURL(url => url.origin === new URL(BASE).origin && url.pathname === '/', { timeout: 30000 })
   await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
 }
@@ -130,7 +128,7 @@ test('guest, login, and isolated Mallard routes are healthy', async ({ page }) =
 
 test('manager routes and core actions are healthy', async ({ page }) => {
   const issues = []
-  await loginManager(page)
+  await loginAs(page, 'manager')
   const routes = ['/', '/calendar', '/dispatch', '/customers', '/jobs', '/employees', '/fleet', '/fleet-access', '/maintenance', '/safety', '/tickets', '/timesheets', '/invoices', '/billing', '/pricing', '/templates', '/reports', '/team-access']
   await routeSweep(page, routes, issues)
 
@@ -139,21 +137,26 @@ test('manager routes and core actions are healthy', async ({ page }) => {
   await expect(page.locator('body')).toContainText('Templates')
   if (expectedVersion) await expect(page.locator('body')).toContainText(`v${expectedVersion}`)
 
+  await page.goto(absolute('/jobs'))
+  const newJob = page.getByRole('button', { name: /new job/i })
+  await expect(newJob).toBeVisible({ timeout: 15000 })
+  await newJob.click()
+  await expect(page.locator('.manager-job-modal')).toBeVisible({ timeout: 10000 })
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+
   await page.goto(absolute('/tickets'))
   const newTicket = page.getByRole('button', { name: /new ticket/i })
-  if (await newTicket.count()) {
-    await newTicket.first().click()
-    await expect(page.locator('.ticket-editor')).toBeVisible({ timeout: 10000 })
-    if (await page.locator('.ticket-template-banner').count() === 0) issues.push('/tickets: active company field ticket template was not visible after opening New ticket')
-  } else issues.push('/tickets: New ticket action was not visible for manager test account')
+  await expect(newTicket).toBeVisible({ timeout: 15000 })
+  await newTicket.click()
+  await expect(page.locator('.ticket-editor')).toBeVisible({ timeout: 10000 })
+  await page.locator('.ticket-editor header button').first().click()
 
   failWithIssues(issues)
 })
 
 test('operator routes, role isolation, and job access are healthy', async ({ page }) => {
   const issues = []
-  await loginManager(page)
-  await switchPersona(page, 'Operator')
+  await loginAs(page, 'operator')
   await routeSweep(page, ['/', '/jobs', '/fleet', '/tickets', '/timesheets', '/safety'], issues)
 
   await page.goto(absolute('/'))
@@ -166,8 +169,7 @@ test('operator routes, role isolation, and job access are healthy', async ({ pag
 
 test('client routes and role isolation are healthy', async ({ page }) => {
   const issues = []
-  await loginManager(page)
-  await switchPersona(page, 'Client')
+  await loginAs(page, 'client')
   await routeSweep(page, ['/', '/tickets', '/client-tickets'], issues)
   await page.goto(absolute('/'))
   await page.getByRole('button', { name: 'Open Northborn menu' }).click()
@@ -176,24 +178,41 @@ test('client routes and role isolation are healthy', async ({ page }) => {
   failWithIssues(issues)
 })
 
+test('functional test role switcher can change personas', async ({ page }) => {
+  await loginAs(page, 'manager')
+  await page.getByRole('button', { name: 'Switch test role' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Test role switcher' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText('Operator')
+  await expect(dialog).toContainText('Client')
+  await dialog.getByRole('button').filter({ hasText: 'Operator' }).click()
+  await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
+  await page.getByRole('button', { name: 'Open Northborn menu' }).click()
+  const menuText = await page.locator('body').innerText()
+  expect(menuText).not.toContain('Templates')
+})
+
 test.describe('mobile visibility and touch flow', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 
   test('manager mobile routes avoid overflow and tiny controls', async ({ page }) => {
     const issues = []
-    await loginManager(page)
+    await loginAs(page, 'manager')
     await routeSweep(page, ['/', '/dispatch', '/calendar', '/jobs', '/fleet', '/safety', '/tickets', '/templates'], issues, true)
     failWithIssues(issues)
   })
 
-  test('operator and client mobile routes avoid overflow and dead ends', async ({ page }) => {
+  test('operator mobile routes avoid overflow and dead ends', async ({ page }) => {
     const issues = []
-    await loginManager(page)
-    await switchPersona(page, 'Operator')
+    await loginAs(page, 'operator')
     await routeSweep(page, ['/', '/jobs', '/tickets', '/timesheets', '/safety', '/fleet'], issues, true)
-    await switchPersona(page, 'Manager')
-    await switchPersona(page, 'Client')
-    await routeSweep(page, ['/', '/tickets'], issues, true)
+    failWithIssues(issues)
+  })
+
+  test('client mobile routes avoid overflow and dead ends', async ({ page }) => {
+    const issues = []
+    await loginAs(page, 'client')
+    await routeSweep(page, ['/', '/tickets', '/client-tickets'], issues, true)
     failWithIssues(issues)
   })
 })

@@ -100,7 +100,12 @@ function enhanceAuthCard() {
           return
         }
 
-        if (creating && !result.data.session) {
+        if (result.data.session) {
+          window.location.replace(getAuthRedirectUrl())
+          return
+        }
+
+        if (creating) {
           showAuthMessage(card, 'Check your email to confirm your Northborn account.')
         }
       } catch (caught) {

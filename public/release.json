@@ -1,12 +1,11 @@
 {
-  "version": "0.8.0",
-  "title": "Mallard Sample Tracker V2",
+  "version": "0.8.1",
+  "title": "Mallard Environmental Brand Refresh",
   "notes": [
-    "Restored the original Mallard numbering: 1000 series Non Oilfield, 2000 series Oilfield and 3000 series Odd / Weird.",
-    "Added disposal tracking with quick choices for MROR, Secure and One Environmental plus custom facilities, dump date, reference and notes.",
-    "Upgraded the mobile interface with exact database-backed next-number previews, faster search and filters, priority samples, sample matrix and repeat-sample cloning.",
-    "Added record revisions and conflict protection so one device cannot silently overwrite a newer edit from another device.",
-    "Expanded audit history to include field edits, lab edits, disposal changes and lab test add, edit and remove events.",
-    "Hardened sample identity so assigned sample numbers and numbering categories cannot be changed from the browser."
+    "Restyled the Mallard tracker around Mallard Environmental's black, green, grey and bill-gold brand palette.",
+    "Replaced the generic laboratory beaker mark with a dedicated Mallard duck app icon inspired by the supplied company branding.",
+    "Updated sample category cards, record heroes, status pills, disposal controls, forms, panels and bottom navigation to use a consistent industrial field-ready visual system.",
+    "Updated the Mallard PWA manifest, theme colour, icon and mobile home-screen identity while keeping the route isolated from Northborn.",
+    "Kept the existing Mallard sample workflow and database behavior unchanged."
   ]
 }

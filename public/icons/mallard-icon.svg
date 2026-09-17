@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#225f47"/>
+  <path d="M171 116h170v42h-22v73c0 17 6 33 17 46l50 61c31 38 4 94-45 94H171c-49 0-76-56-45-94l50-61c11-13 17-29 17-46v-73h-22v-42zm64 42v78c0 27-9 53-26 74l-49 60c-9 11-1 28 13 28h168c14 0 22-17 13-28l-49-60c-17-21-26-47-26-74v-78h-44z" fill="#fff"/>
+  <path d="M180 337h152l35 43c6 7 1 18-8 18H153c-9 0-14-11-8-18l35-43z" fill="#b9d7c8"/>
+  <text x="256" y="305" text-anchor="middle" font-family="Arial, sans-serif" font-size="92" font-weight="800" fill="#225f47">M</text>
+</svg>

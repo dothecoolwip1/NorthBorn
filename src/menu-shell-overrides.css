@@ -122,6 +122,23 @@
   .ops-event{min-height:58px}
 }
 
+/* QA readability baseline for remaining legacy compact UI. */
+.northborn-test-role-trigger span{font-size:11px!important}
+.marketing-panel-top small,.marketing-panel-top>span,.marketing-panel-grid span,.marketing-job-card small,.marketing-job-card em,.marketing-panel-footer{font-size:10px!important;line-height:1.35}
+.manager-home-top>div>span,.manager-panel-heading span,.manager-kpi>div span,.manager-kpi>small,.attention-row span,.manager-home-clear span,.today-job-main span,.today-job-resources span,.manager-stat-row span,.manager-empty-block span,.manager-home-shortcuts strong,.manager-home-shortcuts small,.manager-home-footer{font-size:11px!important;line-height:1.35}
+.manager-panel-heading>a{font-size:11px!important;min-height:44px;padding:0 8px}
+.manager-job-tabs span{font-size:11px!important}
+.fleet-status,.fleet-unit-title span,.fleet-card-stats small,.fleet-info span,.fleet-info small,.fleet-detail small,.fleet-detail span,.fleet-due-card small{font-size:10px!important;line-height:1.35}
+.fleet-filters button{min-height:40px;font-size:11px!important}
+.timesheet-week small,.timesheet-metric span,.timesheet-entry-main span,.timesheet-review-note,.timesheet-hours span,.timesheet-state>span,.timesheet-state small,.timesheet-actions button,.timesheet-form label,.timesheet-calc button,.timesheet-calc span{font-size:10px!important;line-height:1.35}
+.safety-search kbd,.safety-category,.safety-doc-meta span,.safety-pill,.safety-category-row button{font-size:10px!important;line-height:1.35}
+.safety-search input{min-height:44px}
+.safety-text-button{min-height:44px;font-size:12px!important;padding:8px 10px}
+.template-card-actions button,.template-card-menu button,.template-fields-heading>button{min-height:40px}
+.template-toolbar input,.template-toolbar select{min-height:42px}
+.template-source-choice>button,.template-starter-grid>button{min-height:52px}
+.efa-shell header>a{min-width:44px;min-height:44px;display:grid;place-items:center}
+
 @media(max-width:760px){
   .ticket-page button,
   .ticket-page input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
@@ -142,14 +159,30 @@
   .dispatch-v2-page button,
   .dispatch-v2-page input,
   .dispatch-v2-page select,
-  .dispatch-v2-page textarea{
+  .dispatch-v2-page textarea,
+  .fleet-page button,
+  .safety-page button,
+  .safety-page input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  .safety-page select,
+  .safety-page textarea,
+  .template-page button,
+  .template-page input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  .template-page select,
+  .template-page textarea,
+  .timesheet-page button,
+  .timesheet-page input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  .timesheet-page select,
+  .timesheet-page textarea{
     min-height:44px;
   }
   .ticket-page input,.ticket-page select,.ticket-page textarea,
   .portal-shell input,.portal-shell select,.portal-shell textarea,
   .clients-shell input,.clients-shell select,.clients-shell textarea,
   .manager-jobs-page input,.manager-jobs-page select,.manager-jobs-page textarea,
-  .dispatch-v2-page input,.dispatch-v2-page select,.dispatch-v2-page textarea{
+  .dispatch-v2-page input,.dispatch-v2-page select,.dispatch-v2-page textarea,
+  .safety-page input,.safety-page select,.safety-page textarea,
+  .template-page input,.template-page select,.template-page textarea,
+  .timesheet-page input,.timesheet-page select,.timesheet-page textarea{
     font-size:16px!important;
   }
   .ticket-page .ticket-primary,
@@ -157,7 +190,11 @@
   .portal-shell .portal-secondary,
   .manager-jobs-primary,
   .dispatch-v2-status-actions button,
-  .dispatch-v2-picker button{
+  .dispatch-v2-picker button,
+  .safety-primary,
+  .safety-secondary,
+  .template-page button.primary,
+  .timesheet-primary{
     min-height:48px;
   }
 }

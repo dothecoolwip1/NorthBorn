@@ -17,13 +17,10 @@
     <title>Northborn</title>
     <script>
       ;(() => {
-        const freshHomeUrl = () => {
-          let basePath = '/'
-          if (window.location.hostname.endsWith('github.io')) {
-            const firstSegment = window.location.pathname.split('/').filter(Boolean)[0]
-            if (firstSegment) basePath = `/${firstSegment}/`
-          }
-          const url = new URL(basePath, window.location.origin)
+        const bootRetryKey = 'northborn_boot_recovery_attempted'
+
+        const freshCurrentUrl = () => {
+          const url = new URL(window.location.href)
           url.searchParams.set('_northborn', Date.now().toString())
           return url.toString()
         }
@@ -61,22 +58,58 @@
             }
             if (status) status.style.display = 'block'
             await clearBrowserAppCaches()
-            window.location.replace(freshHomeUrl())
+            window.location.replace(freshCurrentUrl())
           })
         }
 
+        const isRequiredNorthbornAsset = target => {
+          if (!target || !target.tagName) return false
+          if (target.tagName === 'SCRIPT') {
+            return (target.getAttribute('type') || '').toLowerCase() === 'module'
+          }
+          if (target.tagName === 'LINK') {
+            const rel = (target.getAttribute('rel') || '').toLowerCase()
+            const href = target.getAttribute('href') || ''
+            if (rel !== 'stylesheet' || !href) return false
+            try {
+              return new URL(href, window.location.href).pathname.includes('/assets/')
+            } catch {
+              return false
+            }
+          }
+          return false
+        }
+
+        const recoverFreshOnce = async reason => {
+          if (document.documentElement.dataset.northbornMounted === '1') return
+          try {
+            if (sessionStorage.getItem(bootRetryKey) !== '1') {
+              sessionStorage.setItem(bootRetryKey, '1')
+              await clearBrowserAppCaches()
+              window.location.replace(freshCurrentUrl())
+              return
+            }
+          } catch {}
+          showRecovery(reason)
+        }
+
         window.addEventListener('error', event => {
-          const target = event.target
-          if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
-            showRecovery('A required Northborn app file failed to load. This can happen briefly during a new deployment.')
+          if (isRequiredNorthbornAsset(event.target)) {
+            void recoverFreshOnce('A required Northborn app file failed to load. Northborn tried a fresh copy automatically, but it still could not start.')
           }
         }, true)
 
         window.addEventListener('load', () => {
+          if (document.documentElement.dataset.northbornMounted === '1') {
+            try { sessionStorage.removeItem(bootRetryKey) } catch {}
+            return
+          }
           window.setTimeout(() => {
-            if (document.documentElement.dataset.northbornMounted !== '1') {
-              showRecovery('Northborn is taking longer than expected to start. Retry once to load a fresh copy.')
+            if (document.documentElement.dataset.northbornMounted === '1') {
+              try { sessionStorage.removeItem(bootRetryKey) } catch {}
+              return
             }
+            void recoverFreshOnce('Northborn is taking longer than expected to start. A fresh copy was tried automatically but the app still did not finish loading.')
           }, 15000)
         })
       })()

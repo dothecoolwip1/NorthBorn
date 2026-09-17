@@ -28,7 +28,7 @@ import BillingQueuePage from './BillingQueuePage'
 import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import SafetyRoutePage from './SafetyRoutePage'
 import TemplateManagerPage from './TemplateManagerPage'
-import MallardSampleTracker from './MallardSampleTracker'
+import MallardRoute from './MallardRoute'
 import GlobalAccountMenu from './GlobalAccountMenu'
 import TestRoleSwitcher from './TestRoleSwitcher'
 import ReleaseNotes from './ReleaseNotes'
@@ -62,7 +62,7 @@ function WorkspaceNotFound({ homeLabel = 'Back to dashboard' }:{ homeLabel?:stri
 }
 
 function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole }) {
-  if (isMallardPath(normalizedPath)) return <MallardSampleTracker />
+  if (isMallardPath(normalizedPath)) return <MallardRoute />
   if (normalizedPath === '/logout') return <LogoutPage />
   if (normalizedPath === '/client-join') return <ClientJoinPage />
   if (normalizedPath === '/join' || (hasInvite && normalizedPath !== '/client-join')) return <JoinOrganizationPage />
@@ -128,10 +128,7 @@ function NorthbornRouter() {
   const [routeRole, setRouteRole] = React.useState<RouteRole>('loading')
 
   React.useEffect(() => {
-    if (isMallardPath(normalizedPath)) {
-      document.title = 'Mallard Environmental Sample Tracker'
-      return
-    }
+    if (isMallardPath(normalizedPath)) return
     document.title = 'Northborn'
   }, [normalizedPath])
 
@@ -195,7 +192,7 @@ const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.en
 const rootElement = document.getElementById('root')!
 
 document.documentElement.dataset.northbornMounted = '1'
-if (import.meta.env.PROD) initializeNorthbornPwa()
+if (import.meta.env.PROD && !isMallardPath(window.location.pathname)) initializeNorthbornPwa()
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>

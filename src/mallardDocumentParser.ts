@@ -148,9 +148,17 @@ export function parseLabText(text: string, sourceName: string): ParsedLabLine[] 
   return rows.slice(0, 250)
 }
 
+function resolveTesseractApi(module: any) {
+  const candidates = [module, module?.default, module?.default?.default]
+  const api = candidates.find((candidate) => typeof candidate?.createWorker === 'function')
+  if (!api) throw new Error('OCR engine loaded, but createWorker was unavailable.')
+  return api
+}
+
 async function getOcrWorker(progress?: ProgressFn) {
   progress?.('Loading photo reader…', 0.08)
-  const tesseract = await importRemote(TESSERACT_URL)
+  const tesseractModule = await importRemote(TESSERACT_URL)
+  const tesseract = resolveTesseractApi(tesseractModule)
   return tesseract.createWorker('eng', undefined, {
     logger: (entry: any) => {
       if (entry?.status === 'recognizing text') progress?.('Reading document…', 0.15 + Number(entry.progress || 0) * 0.75)

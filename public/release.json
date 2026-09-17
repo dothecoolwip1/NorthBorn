@@ -1,11 +1,10 @@
 {
-  "version": "0.6.0",
-  "title": "Document Template Manager",
+  "version": "0.6.1",
+  "title": "Field Ticket Template Integration",
   "notes": [
-    "Added an owner and administrator Template Manager for invoices, FLHAs, pre trips, field tickets, incident reports, timesheets, work orders and custom documents.",
-    "Added Northborn-built starter templates with editable fields, required controls, reusable data bindings and live previews.",
-    "Added PDF template uploads with automatic fillable-field inspection and smart binding suggestions for common Northborn job, customer, fleet, safety and billing data.",
-    "Added template versions, active and archived states, document defaults, duplication and secure organization-scoped PDF storage support.",
-    "Added local preview storage so the Template Manager remains testable before the new database migration is enabled in a workspace."
+    "Connected active company field ticket templates to the New Ticket workflow so uploaded PDFs are no longer ignored.",
+    "Added company PDF visibility inside the ticket creation experience with mobile-friendly access to the active form.",
+    "Added a permanent Northborn development rule requiring every future update to include a version number change.",
+    "Northborn updates are not considered complete until package.json and public/release.json use the same new version."
   ]
 }

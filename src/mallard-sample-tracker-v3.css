@@ -210,3 +210,35 @@ button:disabled, input:disabled { opacity:.55; cursor:not-allowed; }
   .sample-id { min-width:67px; }
   .mallard-v3-sticky-actions { bottom:72px; }
 }
+
+
+/* Test paperwork + automatic import */
+.test-paperwork-panel { border-color:rgba(196,154,69,.34); background:linear-gradient(145deg,#111711,#0a0f0c); }
+.visually-hidden-file { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
+.attachment-explainer { display:flex; gap:10px; align-items:flex-start; padding:12px; margin:-2px 0 12px; border:1px solid rgba(93,157,120,.28); border-radius:13px; background:rgba(47,118,85,.08); }
+.attachment-explainer > svg { flex:0 0 auto; color:var(--mallard-gold-light); margin-top:2px; }
+.attachment-explainer strong { display:block; font-size:.86rem; }
+.attachment-explainer p { margin:3px 0 0; color:var(--mallard-muted); font-size:.8rem; line-height:1.4; }
+.attachment-progress { margin:10px 0 13px; }
+.attachment-progress > div { display:flex; justify-content:space-between; gap:10px; color:var(--mallard-muted); font-size:.78rem; margin-bottom:6px; }
+.attachment-progress progress { width:100%; height:9px; accent-color:var(--mallard-green); }
+.attachment-list { display:grid; gap:8px; }
+.attachment-card { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:10px; padding:10px; border:1px solid #303a34; border-radius:14px; background:#09100c; }
+.attachment-icon { width:42px; height:42px; display:grid; place-items:center; border-radius:11px; background:rgba(196,154,69,.09); color:var(--mallard-gold-light); }
+.attachment-main { min-width:0; }
+.attachment-main > strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.attachment-main > span { display:block; margin-top:3px; color:var(--mallard-muted); font-size:.74rem; }
+.attachment-main > small { display:block; margin-top:5px; color:#e59a9a; font-size:.72rem; line-height:1.3; }
+.attachment-actions { display:flex; gap:6px; align-items:center; }
+.parse-status { display:inline-flex; width:auto; margin-top:6px; border:1px solid var(--mallard-border); border-radius:999px; padding:4px 7px; color:var(--mallard-muted); font-size:.7rem; font-weight:850; }
+.parse-status.parsed { color:#9edcb6; border-color:rgba(93,157,120,.42); background:rgba(47,118,85,.09); }
+.parse-status.processing { color:var(--mallard-gold-light); border-color:rgba(196,154,69,.4); }
+.parse-status.needs_review { color:#e5c987; border-color:rgba(196,154,69,.38); }
+.parse-status.failed { color:#eea4a4; border-color:rgba(195,92,92,.42); }
+.imported-badge { display:inline-flex; align-items:center; gap:4px; margin-left:8px; padding:3px 6px; border:1px solid rgba(196,154,69,.35); border-radius:999px; color:var(--mallard-gold-light); font-size:.66rem; font-weight:850; vertical-align:middle; }
+
+@media (max-width: 560px) {
+  .attachment-card { grid-template-columns:auto minmax(0,1fr); }
+  .attachment-actions { grid-column:1 / -1; justify-content:flex-end; }
+  .attachment-actions .secondary.square, .attachment-actions .icon-danger { width:44px; height:42px; }
+}

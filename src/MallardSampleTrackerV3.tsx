@@ -7,6 +7,8 @@ import {
   ChevronLeft,
   ClipboardList,
   Download,
+  ExternalLink,
+  FileText,
   FlaskConical,
   MapPin,
   PackageCheck,
@@ -16,13 +18,16 @@ import {
   Save,
   Search,
   Send,
+  Sparkles,
   TestTube2,
   Trash2,
+  Upload,
   UserRound,
   WifiOff,
   X,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import { parseLabDocument } from './mallardDocumentParser'
 import './mallard-sample-tracker-v3.css'
 
 type SampleCategory = 'non_oilfield' | 'oilfield' | 'odd_weird'
@@ -69,6 +74,24 @@ type TestResult = {
   qualifier: string
   notes: string
   sort_order: number
+  source_attachment_id?: string | null
+  parse_confidence?: number | null
+  source_page?: number | null
+}
+
+type TestAttachment = {
+  id: string
+  sample_id: string
+  storage_path: string
+  original_name: string
+  mime_type: string
+  size_bytes: number
+  parse_status: 'uploaded' | 'processing' | 'parsed' | 'needs_review' | 'failed'
+  parse_method: string | null
+  parsed_line_count: number
+  parse_error: string | null
+  parsed_at: string | null
+  created_at: string
 }
 
 type SampleEvent = {
@@ -134,6 +157,9 @@ const eventLabels: Record<string, string> = {
   test_added: 'Test result added',
   test_updated: 'Test result updated',
   test_removed: 'Test result removed',
+  attachment_uploaded: 'Test paperwork uploaded',
+  attachment_parsed: 'Test paperwork read',
+  attachment_parse_review: 'Test paperwork needs review',
 }
 
 const matrixOptions = ['Unknown', 'Water', 'Soil', 'Sludge', 'Hydrocarbon / product', 'Mixed waste', 'Other']
@@ -186,6 +212,7 @@ export default function MallardSampleTrackerV3() {
   const [samples, setSamples] = React.useState<MallardSample[]>([])
   const [selected, setSelected] = React.useState<MallardSample | null>(null)
   const [testResults, setTestResults] = React.useState<TestResult[]>([])
+  const [attachments, setAttachments] = React.useState<TestAttachment[]>([])
   const [events, setEvents] = React.useState<SampleEvent[]>([])
   const [deletedResultIds, setDeletedResultIds] = React.useState<string[]>([])
   const [newForm, setNewForm] = React.useState<SampleForm>(() => blankForm())
@@ -205,6 +232,10 @@ export default function MallardSampleTrackerV3() {
   const [message, setMessage] = React.useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
   const [online, setOnline] = React.useState(() => navigator.onLine)
   const [printSample, setPrintSample] = React.useState<MallardSample | null>(null)
+  const [attachmentBusy, setAttachmentBusy] = React.useState(false)
+  const [attachmentProgress, setAttachmentProgress] = React.useState('')
+  const [attachmentProgressValue, setAttachmentProgressValue] = React.useState(0)
+  const attachmentInputRef = React.useRef<HTMLInputElement>(null)
 
   const loadSamples = React.useCallback(async () => {
     setLoading(true)
@@ -350,9 +381,10 @@ export default function MallardSampleTrackerV3() {
 
   const openSample = async (id: string) => {
     setLoading(true)
-    const [sampleResponse, resultResponse, eventResponse] = await Promise.all([
+    const [sampleResponse, resultResponse, attachmentResponse, eventResponse] = await Promise.all([
       db.from('mallard_samples').select('*').eq('id', id).single(),
       db.from('mallard_test_results').select('*').eq('sample_id', id).order('sort_order', { ascending: true }),
+      db.from('mallard_sample_attachments').select('*').eq('sample_id', id).order('created_at', { ascending: false }),
       db.from('mallard_sample_events').select('*').eq('sample_id', id).order('created_at', { ascending: false }),
     ])
     if (sampleResponse.error) {
@@ -370,7 +402,11 @@ export default function MallardSampleTrackerV3() {
       qualifier: row.qualifier || '',
       notes: row.notes || '',
       sort_order: row.sort_order || 0,
+      source_attachment_id: row.source_attachment_id || null,
+      parse_confidence: row.parse_confidence == null ? null : Number(row.parse_confidence),
+      source_page: row.source_page == null ? null : Number(row.source_page),
     })))
+    setAttachments(attachmentResponse.data || [])
     setDeletedResultIds([])
     setEvents(eventResponse.data || [])
     setView('detail')
@@ -480,6 +516,9 @@ export default function MallardSampleTrackerV3() {
           qualifier: row.qualifier.trim() || null,
           notes: row.notes.trim() || null,
           sort_order: index,
+          source_attachment_id: row.source_attachment_id || null,
+          parse_confidence: row.parse_confidence ?? null,
+          source_page: row.source_page ?? null,
         }
         const response = row.id
           ? await db.from('mallard_test_results').update(payload).eq('id', row.id)
@@ -493,6 +532,154 @@ export default function MallardSampleTrackerV3() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const uploadTestFiles = async (fileList: FileList | null) => {
+    if (!selected || !fileList?.length) return
+    if (!navigator.onLine) {
+      setMessage({ type: 'error', text: 'A connection is required to upload test paperwork.' })
+      return
+    }
+
+    const allowed = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+    const files = Array.from(fileList)
+    const bad = files.find((file) => !allowed.has(file.type) || file.size > 15 * 1024 * 1024)
+    if (bad) {
+      setMessage({ type: 'error', text: 'Use PDF, JPG, PNG or WebP files up to 15 MB each.' })
+      return
+    }
+
+    setAttachmentBusy(true)
+    const existingKeys = new Set(testResults.map((row) => `${row.test_name.trim().toLowerCase()}|${row.result_value.trim().toLowerCase()}|${row.unit.trim().toLowerCase()}`))
+    let importedTotal = 0
+
+    try {
+      for (const file of files) {
+        setAttachmentProgress(`Uploading ${file.name}…`)
+        setAttachmentProgressValue(0.03)
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'test-file'
+        const storagePath = `${selected.id}/${crypto.randomUUID()}-${safeName}`
+        const upload = await db.storage.from('mallard-test-files').upload(storagePath, file, {
+          contentType: file.type,
+          upsert: false,
+        })
+        if (upload.error) throw upload.error
+
+        const attachmentInsert = await db.from('mallard_sample_attachments').insert({
+          sample_id: selected.id,
+          storage_path: storagePath,
+          original_name: file.name,
+          mime_type: file.type,
+          size_bytes: file.size,
+          parse_status: 'processing',
+        }).select('*').single()
+
+        if (attachmentInsert.error) {
+          await db.storage.from('mallard-test-files').remove([storagePath])
+          throw attachmentInsert.error
+        }
+
+        const attachment = attachmentInsert.data as TestAttachment
+        try {
+          const parsed = await parseLabDocument(file, (label, progress) => {
+            setAttachmentProgress(label)
+            if (typeof progress === 'number') setAttachmentProgressValue(progress)
+          })
+
+          const newRows = parsed.rows.filter((row) => {
+            const key = `${row.test_name.trim().toLowerCase()}|${row.result_value.trim().toLowerCase()}|${row.unit.trim().toLowerCase()}`
+            if (existingKeys.has(key)) return false
+            existingKeys.add(key)
+            return true
+          })
+
+          if (newRows.length) {
+            const insertRows = newRows.map((row, index) => ({
+              sample_id: selected.id,
+              test_name: row.test_name,
+              result_value: row.result_value || null,
+              unit: row.unit || null,
+              qualifier: row.qualifier || null,
+              notes: row.notes || null,
+              sort_order: testResults.length + importedTotal + index,
+              source_attachment_id: attachment.id,
+              parse_confidence: row.confidence,
+              source_page: row.source_page,
+            }))
+            const resultInsert = await db.from('mallard_test_results').insert(insertRows)
+            if (resultInsert.error) throw resultInsert.error
+            importedTotal += insertRows.length
+          }
+
+          const attachmentUpdate = await db.from('mallard_sample_attachments').update({
+            parse_status: newRows.length ? 'parsed' : 'needs_review',
+            parse_method: parsed.method,
+            parsed_line_count: newRows.length,
+            extracted_text: parsed.text.slice(0, 100000),
+            parse_error: null,
+            parsed_at: new Date().toISOString(),
+          }).eq('id', attachment.id)
+          if (attachmentUpdate.error) throw attachmentUpdate.error
+        } catch (parseError: any) {
+          await db.from('mallard_sample_attachments').update({
+            parse_status: 'failed',
+            parse_error: String(parseError?.message || 'Could not read this document').slice(0, 1200),
+            parsed_at: new Date().toISOString(),
+          }).eq('id', attachment.id)
+        }
+      }
+
+      await openSample(selected.id)
+      setMessage({
+        type: importedTotal ? 'success' : 'info',
+        text: importedTotal
+          ? `Imported ${importedTotal} test line${importedTotal === 1 ? '' : 's'} from the uploaded paperwork. Review them against the file before final use.`
+          : 'File uploaded, but Mallard could not confidently identify test lines. The document is saved so you can enter the results manually.',
+      })
+    } catch (error: any) {
+      setMessage({ type: 'error', text: `Could not upload test paperwork: ${error?.message || 'Unknown error'}` })
+    } finally {
+      setAttachmentBusy(false)
+      setAttachmentProgress('')
+      setAttachmentProgressValue(0)
+      if (attachmentInputRef.current) attachmentInputRef.current.value = ''
+    }
+  }
+
+  const openAttachment = async (attachment: TestAttachment) => {
+    const popup = window.open('', '_blank')
+    const { data, error } = await db.storage.from('mallard-test-files').createSignedUrl(attachment.storage_path, 900)
+    if (error || !data?.signedUrl) {
+      popup?.close()
+      setMessage({ type: 'error', text: error?.message || 'Could not open that file.' })
+      return
+    }
+    if (popup) {
+      popup.opener = null
+      popup.location.href = data.signedUrl
+    } else {
+      window.location.href = data.signedUrl
+    }
+  }
+
+  const deleteAttachment = async (attachment: TestAttachment) => {
+    if (!selected) return
+    if (!window.confirm(`Delete ${attachment.original_name}?\n\nThe uploaded file will be permanently removed. Any test rows already imported from it will stay in the test table.`)) return
+    setAttachmentBusy(true)
+    const storageDelete = await db.storage.from('mallard-test-files').remove([attachment.storage_path])
+    if (storageDelete.error) {
+      setAttachmentBusy(false)
+      setMessage({ type: 'error', text: `Could not delete file: ${storageDelete.error.message}` })
+      return
+    }
+    const metadataDelete = await db.from('mallard_sample_attachments').delete().eq('id', attachment.id)
+    setAttachmentBusy(false)
+    if (metadataDelete.error) {
+      setMessage({ type: 'error', text: `File was removed but its attachment record could not be cleared: ${metadataDelete.error.message}` })
+      return
+    }
+    await openSample(selected.id)
+    setMessage({ type: 'success', text: 'Test attachment deleted. Imported test rows were kept.' })
   }
 
   const archiveSample = async () => {
@@ -517,10 +704,18 @@ export default function MallardSampleTrackerV3() {
   const deleteSample = async () => {
     if (!selected) return
     const confirmed = window.confirm(
-      `Permanently delete sample ${selected.sample_number}?\n\nThis deletes the sample, its lab results and its history. This cannot be undone.\n\nSample number ${selected.sample_number} will not be reused.`
+      `Permanently delete sample ${selected.sample_number}?\n\nThis deletes the sample, its uploaded test files, lab results and history. This cannot be undone.\n\nSample number ${selected.sample_number} will not be reused.`
     )
     if (!confirmed) return
     setSaving(true)
+    if (attachments.length) {
+      const fileDelete = await db.storage.from('mallard-test-files').remove(attachments.map((item) => item.storage_path))
+      if (fileDelete.error) {
+        setSaving(false)
+        setMessage({ type: 'error', text: `Could not delete the sample files: ${fileDelete.error.message}` })
+        return
+      }
+    }
     const { data, error } = await db.from('mallard_samples').delete().eq('id', selected.id).select('id')
     setSaving(false)
     if (error || !data || data.length !== 1) {
@@ -761,9 +956,26 @@ export default function MallardSampleTrackerV3() {
               <label><span>Lab / receiving notes</span><textarea rows={2} value={selected.lab_notes || ''} onChange={(event) => setSelected({ ...selected, lab_notes: event.target.value })} /></label>
             </section>
 
+            <section className="mallard-v3-panel test-paperwork-panel">
+              <div className="mallard-v3-heading">
+                <div><span className="eyebrow">Source document</span><h2>Test paperwork</h2></div>
+                <button className="primary" type="button" disabled={attachmentBusy} onClick={() => attachmentInputRef.current?.click()}><Upload size={17} /> Upload</button>
+              </div>
+              <input ref={attachmentInputRef} className="visually-hidden-file" type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => void uploadTestFiles(event.target.files)} />
+              <div className="attachment-explainer"><Sparkles size={18} /><div><strong>Automatic result import</strong><p>Upload a lab PDF or clear photo. Mallard reads the document and adds recognized test lines to the table below. Compare imported rows to the original file before relying on them.</p></div></div>
+              {attachmentBusy && <div className="attachment-progress"><div><span>{attachmentProgress || 'Working…'}</span><b>{Math.round(attachmentProgressValue * 100)}%</b></div><progress max={1} value={attachmentProgressValue || 0.02} /></div>}
+              {attachments.length === 0 ? <div className="empty small">No test paperwork uploaded yet.</div> : <div className="attachment-list">{attachments.map((attachment) => (
+                <div className="attachment-card" key={attachment.id}>
+                  <div className="attachment-icon"><FileText size={22} /></div>
+                  <div className="attachment-main"><strong>{attachment.original_name}</strong><span>{Math.max(1, Math.round(attachment.size_bytes / 1024))} KB · {formatDate(attachment.created_at)}</span><div className={`parse-status ${attachment.parse_status}`}>{attachment.parse_status === 'parsed' ? `${attachment.parsed_line_count} lines imported` : attachment.parse_status === 'processing' ? 'Reading document…' : attachment.parse_status === 'needs_review' ? 'No confident lines found' : attachment.parse_status === 'failed' ? 'Saved · automatic reading failed' : 'Uploaded'}</div>{attachment.parse_error && <small>{attachment.parse_error}</small>}</div>
+                  <div className="attachment-actions"><button className="secondary square" type="button" onClick={() => void openAttachment(attachment)} aria-label={`Open ${attachment.original_name}`}><ExternalLink size={17} /></button><button className="icon-danger" type="button" disabled={attachmentBusy} onClick={() => void deleteAttachment(attachment)} aria-label={`Delete ${attachment.original_name}`}><Trash2 size={17} /></button></div>
+                </div>
+              ))}</div>}
+            </section>
+
             <section className="mallard-v3-panel">
               <div className="mallard-v3-heading"><div><span className="eyebrow">Results</span><h2>Test results</h2></div><button className="secondary" type="button" onClick={addTestResult}><Plus size={17} /> Add test</button></div>
-              {testResults.length === 0 ? <div className="empty small">No test rows yet.</div> : <div className="test-list">{testResults.map((row, index) => <div className="test-card" key={row.id || `new-${index}`}><div className="test-head"><strong>Test {index + 1}</strong><button className="icon-danger" type="button" onClick={() => removeTestResult(index)} aria-label="Remove test"><Trash2 size={17} /></button></div><label><span>Test name</span><input value={row.test_name} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, test_name: event.target.value } : item))} /></label><div className="grid three"><label><span>Result</span><input value={row.result_value} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, result_value: event.target.value } : item))} /></label><label><span>Unit</span><input value={row.unit} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, unit: event.target.value } : item))} /></label><label><span>Qualifier</span><input value={row.qualifier} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, qualifier: event.target.value } : item))} /></label></div><label><span>Notes</span><input value={row.notes} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, notes: event.target.value } : item))} /></label></div>)}</div>}
+              {testResults.length === 0 ? <div className="empty small">No test rows yet.</div> : <div className="test-list">{testResults.map((row, index) => <div className="test-card" key={row.id || `new-${index}`}><div className="test-head"><strong>Test {index + 1}{row.source_attachment_id ? <span className="imported-badge"><Sparkles size={13} /> Imported{row.parse_confidence != null ? ` · ${Math.round(row.parse_confidence * 100)}%` : ''}</span> : null}</strong><button className="icon-danger" type="button" onClick={() => removeTestResult(index)} aria-label="Remove test"><Trash2 size={17} /></button></div><label><span>Test name</span><input value={row.test_name} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, test_name: event.target.value } : item))} /></label><div className="grid three"><label><span>Result</span><input value={row.result_value} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, result_value: event.target.value } : item))} /></label><label><span>Unit</span><input value={row.unit} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, unit: event.target.value } : item))} /></label><label><span>Qualifier</span><input value={row.qualifier} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, qualifier: event.target.value } : item))} /></label></div><label><span>Notes</span><input value={row.notes} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, notes: event.target.value } : item))} /></label></div>)}</div>}
               <div className="panel-footer"><button className="primary" type="button" disabled={saving} onClick={() => void saveTestResults()}><Save size={18} /> Save results</button></div>
             </section>
 

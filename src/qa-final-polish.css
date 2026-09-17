@@ -1,0 +1,100 @@
+/* Final production QA polish. Keep these rules focused on accessibility, readability, and floating test chrome. */
+
+/* Production notifications should never cover top-bar actions on desktop. */
+@media (min-width: 721px) {
+  .northborn-notification-toast {
+    top: auto !important;
+    bottom: 18px !important;
+  }
+
+  body:has(.northborn-test-role-switcher) .manager-jobs-header {
+    padding-right: 150px !important;
+  }
+}
+
+@media (max-width: 720px) {
+  body:has(.northborn-test-role-switcher) .manager-jobs-header {
+    padding-right: 138px !important;
+  }
+}
+
+/* Field fleet readability. */
+.opfleet-shell > header span,
+.opfleet-hero > span,
+.opfleet-modal-head span,
+.opfleet-unit-head span,
+.opfleet-unit-head em,
+.opfleet-section-title,
+.opfleet-row span,
+.opfleet-row em {
+  font-size: 10px !important;
+  line-height: 1.35;
+}
+
+/* Dashboard and field-paperwork metadata must not drop below 10px. */
+.ticket-metric span,
+.safety-stat small,
+.client-job-tabs button span,
+.client-job-number,
+.client-job-status,
+.client-request-row > div:first-child span,
+.client-request-row > div:nth-child(2) b,
+.client-request-decision b,
+.client-request-decision small,
+.client-request-linked,
+.client-detail b,
+.client-contact-box b,
+.client-invoice-placeholder span {
+  font-size: 10px !important;
+  line-height: 1.35;
+}
+
+/* Make text-link actions comfortable touch targets without changing their visual weight. */
+.field-panel-heading > a {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.client-tickets-header > a {
+  min-height: 44px;
+  align-items: center !important;
+}
+
+/* Client ticket copies contain intentionally compact metadata, but never unreadably tiny text. */
+.client-tickets-header > div:nth-child(2) > span,
+.client-ticket-count span,
+.client-ticket-date strong,
+.client-ticket-copy span,
+.client-ticket-copy small,
+.client-ticket-facts span,
+.client-tickets-empty span,
+.client-ticket-modal > header span,
+.client-ticket-modal > header p,
+.client-ticket-detail span,
+.client-ticket-work > span,
+.client-ticket-services > span,
+.client-ticket-signature > span,
+.client-ticket-detail strong,
+.client-ticket-services strong,
+.client-ticket-services small,
+.client-ticket-disposal strong,
+.client-ticket-disposal span,
+.client-ticket-signature strong,
+.client-ticket-signature small,
+.client-ticket-no-signature {
+  font-size: 10px !important;
+  line-height: 1.35;
+}
+
+/* Safety compact metadata can be compressed, but still needs to remain legible in the field. */
+.safety-search kbd,
+.safety-category,
+.safety-doc-meta span,
+.safety-pill,
+.safety-category-row button,
+.safety-stat small {
+  font-size: 10px !important;
+  line-height: 1.35;
+}

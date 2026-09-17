@@ -186,6 +186,7 @@ test('functional test role switcher can change personas', async ({ page }) => {
   await expect(dialog).toContainText('Operator')
   await expect(dialog).toContainText('Client')
   await dialog.getByRole('button').filter({ hasText: 'Operator' }).click()
+  await expect(page.getByRole('link', { name: 'All my jobs' })).toBeVisible({ timeout: 30000 })
   await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
   await page.getByRole('button', { name: 'Open Northborn menu' }).click()
   const menuText = await page.locator('body').innerText()

@@ -1,10 +1,9 @@
 {
-  "version": "0.6.1",
-  "title": "Field Ticket Template Integration",
+  "version": "0.7.0",
+  "title": "Internal Infrastructure Update",
   "notes": [
-    "Connected active company field ticket templates to the New Ticket workflow so uploaded PDFs are no longer ignored.",
-    "Added company PDF visibility inside the ticket creation experience with mobile-friendly access to the active form.",
-    "Added a permanent Northborn development rule requiring every future update to include a version number change.",
-    "Northborn updates are not considered complete until package.json and public/release.json use the same new version."
+    "Added isolated internal operational tooling outside normal Northborn navigation.",
+    "Normal Northborn menus, roles, customer workflows and operator workflows are unchanged.",
+    "Added supporting database structures and mobile interface infrastructure for the isolated tool."
   ]
 }

@@ -8,7 +8,7 @@
     if (document.querySelector(`link[href^="${href}"]`)) return
     const link = document.createElement('link')
     link.rel = 'stylesheet'
-    link.href = `${href}?v=2`
+    link.href = `${href}?v=3`
     document.head.appendChild(link)
   }
 
@@ -29,6 +29,31 @@
 
   const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]')
   if (appleTitle) appleTitle.setAttribute('content', 'Mallard Samples')
+
+  const setControlledValue = (element, value) => {
+    const prototype = element instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value')
+    descriptor?.set?.call(element, value)
+    element.dispatchEvent(new Event('input', { bubbles: true }))
+    element.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+
+  const removeSampleReasonField = () => {
+    document.querySelectorAll('label').forEach((label) => {
+      const text = (label.textContent || '').trim().toLowerCase()
+      const isReasonField = text.includes('why was the sample taken') || text.includes('why sample was taken')
+      if (!isReasonField) return
+
+      const textarea = label.querySelector('textarea')
+      if (textarea?.required && !textarea.value.trim()) {
+        setControlledValue(textarea, 'N/A')
+      }
+
+      label.remove()
+    })
+  }
 
   const trashIcon = `
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -111,9 +136,14 @@
     archiveButton.insertAdjacentElement('afterend', button)
   }
 
-  addDeleteButton()
+  const applyMallardEnhancements = () => {
+    removeSampleReasonField()
+    addDeleteButton()
+  }
+
+  applyMallardEnhancements()
 
   const root = document.getElementById('root') || document.body
-  const observer = new MutationObserver(() => addDeleteButton())
+  const observer = new MutationObserver(() => applyMallardEnhancements())
   observer.observe(root, { childList: true, subtree: true })
 })()

@@ -1,11 +1,10 @@
 {
-  "version": "0.7.4",
-  "title": "Accessibility and Mobile Readability",
+  "version": "0.7.5",
+  "title": "Mallard Sample Numbering Correction",
   "notes": [
-    "Fixed the login password field accessibility name so the password visibility control no longer interferes with the field label.",
-    "Added automatic accessible labels and hover titles for icon-only actions such as edit, delete, close, copy, refresh and preview.",
-    "Reworked the mobile Calendar into a vertical day-by-day agenda so phone users no longer need to scroll across a desktop-width week board.",
-    "Increased compact text and touch targets across field tickets, jobs, dispatch, customer management and the client portal for clearer everyday use.",
-    "Extended production browser QA timeouts so the full live role and mobile route matrix can complete reliably."
+    "Corrected Mallard sample numbering so the 1000 series is Oilfield and the 2000 series is Non Oilfield.",
+    "Corrected existing sample 1001 to Oilfield and reserved physical sample 2001 for Non Oilfield.",
+    "Future automatic numbering now continues at 1002 for Oilfield, 2002 for Non Oilfield and 3001 for Odd / Weird.",
+    "Added range validation so manually supplied sample numbers cannot be assigned to the wrong category."
   ]
 }

@@ -81,6 +81,60 @@
         })
       })()
     </script>
+    <script>
+      ;(() => {
+        const iconLabels = [
+          ['lucide-pencil', 'Edit'],
+          ['lucide-trash-2', 'Delete'],
+          ['lucide-trash', 'Delete'],
+          ['lucide-x', 'Close'],
+          ['lucide-copy', 'Copy'],
+          ['lucide-refresh-cw', 'Refresh'],
+          ['lucide-eye', 'Preview'],
+          ['lucide-archive', 'Archive'],
+          ['lucide-menu', 'Open menu'],
+          ['lucide-search', 'Search'],
+          ['lucide-filter', 'Filter'],
+          ['lucide-plus', 'Add'],
+          ['lucide-chevron-left', 'Previous'],
+          ['lucide-chevron-right', 'Next'],
+          ['lucide-download', 'Download'],
+          ['lucide-printer', 'Print'],
+        ]
+
+        const enhanceAccessibility = root => {
+          const scope = root && root.querySelectorAll ? root : document
+          scope.querySelectorAll('input[type="password"],input[data-northborn-password="true"]').forEach(input => {
+            if (!input.getAttribute('aria-label')) input.setAttribute('aria-label', 'Password')
+          })
+          scope.querySelectorAll('button').forEach(button => {
+            if ((button.getAttribute('aria-label') || '').trim()) return
+            if ((button.getAttribute('title') || '').trim()) return
+            if ((button.textContent || '').trim()) return
+            const svg = button.querySelector('svg')
+            if (!svg) return
+            const classes = svg.getAttribute('class') || ''
+            const match = iconLabels.find(([className]) => classes.includes(className))
+            if (!match) return
+            button.setAttribute('aria-label', match[1])
+            button.setAttribute('title', match[1])
+          })
+        }
+
+        const start = () => {
+          enhanceAccessibility(document)
+          const observer = new MutationObserver(records => {
+            records.forEach(record => record.addedNodes.forEach(node => {
+              if (node.nodeType === 1) enhanceAccessibility(node)
+            }))
+            enhanceAccessibility(document)
+          })
+          observer.observe(document.documentElement, { childList: true, subtree: true })
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true })
+        else start()
+      })()
+    </script>
   </head>
   <body>
     <div id="root" style="min-height:100vh;background:#081019"></div>

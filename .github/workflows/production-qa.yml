@@ -15,7 +15,7 @@ concurrency:
 jobs:
   production-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -71,7 +71,7 @@ jobs:
         env:
           NORTHBORN_BASE_URL: https://northborn.vercel.app
           NORTHBORN_VERSION: ${{ steps.version_guard.outputs.version }}
-        run: npx playwright test tests/e2e/production-smoke.spec.mjs --workers=1 --reporter=line --timeout=45000
+        run: npx playwright test tests/e2e/production-smoke.spec.mjs --workers=1 --reporter=line --timeout=120000
 
       - name: Upload browser failure evidence
         if: always()

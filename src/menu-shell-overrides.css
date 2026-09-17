@@ -9,3 +9,163 @@
   .field-mobile-nav{padding-right:68px}
   body:has(.northborn-account-menu) header{padding-right:68px!important}
 }
+
+/* Readability standard: compact metadata must remain readable at a glance. */
+.ticket-page .ticket-card-top>span,
+.ticket-page .ticket-card-top em,
+.ticket-page .ticket-card>p,
+.ticket-page .ticket-card-details span,
+.ticket-page .ticket-card-bottom>span,
+.ticket-page .ticket-field,
+.ticket-page .ticket-item-row input,
+.ticket-page .ticket-item-row select,
+.ticket-page .ticket-add-item,
+.ticket-page .signature-canvas-wrap span,
+.ticket-page .signature-pad>button,
+.ticket-page .ticket-info span,
+.ticket-page .ticket-info strong,
+.ticket-page .ticket-detail-body>section>small,
+.ticket-page .ticket-item-readonly span,
+.ticket-page .ticket-signature-view span,
+.ticket-page .ticket-review-return span,
+.manager-jobs-eyebrow,
+.manager-job-number,
+.manager-job-card p,
+.manager-job-times span,
+.manager-job-times b,
+.manager-job-status,
+.manager-job-form label,
+.ops-event-time span,
+.ops-event small,
+.ops-event-meta span,
+.ops-no-events,
+.dispatch-v2-times b,
+.dispatch-v2-contact small,
+.dispatch-v2-assigned-row small,
+.dispatch-v2-picker button,
+.dispatch-v2-status-actions button,
+.portal-brand small,
+.portal-role-chip,
+.portal-hero>span,
+.portal-card-head span,
+.portal-card label,
+.portal-modal label,
+.portal-contact-type,
+.portal-contact-copy span,
+.portal-contact-copy a,
+.portal-empty,
+.portal-role-help span,
+.portal-role-help strong,
+.portal-code-box small,
+.portal-member>div small,
+.portal-pending-list>strong,
+.portal-pending-list span,
+.portal-pending-list small,
+.portal-pending-list code,
+.clients-eyebrow,
+.client-card small,
+.contact-type,
+.portal-access-code small,
+.portal-pending small,
+.portal-pending code,
+.client-pricing-link small{
+  font-size:12px!important;
+  line-height:1.35;
+}
+
+.ticket-page .ticket-field input,
+.ticket-page .ticket-field select,
+.ticket-page .ticket-field textarea,
+.client-company-form input,
+.contact-editor input,
+.contact-editor select,
+.portal-invite input,
+.portal-link input{
+  min-height:44px;
+  font-size:14px!important;
+}
+.ticket-page .ticket-card h2{font-size:19px}
+.ticket-page .ticket-card-details{gap:10px}
+.ops-event strong{font-size:14px}
+.ops-event{padding:12px}
+.dispatch-v2-form-grid label>span{font-size:12px}
+
+/* Comfortable touch targets for common icon actions. */
+.portal-contact-actions button,
+.portal-modal-head button,
+.portal-remove-member,
+.contact-actions button,
+.client-drawer-head>button,
+.contact-editor-head>button{
+  width:44px!important;
+  height:44px!important;
+  min-width:44px;
+  min-height:44px;
+}
+.portal-primary,.portal-secondary,.portal-code-box button,.portal-link-box button,.portal-pending-list button,
+.client-primary,.client-secondary,.portal-link button,.portal-access-code button,.portal-pending button,
+.manager-jobs-primary,.manager-job-actions button{
+  min-height:44px;
+}
+
+/* Calendar: on phones and tablets, show a simple vertical agenda instead of a 1190px-wide desktop board. */
+@media(max-width:980px){
+  .ops-calendar-main{overflow:visible!important}
+  .ops-calendar-header{min-width:0!important;height:auto!important;min-height:68px;padding:10px 72px 10px 16px!important;flex-wrap:wrap}
+  .ops-calendar-controls{flex-wrap:wrap}
+  .ops-calendar-controls strong{margin-left:0!important}
+  .ops-week-grid{min-width:0!important;grid-template-columns:1fr!important;border-left:0!important}
+  .ops-day{min-height:0!important;border-right:0!important;border-bottom:1px solid #1f2f42}
+  .ops-day-head{height:56px!important;flex-direction:row!important;justify-content:flex-start!important;padding:0 16px!important;gap:10px;position:sticky;top:68px;z-index:4;background:#0a121bf2;backdrop-filter:blur(10px)}
+  .ops-day.today .ops-day-head{background:#0d1722f2}
+  .ops-day-events{padding:10px 14px 18px!important}
+  .ops-event{min-height:58px}
+}
+
+@media(max-width:760px){
+  .ticket-page button,
+  .ticket-page input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  .ticket-page select,
+  .ticket-page textarea,
+  .portal-shell button,
+  .portal-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  .portal-shell select,
+  .portal-shell textarea,
+  .clients-shell button,
+  .clients-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  .clients-shell select,
+  .clients-shell textarea,
+  .manager-jobs-page button,
+  .manager-jobs-page input,
+  .manager-jobs-page select,
+  .manager-jobs-page textarea,
+  .dispatch-v2-page button,
+  .dispatch-v2-page input,
+  .dispatch-v2-page select,
+  .dispatch-v2-page textarea{
+    min-height:44px;
+  }
+  .ticket-page input,.ticket-page select,.ticket-page textarea,
+  .portal-shell input,.portal-shell select,.portal-shell textarea,
+  .clients-shell input,.clients-shell select,.clients-shell textarea,
+  .manager-jobs-page input,.manager-jobs-page select,.manager-jobs-page textarea,
+  .dispatch-v2-page input,.dispatch-v2-page select,.dispatch-v2-page textarea{
+    font-size:16px!important;
+  }
+  .ticket-page .ticket-primary,
+  .portal-shell .portal-primary,
+  .portal-shell .portal-secondary,
+  .manager-jobs-primary,
+  .dispatch-v2-status-actions button,
+  .dispatch-v2-picker button{
+    min-height:48px;
+  }
+}
+
+@media(max-width:520px){
+  .ops-calendar-header{align-items:flex-start!important;gap:8px}
+  .ops-calendar-title{width:100%}
+  .ops-calendar-controls{width:100%;justify-content:space-between}
+  .ops-calendar-controls button{min-width:44px;min-height:44px}
+  .ops-calendar-controls strong{flex:1;text-align:center}
+}

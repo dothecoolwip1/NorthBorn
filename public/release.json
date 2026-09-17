@@ -1,10 +1,11 @@
 {
-  "version": "0.7.3",
-  "title": "Production QA Routing Fixes",
+  "version": "0.7.4",
+  "title": "Accessibility and Mobile Readability",
   "notes": [
-    "Fixed the operator My Jobs route so the hamburger menu no longer leads to a dead page.",
-    "Corrected the production browser test login selector so the QA suite can test every signed-in role and route.",
-    "Improved automatic version synchronization so the lockfile follows an intentional Northborn release without creating an extra version bump.",
-    "Continued the full-site production QA pass across desktop and mobile workflows."
+    "Fixed the login password field accessibility name so the password visibility control no longer interferes with the field label.",
+    "Added automatic accessible labels and hover titles for icon-only actions such as edit, delete, close, copy, refresh and preview.",
+    "Reworked the mobile Calendar into a vertical day-by-day agenda so phone users no longer need to scroll across a desktop-width week board.",
+    "Increased compact text and touch targets across field tickets, jobs, dispatch, customer management and the client portal for clearer everyday use.",
+    "Extended production browser QA timeouts so the full live role and mobile route matrix can complete reliably."
   ]
 }

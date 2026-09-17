@@ -18,6 +18,17 @@
   }
 }
 
+/* Keep keyboard focus obvious on the compact controls touched by this QA pass. */
+.northborn-account-menu button:focus-visible,
+.northborn-test-role-switcher button:focus-visible,
+.opfleet-shell a:focus-visible,
+.opfleet-shell button:focus-visible,
+.field-panel-heading > a:focus-visible,
+.client-tickets-header > a:focus-visible {
+  outline: 2px solid #e2b85f;
+  outline-offset: 2px;
+}
+
 /* Field fleet readability. */
 .opfleet-shell > header span,
 .opfleet-hero > span,

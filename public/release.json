@@ -1,12 +1,12 @@
 {
-  "version": "0.7.6",
-  "title": "Full-Site QA and Usability Pass",
+  "version": "0.8.0",
+  "title": "Mallard Sample Tracker V2",
   "notes": [
-    "Fixed normal email and password sign-in so successful authentication always opens the correct Northborn workspace instead of leaving users on the login URL.",
-    "Raised readability standards across dashboards, fleet, tickets, timesheets, safety, templates and the public home screen, including previously tiny status and helper text.",
-    "Increased mobile touch targets across fleet filters, safety, templates, timesheets and other field controls for easier one-handed use.",
-    "Added missing accessible names to fleet-access and pricing controls so icon and edit actions are understandable to assistive technology and automated QA.",
-    "Reworked production QA to sign into Manager, Operator and Client accounts directly, test each role independently, and verify safe open-and-cancel interactions for Jobs and Field Tickets.",
-    "Separated role-switcher testing from role-route testing so a test helper can no longer hide or falsely report client and operator routing defects."
+    "Restored the original Mallard numbering: 1000 series Non Oilfield, 2000 series Oilfield and 3000 series Odd / Weird.",
+    "Added disposal tracking with quick choices for MROR, Secure and One Environmental plus custom facilities, dump date, reference and notes.",
+    "Upgraded the mobile interface with exact database-backed next-number previews, faster search and filters, priority samples, sample matrix and repeat-sample cloning.",
+    "Added record revisions and conflict protection so one device cannot silently overwrite a newer edit from another device.",
+    "Expanded audit history to include field edits, lab edits, disposal changes and lab test add, edit and remove events.",
+    "Hardened sample identity so assigned sample numbers and numbering categories cannot be changed from the browser."
   ]
 }

@@ -1,8 +1,8 @@
 import React from 'react'
-import MallardSampleTracker from './MallardSampleTracker'
+import MallardSampleTrackerV2 from './MallardSampleTrackerV2'
 
 const MALLARD_TITLE = 'Mallard Environmental Sample Tracker'
-const MALLARD_THEME = '#225f47'
+const MALLARD_THEME = '#1f5d46'
 
 export default function MallardRoute() {
   React.useLayoutEffect(() => {
@@ -38,5 +38,5 @@ export default function MallardRoute() {
     }
   }, [])
 
-  return <MallardSampleTracker />
+  return <MallardSampleTrackerV2 />
 }

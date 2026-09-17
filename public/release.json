@@ -1,10 +1,9 @@
 {
-  "version": "0.7.1",
-  "title": "Full Site QA Foundation",
+  "version": "0.7.2",
+  "title": "Automatic Version Correction",
   "notes": [
-    "Added automated production browser testing for guest, manager, operator and client workflows on desktop and mobile layouts.",
-    "Added checks for broken routes, runtime crashes, server failures, horizontal overflow, inaccessible controls and undersized touch targets.",
-    "Added functional coverage for the company field ticket template workflow and the isolated Mallard sample tracker.",
-    "Added automatic version discipline checks so product changes cannot silently ship without a Northborn version change."
+    "Synchronized Northborn package, lockfile and release versions.",
+    "Applied the mandatory version bump rule automatically after detecting inconsistent or unversioned changes.",
+    "No user data or operational records were changed by this correction."
   ]
 }

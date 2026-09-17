@@ -1,0 +1,41 @@
+.mallard-v2-delete-sample-button {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid rgba(239, 133, 133, .42);
+  border-radius: 14px;
+  background: rgba(132, 44, 44, .17);
+  color: #ffb6b6;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.mallard-v2-delete-sample-button:hover,
+.mallard-v2-delete-sample-button:focus-visible {
+  background: rgba(153, 47, 47, .28);
+  border-color: rgba(255, 166, 166, .72);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.mallard-v2-delete-sample-button:disabled {
+  opacity: .6;
+  cursor: wait;
+  transform: none;
+}
+
+.mallard-v2-delete-sample-button svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

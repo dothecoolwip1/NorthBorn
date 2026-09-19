@@ -684,7 +684,7 @@ export default function MallardSampleTrackerV3() {
 
   const archiveSample = async () => {
     if (!selected) return
-    if (!window.confirm(`Archive sample ${selected.sample_number}? It will leave the active sample list.`)) return
+    if (!window.confirm(`Archive sample ${selected.sample_number}? It will leave the active sample list, but its sample number will stay reserved.`)) return
     const { data, error } = await db.from('mallard_samples')
       .update({ archived: true, last_updated_by: actorName.trim() || selected.collector_name || 'Mallard' })
       .eq('id', selected.id)
@@ -725,7 +725,7 @@ export default function MallardSampleTrackerV3() {
     setSelected(null)
     setView('samples')
     await loadSamples()
-    setMessage({ type: 'success', text: `Sample ${selected.sample_number} permanently deleted.` })
+    setMessage({ type: 'success', text: `Sample ${selected.sample_number} permanently deleted. Number ${selected.sample_number} is available for reuse.` })
   }
 
   const exportCsv = () => {

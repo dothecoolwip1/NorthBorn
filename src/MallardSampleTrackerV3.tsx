@@ -704,7 +704,7 @@ export default function MallardSampleTrackerV3() {
   const deleteSample = async () => {
     if (!selected) return
     const confirmed = window.confirm(
-      `Permanently delete sample ${selected.sample_number}?\n\nThis deletes the sample, its uploaded test files, lab results and history. This cannot be undone.\n\nSample number ${selected.sample_number} will not be reused.`
+      `Permanently delete sample ${selected.sample_number}?\n\nThis deletes the sample, its uploaded test files, lab results and history. This cannot be undone.\n\nSample number ${selected.sample_number} will become available for reuse. Archived samples keep their numbers reserved.`
     )
     if (!confirmed) return
     setSaving(true)

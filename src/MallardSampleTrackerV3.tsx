@@ -382,13 +382,6 @@ export default function MallardSampleTrackerV3() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(next))
   }
 
-  const beginNewSample = (classificationCode = 201) => {
-    setNewForm(blankForm(classificationCode))
-    setActiveDraftId(null)
-    setView('new')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
   const openSamplePicker = (group: string | null = null, mode: 'new' | 'change' = 'new') => {
     setPickerMode(mode)
     setPickerGroup(group)
@@ -1340,7 +1333,7 @@ export default function MallardSampleTrackerV3() {
           <main className="mallard-v3-main narrow detail">
             <button className="back" type="button" onClick={() => setView('samples')}><ChevronLeft size={18} /> Samples</button>
             <section className={`mallard-v3-sample-hero ${toneForCode(selected.classification_code)}`}>
-              <div><span className="eyebrow">Permanent bottle ID</span><div className="big-number">{selected.sample_code}</div><div className="meta"><span>{selected.classification_code} · {classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</span><span>{selected.sample_matrix || 'Unknown matrix'}</span></div></div>
+              <div><span className="eyebrow">Permanent bottle ID</span><div className="big-number">{selected.sample_code}</div><div className="meta"><span>{selected.classification_code} · {classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</span><span>{classificationByCode.get(selected.classification_code)?.section_name || 'General'}</span><span>{selected.sample_matrix || 'Unknown matrix'}</span></div></div>
               <div className="actions">{selected.priority && <span className="priority">Priority</span>}<span className={`status status-${selected.status}`}>{statusLabels[selected.status]}</span><button className="secondary light" type="button" onClick={() => requestPrint(selected)}><Printer size={18} /> Label</button></div>
             </section>
             <div className="mallard-v3-record-actions"><button type="button" className="secondary" onClick={() => cloneSample(selected)}><Plus size={18} /> Create another like this</button>{selected.disposal_destination && <span className="dump-chip"><MapPin size={15} /> {selected.disposal_destination}</span>}</div>

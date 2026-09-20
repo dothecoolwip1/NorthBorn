@@ -174,10 +174,13 @@ button:disabled, input:disabled { opacity:.55; cursor:not-allowed; }
 @media print {
   body * { visibility:hidden !important; }
   .mallard-v3-print-label, .mallard-v3-print-label * { visibility:visible !important; }
-  .mallard-v3-print-label { display:block; position:absolute; inset:0 auto auto 0; width:3.5in; min-height:2.1in; padding:.2in; color:#000; background:#fff; font-family:Arial,sans-serif; }
+  .mallard-v3-print-label { display:grid; grid-template-columns:minmax(0,1fr) 1.28in; gap:.14in; align-items:center; position:absolute; inset:0 auto auto 0; width:3.5in; min-height:2.1in; padding:.18in; color:#000; background:#fff; font-family:Arial,sans-serif; }
   .mallard-v3-print-label .brand { font-weight:900; font-size:12pt; }
-  .mallard-v3-print-label .number { font-weight:900; font-size:38pt; line-height:1; margin:5px 0; }
+  .mallard-v3-print-label .number { font-weight:900; font-size:29pt; line-height:1; margin:5px 0; letter-spacing:-.04em; }
   .mallard-v3-print-label .category { font-weight:800; margin-bottom:6px; }
+  .mallard-v3-print-label .print-copy { min-width:0; font-size:9pt; line-height:1.25; }
+  .mallard-v3-print-label .print-qr { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; text-align:center; font-size:7pt; }
+  .mallard-v3-print-label .print-qr svg { width:1.12in; height:1.12in; }
 }
 
 @media (max-width: 680px) {

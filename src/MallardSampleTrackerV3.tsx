@@ -1,4 +1,5 @@
 import React from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import {
   Archive,
   Beaker,
@@ -32,11 +33,48 @@ import './mallard-sample-tracker-v3.css'
 
 type SampleCategory = 'non_oilfield' | 'oilfield' | 'odd_weird'
 type SampleStatus = 'collected' | 'with_driver' | 'received' | 'submitted' | 'testing' | 'results_received' | 'complete'
-type ViewMode = 'dashboard' | 'samples' | 'new' | 'detail'
+type ViewMode = 'dashboard' | 'samples' | 'new' | 'detail' | 'classifications' | 'sites'
+
+type Classification = {
+  code: number
+  name: string
+  group_name: string
+  description: string | null
+  active: boolean
+  sort_order: number
+}
+
+type Site = {
+  id: string
+  customer: string | null
+  site_name: string
+  lsd: string | null
+  uwi: string | null
+  latitude: number | null
+  longitude: number | null
+  access_directions: string | null
+  contact_name: string | null
+  contact_phone: string | null
+  contact_email: string | null
+  notes: string | null
+  active: boolean
+}
+
+type NextClassificationNumber = {
+  classification_code: number
+  classification_name: string
+  group_name: string
+  next_sequence: number | null
+  next_sample_code: string | null
+}
 
 type MallardSample = {
   id: string
   sample_number: number
+  sample_code: string
+  classification_code: number
+  sequence_number: number
+  site_id: string | null
   category: SampleCategory
   status: SampleStatus
   collected_at: string
@@ -44,6 +82,7 @@ type MallardSample = {
   customer_site: string | null
   description_of_work: string
   suspected_contents: string
+  confirmed_material: string | null
   collector_name: string | null
   field_notes: string | null
   received_at: string | null
@@ -105,7 +144,8 @@ type SampleEvent = {
 }
 
 type SampleForm = {
-  category: SampleCategory
+  classification_code: number
+  site_id: string
   collected_date: string
   location: string
   customer_site: string
@@ -130,9 +170,19 @@ const DRAFT_KEY = 'mallard_sample_drafts_v3'
 const ACTOR_KEY = 'mallard_last_actor_v1'
 
 const categoryInfo: Record<SampleCategory, { label: string; range: string; tone: string }> = {
-  non_oilfield: { label: 'Non Oilfield', range: '1000 series', tone: 'green' },
-  oilfield: { label: 'Oilfield', range: '2000 series', tone: 'gold' },
-  odd_weird: { label: 'Odd / Weird', range: '3000 series', tone: 'grey' },
+  non_oilfield: { label: 'Non Oilfield', range: '100–199', tone: 'green' },
+  oilfield: { label: 'Oilfield', range: '200–299', tone: 'gold' },
+  odd_weird: { label: 'Other / Specialty', range: '300–399', tone: 'grey' },
+}
+
+function categoryFromCode(code: number): SampleCategory {
+  if (code >= 100 && code <= 199) return 'non_oilfield'
+  if (code >= 200 && code <= 299) return 'oilfield'
+  return 'odd_weird'
+}
+
+function toneForCode(code: number) {
+  return categoryInfo[categoryFromCode(code)].tone
 }
 
 const statusOrder: SampleStatus[] = ['collected', 'with_driver', 'received', 'submitted', 'testing', 'results_received', 'complete']
@@ -185,9 +235,10 @@ function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat('en-CA', { dateStyle: 'medium' }).format(new Date(value))
 }
 
-function blankForm(category: SampleCategory = 'oilfield'): SampleForm {
+function blankForm(classificationCode = 201): SampleForm {
   return {
-    category,
+    classification_code: classificationCode,
+    site_id: '',
     collected_date: todayForInput(),
     location: '',
     customer_site: '',
@@ -221,7 +272,12 @@ export default function MallardSampleTrackerV3() {
     try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '[]') }
     catch { return [] }
   })
-  const [nextNumbers, setNextNumbers] = React.useState<Record<SampleCategory, number>>({ non_oilfield: 1001, oilfield: 2001, odd_weird: 3001 })
+  const [classifications, setClassifications] = React.useState<Classification[]>([])
+  const [nextClassificationNumbers, setNextClassificationNumbers] = React.useState<NextClassificationNumber[]>([])
+  const [sites, setSites] = React.useState<Site[]>([])
+  const [classificationEditor, setClassificationEditor] = React.useState({ code: '', name: '', group_name: 'Oilfield', description: '' })
+  const [editingClassificationCode, setEditingClassificationCode] = React.useState<number | null>(null)
+  const [siteEditor, setSiteEditor] = React.useState({ id: '', customer: '', site_name: '', lsd: '', uwi: '', latitude: '', longitude: '', access_directions: '', contact_name: '', contact_phone: '', contact_email: '', notes: '' })
   const [query, setQuery] = React.useState('')
   const [categoryFilter, setCategoryFilter] = React.useState<'all' | SampleCategory>('all')
   const [statusFilter, setStatusFilter] = React.useState<'all' | SampleStatus>('all')
@@ -239,9 +295,11 @@ export default function MallardSampleTrackerV3() {
 
   const loadSamples = React.useCallback(async () => {
     setLoading(true)
-    const [sampleResponse, counterResponse] = await Promise.all([
+    const [sampleResponse, classificationResponse, counterResponse, siteResponse] = await Promise.all([
       db.from('mallard_samples').select('*').eq('archived', false).order('collected_at', { ascending: false }),
-      db.rpc('mallard_get_next_numbers'),
+      db.from('mallard_classifications').select('*').order('sort_order', { ascending: true }).order('code', { ascending: true }),
+      db.rpc('mallard_get_classification_numbers'),
+      db.from('mallard_sites').select('*').order('customer', { ascending: true, nullsFirst: false }).order('site_name', { ascending: true }),
     ])
 
     if (sampleResponse.error) {
@@ -250,13 +308,14 @@ export default function MallardSampleTrackerV3() {
       setSamples(sampleResponse.data || [])
     }
 
-    if (!counterResponse.error && counterResponse.data) {
-      const next = { non_oilfield: 1001, oilfield: 2001, odd_weird: 3001 } as Record<SampleCategory, number>
-      counterResponse.data.forEach((row: { category: SampleCategory; next_number: number }) => {
-        if (row.category in next) next[row.category] = row.next_number
-      })
-      setNextNumbers(next)
+    if (classificationResponse.error) {
+      setMessage({ type: 'error', text: `Could not load classifications: ${classificationResponse.error.message}` })
+    } else {
+      setClassifications(classificationResponse.data || [])
     }
+
+    if (!counterResponse.error) setNextClassificationNumbers(counterResponse.data || [])
+    if (!siteResponse.error) setSites(siteResponse.data || [])
     setLoading(false)
   }, [])
 
@@ -282,8 +341,8 @@ export default function MallardSampleTrackerV3() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(next))
   }
 
-  const beginNewSample = (category: SampleCategory) => {
-    setNewForm(blankForm(category))
+  const beginNewSample = (classificationCode = 201) => {
+    setNewForm(blankForm(classificationCode))
     setActiveDraftId(null)
     setView('new')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -291,7 +350,8 @@ export default function MallardSampleTrackerV3() {
 
   const cloneSample = (sample: MallardSample) => {
     setNewForm({
-      category: sample.category,
+      classification_code: sample.classification_code,
+      site_id: sample.site_id || '',
       collected_date: todayForInput(),
       location: sample.location,
       customer_site: sample.customer_site || '',
@@ -318,7 +378,7 @@ export default function MallardSampleTrackerV3() {
   }
 
   const resumeDraft = (draft: SavedDraft) => {
-    setNewForm(draft.form)
+    setNewForm({ ...blankForm(), ...draft.form, classification_code: draft.form.classification_code || 201, site_id: draft.form.site_id || '' })
     setActiveDraftId(draft.id)
     setView('new')
   }
@@ -349,7 +409,8 @@ export default function MallardSampleTrackerV3() {
     }
 
     const payload = {
-      category: newForm.category,
+      classification_code: newForm.classification_code,
+      site_id: newForm.site_id || null,
       collected_at: dateToIso(newForm.collected_date),
       location: newForm.location.trim(),
       customer_site: newForm.customer_site.trim() || null,
@@ -373,10 +434,10 @@ export default function MallardSampleTrackerV3() {
     }
 
     if (activeDraftId) discardDraft(activeDraftId)
-    setNewForm(blankForm(newForm.category))
+    setNewForm(blankForm(newForm.classification_code))
     await loadSamples()
     await openSample(data.id)
-    setMessage({ type: 'success', text: `Sample ${data.sample_number} created. Label the bottle with this number.` })
+    setMessage({ type: 'success', text: `Sample ${data.sample_code} created. Label the bottle with this code.` })
   }
 
   const openSample = async (id: string) => {

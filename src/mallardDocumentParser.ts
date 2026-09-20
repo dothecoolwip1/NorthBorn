@@ -25,7 +25,7 @@ async function loadTesseractApi() {
   if (typeof existing?.createWorker === 'function') return existing
 
   if (!tesseractScriptPromise) {
-    tesseractScriptPromise = new Promise((resolve, reject) => {
+    tesseractScriptPromise = new Promise<any>((resolve, reject) => {
       const prior = document.querySelector<HTMLScriptElement>('script[data-mallard-tesseract]')
       if (prior) {
         prior.addEventListener('load', () => resolve((window as any).Tesseract), { once: true })

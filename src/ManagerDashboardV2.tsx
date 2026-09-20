@@ -6,6 +6,7 @@ import {
   Users, Wrench,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import { resolveWorkspaceAccess } from './workspace-access'
 import './manager-dashboard-v2.css'
 
 const db=supabase as any
@@ -75,13 +76,14 @@ export default function ManagerDashboardV2(){
   const load=useCallback(async()=>{
     setLoading(true);setError('')
     try{
-      const {data:sessionData}=await supabase.auth.getSession();const user=sessionData.session?.user
+      const {data:sessionData,error:sessionError}=await supabase.auth.getSession()
+      if(sessionError)throw sessionError
+      const user=sessionData.session?.user
       if(!user){setWorkspace(EMPTY);setLoading(false);return}
-      const membership=await db.from('organization_members').select('id,organization_id,organization:organizations(id,name)').eq('user_id',user.id).eq('status','active').limit(1).maybeSingle()
-      if(membership.error||!membership.data?.id)throw membership.error||new Error('No active company membership found.')
-      const roleRows=await db.from('membership_roles').select('role:roles(key)').eq('membership_id',membership.data.id)
-      const roleKey=roleRows.data?.[0]?.role?.key||''
-      const organization=membership.data.organization as Organization
+      const access=await resolveWorkspaceAccess(user.id)
+      if(access.kind!=='internal'){setWorkspace(EMPTY);setLoading(false);return}
+      const roleKey=access.roleKey
+      const organization:Organization={id:access.organizationId,name:access.organizationName}
       if(roleKey==='operator'){setWorkspace({...EMPTY,organization,roleKey});setLoading(false);return}
 
       const noQuery=()=>Promise.resolve({data:[],error:null})
@@ -145,6 +147,7 @@ export default function ManagerDashboardV2(){
   },[workspace])
 
   if(loading)return <div className="manager-home-loading">Loading Northborn command centre…</div>
+  if(error&&!workspace.organization)return <div className="manager-home-loading"><div><strong>Workspace unavailable</strong><span>Northborn could not verify your dashboard access.</span><button type="button" onClick={()=>void load()}>Try again</button></div></div>
   if(!workspace.organization)return <Navigate to="/login" replace/>
   if(workspace.roleKey==='operator')return <Navigate to="/" replace/>
 

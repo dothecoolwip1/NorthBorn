@@ -2,6 +2,17 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 
 export type FunctionalTestPersona = 'manager' | 'operator' | 'client'
+export type FunctionalTestInternalRole = 'owner' | 'admin' | 'supervisor' | 'dispatcher' | 'safety' | 'mechanic' | 'accounting'
+
+export const FUNCTIONAL_TEST_INTERNAL_ROLES: Record<FunctionalTestInternalRole, string> = {
+  owner: 'Owner',
+  admin: 'Admin',
+  supervisor: 'Supervisor',
+  dispatcher: 'Dispatcher',
+  safety: 'Safety',
+  mechanic: 'Mechanic',
+  accounting: 'Accounting',
+}
 
 export const FUNCTIONAL_TEST_USERS: Record<FunctionalTestPersona, { email: string; label: string }> = {
   manager: { email: 'manager@test.com', label: 'Manager' },
@@ -26,12 +37,20 @@ export function isFunctionalTestSession(session: Session | null) {
   return personaFromSession(session) !== null
 }
 
+export async function restoreFunctionalTestWorkspace() {
+  const result = await (supabase as any).rpc('restore_my_northborn_test_workspace')
+  if (result.error) throw result.error
+  return result.data
+}
+
 async function signInPersona(persona: FunctionalTestPersona, enteredPassword = 'admin') {
   const account = FUNCTIONAL_TEST_USERS[persona]
-  return supabase.auth.signInWithPassword({
+  const result = await supabase.auth.signInWithPassword({
     email: account.email,
     password: deriveFunctionalTestPassword(enteredPassword),
   })
+  if (!result.error && result.data.session) await restoreFunctionalTestWorkspace()
+  return result
 }
 
 async function bootstrapFunctionalTestUsers(username: string, password: string) {
@@ -71,6 +90,12 @@ export async function switchFunctionalTestPersona(persona: FunctionalTestPersona
   const result = await signInPersona(persona)
   if (result.error) throw result.error
   return result.data.session
+}
+
+export async function switchFunctionalTestInternalRole(roleKey: FunctionalTestInternalRole) {
+  const result = await (supabase as any).rpc('set_my_northborn_test_role', { _role_key: roleKey })
+  if (result.error) throw result.error
+  return result.data as string
 }
 
 export function clearFunctionalTestUnlock() {

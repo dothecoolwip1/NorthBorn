@@ -9,6 +9,22 @@ const TEST_USERS = {
   client: 'client@test.com',
 }
 
+const PERSONA_MARKERS = {
+  manager: 'COMMAND CENTRE',
+  operator: 'FIELD WORKSPACE',
+  client: 'CLIENT PORTAL',
+}
+
+const INTERNAL_ROLE_MENUS = {
+  owner: { label: 'Owner', present: ['Dispatch','Customers','Employees','Fleet','Maintenance','Safety','Tickets','Timesheets','Invoices','Billing queue','Templates','Reports'], absent: [] },
+  admin: { label: 'Admin', present: ['Dispatch','Customers','Employees','Fleet','Maintenance','Safety','Tickets','Timesheets','Invoices','Billing queue','Templates','Reports'], absent: [] },
+  supervisor: { label: 'Supervisor', present: ['Dispatch','Customers','Employees','Fleet','Maintenance','Safety','Tickets','Timesheets','Reports'], absent: ['Invoices','Billing queue','Templates'] },
+  dispatcher: { label: 'Dispatcher', present: ['Dispatch','Customers','Employees','Fleet','Maintenance','Safety','Tickets','Timesheets','Reports'], absent: ['Invoices','Billing queue','Templates'] },
+  safety: { label: 'Safety', present: ['Calendar','Jobs','Customers','Employees','Fleet','Maintenance','Safety','Tickets','Timesheets','Reports'], absent: ['Dispatch','Invoices','Billing queue','Templates'] },
+  mechanic: { label: 'Mechanic', present: ['Calendar','Jobs','Employees','Fleet','Maintenance','Safety','Timesheets'], absent: ['Dispatch','Customers','Tickets','Invoices','Billing queue','Templates','Reports'] },
+  accounting: { label: 'Accounting', present: ['Customers','Employees','Tickets','Timesheets','Invoices','Billing queue','Reports'], absent: ['Dispatch','Fleet','Maintenance','Safety','Templates'] },
+}
+
 function absolute(path) { return new URL(path, BASE).toString() }
 
 function monitor(page) {
@@ -34,6 +50,8 @@ async function auditPage(page, path, issues, mobile = false) {
     'Northborn could not start',
     'Something went wrong',
     'No active Northborn company was found',
+    'Choose how to continue',
+    'Workspace unavailable',
     'is not available for this account',
   ]
   for (const phrase of fatalPhrases) if (body.includes(phrase)) issues.push(`${path}: showed "${phrase}"`)
@@ -82,6 +100,13 @@ async function auditPage(page, path, issues, mobile = false) {
   if (controls.tinyText.length) issues.push(`${path}: text smaller than 10px: ${controls.tinyText.map(item => `${item.text} (${item.size}px)`).join('; ')}`)
 }
 
+async function expectPersonaReady(page, persona) {
+  await expect(page.locator('body')).toContainText(PERSONA_MARKERS[persona], { timeout: 30000 })
+  const body = await page.locator('body').innerText()
+  expect(body).not.toContain('Choose how to continue')
+  expect(body).not.toContain('Workspace unavailable')
+}
+
 async function loginAs(page, persona) {
   await page.goto(absolute('/login'))
   await settle(page)
@@ -90,6 +115,19 @@ async function loginAs(page, persona) {
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.waitForURL(url => url.origin === new URL(BASE).origin && url.pathname === '/', { timeout: 30000 })
   await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
+  await expectPersonaReady(page, persona)
+}
+
+async function setManagerInternalRole(page, roleKey) {
+  const config = INTERNAL_ROLE_MENUS[roleKey]
+  await page.goto(absolute('/'))
+  await expect(page.getByRole('button', { name: 'Switch test role' })).toBeVisible({ timeout: 30000 })
+  await page.getByRole('button', { name: 'Switch test role' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Test role switcher' })
+  await expect(dialog).toBeVisible()
+  await dialog.getByTestId(`test-role-${roleKey}`).click()
+  await page.waitForURL(url => url.origin === new URL(BASE).origin && url.pathname === '/', { timeout: 30000 })
+  await expect(page.locator('body')).toContainText(`${config.label} workspace`, { timeout: 30000 })
 }
 
 async function routeSweep(page, routes, issues, mobile = false) {
@@ -161,7 +199,7 @@ test('operator routes, role isolation, and job access are healthy', async ({ pag
 
   await page.goto(absolute('/'))
   await page.getByRole('button', { name: 'Open Northborn menu' }).click()
-  const text = await page.locator('body').innerText()
+  const text = await page.getByRole('dialog', { name: 'Northborn menu' }).innerText()
   if (text.includes('Templates')) issues.push('operator menu: Templates should not be visible')
   if (text.includes('Billing queue')) issues.push('operator menu: Billing queue should not be visible')
   failWithIssues(issues)
@@ -173,9 +211,115 @@ test('client routes and role isolation are healthy', async ({ page }) => {
   await routeSweep(page, ['/', '/tickets', '/client-tickets'], issues)
   await page.goto(absolute('/'))
   await page.getByRole('button', { name: 'Open Northborn menu' }).click()
-  const text = await page.locator('body').innerText()
+  const text = await page.getByRole('dialog', { name: 'Northborn menu' }).innerText()
   for (const forbidden of ['Templates', 'Dispatch', 'Employees', 'Billing queue']) if (text.includes(forbidden)) issues.push(`client menu: ${forbidden} should not be visible`)
   failWithIssues(issues)
+})
+
+test('all internal manager roles receive the correct navigation contract', async ({ page }) => {
+  await loginAs(page, 'manager')
+  try {
+    for (const [roleKey, config] of Object.entries(INTERNAL_ROLE_MENUS)) {
+      await setManagerInternalRole(page, roleKey)
+      await page.getByRole('button', { name: 'Open Northborn menu' }).click()
+      const navigation = page.locator('.northborn-navigation-links')
+      await expect(navigation).toBeVisible()
+      const text = await navigation.innerText()
+      for (const item of config.present) expect(text).toContain(item)
+      for (const item of config.absent) expect(text).not.toContain(item)
+      await page.getByRole('button', { name: 'Close Northborn menu' }).click()
+    }
+  } finally {
+    await setManagerInternalRole(page, 'owner')
+  }
+})
+
+test('internal roles reject hidden direct routes and keep allowed routes available', async ({ page }) => {
+  const cases = [
+    { role: 'supervisor', allowed: '/dispatch', blocked: '/templates' },
+    { role: 'dispatcher', allowed: '/dispatch', blocked: '/invoices' },
+    { role: 'safety', allowed: '/safety', blocked: '/dispatch' },
+    { role: 'mechanic', allowed: '/maintenance', blocked: '/customers' },
+    { role: 'accounting', allowed: '/invoices', blocked: '/fleet' },
+  ]
+
+  await loginAs(page, 'manager')
+  try {
+    for (const entry of cases) {
+      await setManagerInternalRole(page, entry.role)
+
+      await page.goto(absolute(entry.allowed))
+      await expect(page.locator('body')).not.toContainText('Page not found')
+      await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
+
+      await page.goto(absolute(entry.blocked))
+      await expect(page.locator('body')).toContainText('Page not found')
+    }
+  } finally {
+    await setManagerInternalRole(page, 'owner')
+  }
+})
+
+test('hamburger navigation, history, deep-link reload, and sign-out work for every persona', async ({ page }) => {
+  const cases = [
+    { persona: 'manager', menu: 'Jobs', path: '/jobs' },
+    { persona: 'operator', menu: 'My jobs', path: '/jobs' },
+    { persona: 'client', menu: 'Jobs', path: '/#client-jobs' },
+  ]
+
+  for (const entry of cases) {
+    await loginAs(page, entry.persona)
+    await page.getByRole('button', { name: 'Open Northborn menu' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Northborn menu' })
+    await dialog.locator('.northborn-navigation-links').getByRole('button', { name: entry.menu, exact: true }).click()
+    await expect(page).toHaveURL(absolute(entry.path))
+
+    await page.reload()
+    await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
+    const bodyAfterReload = await page.locator('body').innerText()
+    expect(bodyAfterReload).not.toContain('Choose how to continue')
+    expect(bodyAfterReload).not.toContain('Workspace unavailable')
+
+    await page.goBack()
+    await expect(page).toHaveURL(absolute('/'))
+    await expectPersonaReady(page, entry.persona)
+
+    await page.getByRole('button', { name: 'Open Northborn menu' }).click()
+    await page.getByRole('dialog', { name: 'Northborn menu' }).getByRole('button', { name: 'Sign out', exact: true }).click()
+    await expect(page.getByRole('link', { name: /Sign in/ }).first()).toBeVisible({ timeout: 30000 })
+  }
+})
+
+test('role-restricted routes fail closed instead of leaking another workspace', async ({ page }) => {
+  await loginAs(page, 'operator')
+  await page.goto(absolute('/templates'))
+  await expect(page.locator('body')).toContainText('Page not found')
+  await expect(page.locator('body')).not.toContainText('Template Manager')
+
+  await page.getByRole('button', { name: 'Open Northborn menu' }).click()
+  await page.getByRole('dialog', { name: 'Northborn menu' }).getByRole('button', { name: 'Sign out', exact: true }).click()
+  await expect(page.getByRole('link', { name: /Sign in/ }).first()).toBeVisible({ timeout: 30000 })
+
+  await loginAs(page, 'client')
+  await page.goto(absolute('/dispatch'))
+  await expect(page.locator('body')).toContainText('Page not found')
+  await expect(page.locator('body')).not.toContainText('Dispatch board')
+})
+
+test('known notifications open their intended module', async ({ page }) => {
+  await loginAs(page, 'manager')
+  await page.getByRole('button', { name: 'Open Northborn menu' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Northborn menu' })
+  const fleetNotice = dialog.locator('.northborn-notification-list button').filter({ hasText: 'Fleet defect' }).first()
+  const jobNotice = dialog.locator('.northborn-notification-list button').filter({ hasText: /job request|Job completed/i }).first()
+
+  if (await fleetNotice.count()) {
+    await fleetNotice.click()
+    await expect(page).toHaveURL(/\/fleet(?:\?|$)/)
+  } else if (await jobNotice.count()) {
+    await jobNotice.click()
+    await expect(page).toHaveURL(/\/jobs(?:\?|$)/)
+  }
 })
 
 test('functional test role switcher can change personas', async ({ page }) => {

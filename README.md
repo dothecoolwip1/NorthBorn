@@ -21,6 +21,8 @@ Northborn is a cross platform field operations platform for trucking, hydrovac, 
 
 See `docs/TECHNICAL_FOUNDATION.md` for the architecture baseline, migration rules and remaining external setup.
 
-## Temporary test login
+## Functional test workspace
 
-The current preview includes an isolated test admin mode for interface testing only. It does not represent a real Supabase user, cannot access real operational records, and must be removed before production or before real operational data is used.
+Northborn uses dedicated Supabase Auth test identities connected only to an isolated functional test workspace. The manager, operator and client test personas are never intended for real operational use.
+
+Functional test workspace repair and internal role switching are restricted to those dedicated test identities. Production and pull request QA use the same isolated workspace to verify authentication, navigation, role boundaries and core field flows.

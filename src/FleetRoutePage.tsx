@@ -5,6 +5,8 @@ import { Users } from 'lucide-react'
 import ManagerFleetPage from './ManagerFleetPage'
 import OperatorFleetPage from './OperatorFleetPage'
 import { supabase } from './lib/supabase'
+import { resolveWorkspaceAccess } from './workspace-access'
+import { canAccessInternalRoute } from './role-access'
 import { getTestPersona, isTestMode, TEST_ORG, TEST_USERS } from './test-lab'
 import './manager-fleet-v2.css'
 import './employee-fleet-access.css'
@@ -22,22 +24,31 @@ export default function FleetRoutePage(){
     if(testMode)return
     let active=true
     const load=async()=>{
-      const {data,error:sessionError}=await supabase.auth.getSession();if(!active)return
-      if(sessionError){setAccessState('load-error');setLoading(false);return}
-      const current=data.session;setSession(current)
-      if(!current){setLoading(false);return}
-      const membership=await supabase.from('organization_members').select('id,organization_id,organization:organizations(name)').eq('user_id',current.user.id).eq('status','active').limit(1).maybeSingle();if(!active)return
-      if(membership.error){setAccessState('load-error');setLoading(false);return}
-      if(!membership.data?.id){setAccessState('no-membership');setLoading(false);return}
-      const roles=await supabase.from('membership_roles').select('role:roles(key)').eq('membership_id',membership.data.id);if(!active)return
-      if(roles.error){setAccessState('load-error');setLoading(false);return}
-      const role=((roles.data?.[0]?.role as unknown as {key?:string}|null)?.key)||'';setRoleKey(role)
-      if(role==='operator'){
-        const organization=membership.data.organization as unknown as {name?:string}|null
-        setOperator({organizationId:membership.data.organization_id,organizationName:organization?.name||'Northborn company'})
-      }else if(['owner','admin','supervisor'].includes(role))setManager(true)
-      else setAccessState('no-membership')
-      setLoading(false)
+      try{
+        const {data,error:sessionError}=await supabase.auth.getSession()
+        if(!active)return
+        if(sessionError)throw sessionError
+        const current=data.session
+        setSession(current)
+        if(!current){setLoading(false);return}
+
+        const access=await resolveWorkspaceAccess(current.user.id)
+        if(!active)return
+        if(access.kind!=='internal'){setAccessState('no-membership');setLoading(false);return}
+
+        setRoleKey(access.roleKey)
+        if(access.roleKey==='operator'){
+          setOperator({organizationId:access.organizationId,organizationName:access.organizationName})
+        }else if(canAccessInternalRoute(access.roleKey,'/fleet')){
+          setManager(true)
+        }else{
+          setAccessState('no-membership')
+        }
+      }catch{
+        if(active)setAccessState('load-error')
+      }finally{
+        if(active)setLoading(false)
+      }
     }
     void load();return()=>{active=false}
   },[testMode])
@@ -45,7 +56,7 @@ export default function FleetRoutePage(){
   if(testMode&&testPersona==='operator')return <OperatorFleetPage userId={TEST_USERS.operator.id} organizationId={TEST_ORG.id} organizationName={TEST_ORG.name}/>
   if(loading)return <div className="center-screen">Loading fleet…</div>
   if(!session&&!testMode)return <Navigate to="/login" replace/>
-  if(accessState!=='ready')return <div className="center-screen"><div className="auth-card"><h1>{accessState==='load-error'?'Fleet unavailable':'Fleet access not assigned'}</h1><p>{accessState==='load-error'?'Northborn could not load your fleet access. Try again, or return to your workspace.':'Your account does not currently have an active fleet role. An administrator can assign fleet access from the employee access screen.'}</p><div className="auth-actions"><button type="button" onClick={()=>window.location.reload()}>Try again</button><NavLink to="/">Return to workspace</NavLink></div></div></div>
+  if(accessState!=='ready')return <div className="center-screen fleet-route-error"><div className="auth-card"><h1>{accessState==='load-error'?'Fleet unavailable':'Fleet access not assigned'}</h1><p>{accessState==='load-error'?'Northborn could not load your fleet access. Try again, or return to your workspace.':'Your account does not currently have an active fleet role. An administrator can assign fleet access from the employee access screen.'}</p><div className="auth-actions"><button type="button" onClick={()=>window.location.reload()}>Try again</button><NavLink to="/">Return to workspace</NavLink></div></div></div>
   if(operator&&session)return <OperatorFleetPage userId={session.user.id} organizationId={operator.organizationId} organizationName={operator.organizationName}/>
   if(manager)return <><ManagerFleetPage/>{['owner','admin','supervisor'].includes(roleKey)&&<NavLink className="manager-fleet-access-shortcut" to="/fleet-access"><Users size={16}/>Employee truck access</NavLink>}</>
   return <Navigate to="/" replace/>

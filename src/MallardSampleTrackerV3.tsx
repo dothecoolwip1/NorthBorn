@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Download,
   ExternalLink,
@@ -33,12 +34,13 @@ import './mallard-sample-tracker-v3.css'
 
 type SampleCategory = 'non_oilfield' | 'oilfield' | 'odd_weird'
 type SampleStatus = 'collected' | 'with_driver' | 'received' | 'submitted' | 'testing' | 'results_received' | 'complete'
-type ViewMode = 'dashboard' | 'samples' | 'new' | 'detail' | 'classifications' | 'sites'
+type ViewMode = 'dashboard' | 'samples' | 'picker' | 'new' | 'detail' | 'classifications' | 'sites'
 
 type Classification = {
   code: number
   name: string
   group_name: string
+  section_name: string
   description: string | null
   active: boolean
   sort_order: number
@@ -276,7 +278,10 @@ export default function MallardSampleTrackerV3() {
   const [classifications, setClassifications] = React.useState<Classification[]>([])
   const [nextClassificationNumbers, setNextClassificationNumbers] = React.useState<NextClassificationNumber[]>([])
   const [sites, setSites] = React.useState<Site[]>([])
-  const [classificationEditor, setClassificationEditor] = React.useState({ code: '', name: '', group_name: 'Oilfield', description: '' })
+  const [classificationEditor, setClassificationEditor] = React.useState({ code: '', name: '', group_name: 'Oilfield', section_name: 'General', description: '' })
+  const [pickerGroup, setPickerGroup] = React.useState<string | null>(null)
+  const [pickerSection, setPickerSection] = React.useState<string | null>(null)
+  const [pickerMode, setPickerMode] = React.useState<'new' | 'change'>('new')
   const [editingClassificationCode, setEditingClassificationCode] = React.useState<number | null>(null)
   const [siteEditor, setSiteEditor] = React.useState({ id: '', customer: '', site_name: '', lsd: '', uwi: '', latitude: '', longitude: '', access_directions: '', contact_name: '', contact_phone: '', contact_email: '', notes: '' })
   const [query, setQuery] = React.useState('')
@@ -298,6 +303,19 @@ export default function MallardSampleTrackerV3() {
   const classificationByCode = React.useMemo(() => new Map(classifications.map((item) => [item.code, item])), [classifications])
   const nextCodeByClassification = React.useMemo(() => new Map(nextClassificationNumbers.map((item) => [item.classification_code, item.next_sample_code])), [nextClassificationNumbers])
   const activeClassifications = React.useMemo(() => classifications.filter((item) => item.active && !item.name.startsWith('Legacy /')), [classifications])
+  const pickerGroups = React.useMemo(() => {
+    const preferred = ['Oilfield', 'Non Oilfield', 'Other / Specialty']
+    const present = new Set(activeClassifications.map((item) => item.group_name))
+    return [...preferred.filter((group) => present.has(group)), ...Array.from(present).filter((group) => !preferred.includes(group)).sort()]
+  }, [activeClassifications])
+  const pickerSections = React.useMemo(() => {
+    if (!pickerGroup) return []
+    return Array.from(new Set(activeClassifications.filter((item) => item.group_name === pickerGroup).map((item) => item.section_name))).sort()
+  }, [activeClassifications, pickerGroup])
+  const pickerTypes = React.useMemo(() => {
+    if (!pickerGroup || !pickerSection) return []
+    return activeClassifications.filter((item) => item.group_name === pickerGroup && item.section_name === pickerSection)
+  }, [activeClassifications, pickerGroup, pickerSection])
   const selectedSite = selected?.site_id ? sites.find((site) => site.id === selected.site_id) || null : null
   const selectedSiteHistory = selected?.site_id ? allSamples.filter((sample) => sample.site_id === selected.site_id && sample.id !== selected.id) : []
 
@@ -355,6 +373,36 @@ export default function MallardSampleTrackerV3() {
     setNewForm(blankForm(classificationCode))
     setActiveDraftId(null)
     setView('new')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const openSamplePicker = (group: string | null = null, mode: 'new' | 'change' = 'new') => {
+    setPickerMode(mode)
+    setPickerGroup(group)
+    setPickerSection(null)
+    setView('picker')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const choosePickerClassification = (classification: Classification) => {
+    if (pickerMode === 'change') {
+      setNewForm({ ...newForm, classification_code: classification.code })
+    } else {
+      setNewForm(blankForm(classification.code))
+      setActiveDraftId(null)
+    }
+    setPickerGroup(null)
+    setPickerSection(null)
+    setView('new')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const changeCurrentClassification = () => {
+    const classification = classificationByCode.get(newForm.classification_code)
+    setPickerMode('change')
+    setPickerGroup(classification?.group_name || null)
+    setPickerSection(classification?.section_name || null)
+    setView('picker')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -510,14 +558,15 @@ export default function MallardSampleTrackerV3() {
   const saveClassification = async (event: React.FormEvent) => {
     event.preventDefault()
     const code = Number(classificationEditor.code)
-    if (!Number.isInteger(code) || code < 100 || code > 999 || !classificationEditor.name.trim() || !classificationEditor.group_name.trim()) {
-      setMessage({ type: 'error', text: 'Enter a three digit code, name and group.' })
+    if (!Number.isInteger(code) || code < 100 || code > 999 || !classificationEditor.name.trim() || !classificationEditor.group_name.trim() || !classificationEditor.section_name.trim()) {
+      setMessage({ type: 'error', text: 'Enter a three digit code, name, category and section.' })
       return
     }
     setSaving(true)
     const payload = {
       name: classificationEditor.name.trim(),
       group_name: classificationEditor.group_name.trim(),
+      section_name: classificationEditor.section_name.trim(),
       description: classificationEditor.description.trim() || null,
       sort_order: code,
     }
@@ -529,7 +578,7 @@ export default function MallardSampleTrackerV3() {
       setMessage({ type: 'error', text: `Could not save classification: ${response.error.message}` })
       return
     }
-    setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', description: '' })
+    setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', section_name: 'General', description: '' })
     setEditingClassificationCode(null)
     await loadSamples()
     setMessage({ type: 'success', text: editingClassificationCode ? 'Classification updated.' : `Classification ${code} added.` })
@@ -541,6 +590,7 @@ export default function MallardSampleTrackerV3() {
       code: String(classification.code),
       name: classification.name,
       group_name: classification.group_name,
+      section_name: classification.section_name,
       description: classification.description || '',
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -940,7 +990,7 @@ export default function MallardSampleTrackerV3() {
   }
 
   const exportCsv = () => {
-    const headers = ['Sample Code', 'Classification Code', 'Classification', 'Group', 'Status', 'Priority', 'Collection Date', 'Location', 'Customer / Site', 'Matrix', 'Description of Work', 'Suspected Material', 'Confirmed Material', 'Collector', 'Dump Location', 'Dump Date', 'Lab', 'Lab Submission']
+    const headers = ['Sample Code', 'Classification Code', 'Classification', 'Group', 'Section', 'Status', 'Priority', 'Collection Date', 'Location', 'Customer / Site', 'Matrix', 'Description of Work', 'Suspected Material', 'Confirmed Material', 'Collector', 'Dump Location', 'Dump Date', 'Lab', 'Lab Submission']
     const rows = samples.map((sample) => {
       const classification = classificationByCode.get(sample.classification_code)
       return [
@@ -948,6 +998,7 @@ export default function MallardSampleTrackerV3() {
         sample.classification_code,
         classification?.name || '',
         classification?.group_name || categoryInfo[sample.category].label,
+        classification?.section_name || '',
         statusLabels[sample.status],
         sample.priority ? 'Yes' : 'No',
         toDateValue(sample.collected_at),

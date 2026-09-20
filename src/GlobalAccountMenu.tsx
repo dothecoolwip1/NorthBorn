@@ -4,18 +4,11 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Activity, BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLeft, CircleDollarSign, ClipboardCheck, ContactRound, Download, FileClock, FileText, Gauge, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
 import packageInfo from '../package.json'
 import { supabase } from './lib/supabase'
-import { FUNCTIONAL_TEST_USERS, personaFromSession, switchFunctionalTestPersona, type FunctionalTestPersona } from './functional-test-auth'
 import { applyNorthbornUpdate, checkForNorthbornUpdate, getPwaUpdateMode, hasInstallPrompt, isNorthbornInstalled, promptNorthbornInstall, setPwaUpdateMode, type NorthbornUpdateMode } from './pwa'
 import './global-account-menu.css'
 
 const db = supabase as any
 const APP_VERSION = packageInfo.version
-const personas = [
-  ['manager', FUNCTIONAL_TEST_USERS.manager.email, ShieldCheck],
-  ['operator', FUNCTIONAL_TEST_USERS.operator.email, Building2],
-  ['client', FUNCTIONAL_TEST_USERS.client.email, Building2],
-] as const
-
 const managerNavigation = [
   ['Dashboard','/',Gauge],
   ['Calendar','/calendar',CalendarDays],
@@ -88,7 +81,6 @@ export default function GlobalAccountMenu() {
   const [open, setOpen] = useState(false)
   const [panel, setPanel] = useState<MenuPanel>('main')
   const [busy, setBusy] = useState(false)
-  const [switching, setSwitching] = useState<FunctionalTestPersona | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [toast, setToast] = useState<Toast | null>(null)
   const [roleKey, setRoleKey] = useState('')
@@ -98,10 +90,8 @@ export default function GlobalAccountMenu() {
   const [updateMode, setUpdateModeState] = useState<NorthbornUpdateMode>(getPwaUpdateMode())
   const previousIdentity = useRef('')
 
-  const persona = personaFromSession(session)
-  const isFunctionalTest = persona !== null
   const userId = session?.user.id || ''
-  const effectiveRole = persona === 'client' ? 'client' : persona === 'operator' ? 'operator' : roleKey
+  const effectiveRole = roleKey
   const unreadCount = useMemo(() => notifications.filter(item => !item.read_at).length, [notifications])
   const canTeam = ['owner', 'admin'].includes(effectiveRole)
   const canTemplates = ['owner', 'admin'].includes(effectiveRole)
@@ -122,7 +112,6 @@ export default function GlobalAccountMenu() {
     let active = true
     const loadRole = async () => {
       if (!session?.user.id) { if (active) setRoleKey(''); return }
-      if (persona === 'client') { if (active) setRoleKey('client'); return }
       const membership = await db.from('organization_members').select('id').eq('user_id', session.user.id).eq('status', 'active').limit(1).maybeSingle()
       if (!active) return
       if (membership.error || !membership.data?.id) { setRoleKey(''); return }
@@ -132,7 +121,7 @@ export default function GlobalAccountMenu() {
     }
     void loadRole()
     return () => { active = false }
-  }, [session?.user.id, persona])
+  }, [session?.user.id])
 
   useEffect(() => {
     const syncInstallState = () => {
@@ -175,7 +164,7 @@ export default function GlobalAccountMenu() {
     previousIdentity.current = userId
     void loadNotifications()
     if (changed) {
-      const display = persona ? FUNCTIONAL_TEST_USERS[persona].email : session?.user.email || 'your account'
+      const display = session?.user.email || 'your account'
       setToast({ title: 'Signed in', message: `You are signed in as ${display}.` })
     }
 
@@ -188,7 +177,7 @@ export default function GlobalAccountMenu() {
       .subscribe()
 
     return () => { active = false; void supabase.removeChannel(channel) }
-  }, [userId, persona, session?.user.email])
+  }, [userId, session?.user.email])
 
   useEffect(() => {
     if (!toast) return
@@ -241,21 +230,6 @@ export default function GlobalAccountMenu() {
     if (type.includes('ticket') || notification.notification_type.includes('ticket')) { navigate('/tickets'); return }
     if (type.includes('fleet') || notification.notification_type.includes('fleet')) { navigate('/fleet'); return }
     if (type.includes('safety') || notification.notification_type.includes('safety')) { navigate('/safety'); return }
-  }
-
-  const switchPersona = async (next: FunctionalTestPersona) => {
-    if (next === persona) { setOpen(false); return }
-    setSwitching(next)
-    try {
-      await switchFunctionalTestPersona(next)
-      setOpen(false)
-      const home = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
-      window.location.replace(home)
-    } catch (caught) {
-      setToast({ title: 'Unable to switch test account', message: caught instanceof Error ? caught.message : String(caught) })
-    } finally {
-      setSwitching(null)
-    }
   }
 
   const signOut = async () => {
@@ -325,7 +299,7 @@ export default function GlobalAccountMenu() {
         <div className="northborn-account-section-title">About</div>
         <div className="northborn-version-card"><div className="northborn-version-logo">N</div><div><strong>Northborn</strong><span>Version {APP_VERSION}</span></div></div>
       </> : <>
-        <div className="northborn-account-heading"><UserRound size={18}/><div><strong>{isFunctionalTest ? 'Test account' : 'Northborn account'}</strong><span>{persona ? FUNCTIONAL_TEST_USERS[persona].email : session.user.email}</span></div></div>
+        <div className="northborn-account-heading"><UserRound size={18}/><div><strong>Northborn account</strong><span>{session.user.email}</span></div></div>
 
         <div className="northborn-account-section-title">Navigation</div>
         <div className="northborn-menu-links northborn-navigation-links">
@@ -350,9 +324,6 @@ export default function GlobalAccountMenu() {
           {canPricing && <button type="button" onClick={() => go('/billing')}><ReceiptText size={18}/><span><strong>Billing queue</strong><small>Approved tickets ready to invoice</small></span></button>}
         </div></>}
 
-        {isFunctionalTest && <><div className="northborn-account-section-title">Switch test account</div><div className="northborn-test-account-list">
-          {personas.map(([key, email, Icon]) => <button key={key} type="button" disabled={Boolean(switching)} className={persona === key ? 'active' : ''} onClick={() => void switchPersona(key)}><Icon size={18}/><div><strong>{FUNCTIONAL_TEST_USERS[key].label}</strong><span>{email}</span></div>{persona === key ? <em>Active</em> : switching === key ? <em>Opening…</em> : null}</button>)}
-        </div></>}
 
         <div className="northborn-menu-version">Northborn v{APP_VERSION}</div>
         <button className="northborn-account-signout" type="button" disabled={busy} onClick={() => void signOut()}><LogOut size={17}/>{busy ? 'Signing out…' : 'Sign out'}</button>

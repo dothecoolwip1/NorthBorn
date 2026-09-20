@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Download,
   ExternalLink,
@@ -33,12 +34,13 @@ import './mallard-sample-tracker-v3.css'
 
 type SampleCategory = 'non_oilfield' | 'oilfield' | 'odd_weird'
 type SampleStatus = 'collected' | 'with_driver' | 'received' | 'submitted' | 'testing' | 'results_received' | 'complete'
-type ViewMode = 'dashboard' | 'samples' | 'new' | 'detail' | 'classifications' | 'sites'
+type ViewMode = 'dashboard' | 'samples' | 'picker' | 'new' | 'detail' | 'classifications' | 'sites'
 
 type Classification = {
   code: number
   name: string
   group_name: string
+  section_name: string
   description: string | null
   active: boolean
   sort_order: number
@@ -185,6 +187,19 @@ function toneForCode(code: number) {
   return categoryInfo[categoryFromCode(code)].tone
 }
 
+function toneForGroup(group: string) {
+  if (group === 'Oilfield') return 'gold'
+  if (group === 'Non Oilfield') return 'green'
+  return 'grey'
+}
+
+function rangeForGroup(group: string) {
+  if (group === 'Oilfield') return '200–299'
+  if (group === 'Non Oilfield') return '100–199'
+  if (group === 'Other / Specialty') return '300–399'
+  return 'Custom'
+}
+
 const statusOrder: SampleStatus[] = ['collected', 'with_driver', 'received', 'submitted', 'testing', 'results_received', 'complete']
 const statusLabels: Record<SampleStatus, string> = {
   collected: 'Collected',
@@ -276,7 +291,10 @@ export default function MallardSampleTrackerV3() {
   const [classifications, setClassifications] = React.useState<Classification[]>([])
   const [nextClassificationNumbers, setNextClassificationNumbers] = React.useState<NextClassificationNumber[]>([])
   const [sites, setSites] = React.useState<Site[]>([])
-  const [classificationEditor, setClassificationEditor] = React.useState({ code: '', name: '', group_name: 'Oilfield', description: '' })
+  const [classificationEditor, setClassificationEditor] = React.useState({ code: '', name: '', group_name: 'Oilfield', section_name: 'General', description: '' })
+  const [pickerGroup, setPickerGroup] = React.useState<string | null>(null)
+  const [pickerSection, setPickerSection] = React.useState<string | null>(null)
+  const [pickerMode, setPickerMode] = React.useState<'new' | 'change'>('new')
   const [editingClassificationCode, setEditingClassificationCode] = React.useState<number | null>(null)
   const [siteEditor, setSiteEditor] = React.useState({ id: '', customer: '', site_name: '', lsd: '', uwi: '', latitude: '', longitude: '', access_directions: '', contact_name: '', contact_phone: '', contact_email: '', notes: '' })
   const [query, setQuery] = React.useState('')
@@ -298,6 +316,19 @@ export default function MallardSampleTrackerV3() {
   const classificationByCode = React.useMemo(() => new Map(classifications.map((item) => [item.code, item])), [classifications])
   const nextCodeByClassification = React.useMemo(() => new Map(nextClassificationNumbers.map((item) => [item.classification_code, item.next_sample_code])), [nextClassificationNumbers])
   const activeClassifications = React.useMemo(() => classifications.filter((item) => item.active && !item.name.startsWith('Legacy /')), [classifications])
+  const pickerGroups = React.useMemo(() => {
+    const preferred = ['Oilfield', 'Non Oilfield', 'Other / Specialty']
+    const present = new Set(activeClassifications.map((item) => item.group_name))
+    return [...preferred.filter((group) => present.has(group)), ...Array.from(present).filter((group) => !preferred.includes(group)).sort()]
+  }, [activeClassifications])
+  const pickerSections = React.useMemo(() => {
+    if (!pickerGroup) return []
+    return Array.from(new Set(activeClassifications.filter((item) => item.group_name === pickerGroup).map((item) => item.section_name))).sort()
+  }, [activeClassifications, pickerGroup])
+  const pickerTypes = React.useMemo(() => {
+    if (!pickerGroup || !pickerSection) return []
+    return activeClassifications.filter((item) => item.group_name === pickerGroup && item.section_name === pickerSection)
+  }, [activeClassifications, pickerGroup, pickerSection])
   const selectedSite = selected?.site_id ? sites.find((site) => site.id === selected.site_id) || null : null
   const selectedSiteHistory = selected?.site_id ? allSamples.filter((sample) => sample.site_id === selected.site_id && sample.id !== selected.id) : []
 
@@ -351,10 +382,33 @@ export default function MallardSampleTrackerV3() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(next))
   }
 
-  const beginNewSample = (classificationCode = 201) => {
-    setNewForm(blankForm(classificationCode))
-    setActiveDraftId(null)
+  const openSamplePicker = (group: string | null = null, mode: 'new' | 'change' = 'new') => {
+    setPickerMode(mode)
+    setPickerGroup(group)
+    setPickerSection(null)
+    setView('picker')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const choosePickerClassification = (classification: Classification) => {
+    if (pickerMode === 'change') {
+      setNewForm({ ...newForm, classification_code: classification.code })
+    } else {
+      setNewForm(blankForm(classification.code))
+      setActiveDraftId(null)
+    }
+    setPickerGroup(null)
+    setPickerSection(null)
     setView('new')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const changeCurrentClassification = () => {
+    const classification = classificationByCode.get(newForm.classification_code)
+    setPickerMode('change')
+    setPickerGroup(classification?.group_name || null)
+    setPickerSection(classification?.section_name || null)
+    setView('picker')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -510,14 +564,15 @@ export default function MallardSampleTrackerV3() {
   const saveClassification = async (event: React.FormEvent) => {
     event.preventDefault()
     const code = Number(classificationEditor.code)
-    if (!Number.isInteger(code) || code < 100 || code > 999 || !classificationEditor.name.trim() || !classificationEditor.group_name.trim()) {
-      setMessage({ type: 'error', text: 'Enter a three digit code, name and group.' })
+    if (!Number.isInteger(code) || code < 100 || code > 999 || !classificationEditor.name.trim() || !classificationEditor.group_name.trim() || !classificationEditor.section_name.trim()) {
+      setMessage({ type: 'error', text: 'Enter a three digit code, name, category and section.' })
       return
     }
     setSaving(true)
     const payload = {
       name: classificationEditor.name.trim(),
       group_name: classificationEditor.group_name.trim(),
+      section_name: classificationEditor.section_name.trim(),
       description: classificationEditor.description.trim() || null,
       sort_order: code,
     }
@@ -529,7 +584,7 @@ export default function MallardSampleTrackerV3() {
       setMessage({ type: 'error', text: `Could not save classification: ${response.error.message}` })
       return
     }
-    setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', description: '' })
+    setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', section_name: 'General', description: '' })
     setEditingClassificationCode(null)
     await loadSamples()
     setMessage({ type: 'success', text: editingClassificationCode ? 'Classification updated.' : `Classification ${code} added.` })
@@ -541,6 +596,7 @@ export default function MallardSampleTrackerV3() {
       code: String(classification.code),
       name: classification.name,
       group_name: classification.group_name,
+      section_name: classification.section_name,
       description: classification.description || '',
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -940,7 +996,7 @@ export default function MallardSampleTrackerV3() {
   }
 
   const exportCsv = () => {
-    const headers = ['Sample Code', 'Classification Code', 'Classification', 'Group', 'Status', 'Priority', 'Collection Date', 'Location', 'Customer / Site', 'Matrix', 'Description of Work', 'Suspected Material', 'Confirmed Material', 'Collector', 'Dump Location', 'Dump Date', 'Lab', 'Lab Submission']
+    const headers = ['Sample Code', 'Classification Code', 'Classification', 'Group', 'Section', 'Status', 'Priority', 'Collection Date', 'Location', 'Customer / Site', 'Matrix', 'Description of Work', 'Suspected Material', 'Confirmed Material', 'Collector', 'Dump Location', 'Dump Date', 'Lab', 'Lab Submission']
     const rows = samples.map((sample) => {
       const classification = classificationByCode.get(sample.classification_code)
       return [
@@ -948,6 +1004,7 @@ export default function MallardSampleTrackerV3() {
         sample.classification_code,
         classification?.name || '',
         classification?.group_name || categoryInfo[sample.category].label,
+        classification?.section_name || '',
         statusLabels[sample.status],
         sample.priority ? 'Yes' : 'No',
         toDateValue(sample.collected_at),
@@ -991,6 +1048,7 @@ export default function MallardSampleTrackerV3() {
         sample.sample_code,
         sample.sample_number,
         classificationByCode.get(sample.classification_code)?.name,
+        classificationByCode.get(sample.classification_code)?.section_name,
         categoryInfo[sample.category].label,
         statusLabels[sample.status],
         sample.location,
@@ -1045,24 +1103,27 @@ export default function MallardSampleTrackerV3() {
 
         {view === 'dashboard' && (
           <main className="mallard-v3-main">
-            <section className="mallard-v3-hero">
+            <section className="mallard-v3-hero sample-start-hero">
               <div>
                 <span className="eyebrow">Fast field entry</span>
                 <h2>Start a new sample</h2>
-                <p>Pick the material classification. Each type has its own four digit sequence.</p>
+                <p>Choose the main category first. Mallard will narrow it down to the section and exact sample type.</p>
                 <div className="mallard-v3-admin-links">
                   <button className="secondary" type="button" onClick={() => setView('classifications')}>Classification Manager</button>
                   <button className="secondary" type="button" onClick={() => setView('sites')}>Site Manager</button>
                 </div>
               </div>
-              <div className="mallard-v3-category-grid classification-grid">
-                {activeClassifications.map((classification) => (
-                  <button type="button" key={classification.code} className={`mallard-v3-category ${toneForCode(classification.code)}`} onClick={() => beginNewSample(classification.code)}>
-                    <span>{classification.code} · {classification.group_name}</span>
-                    <strong>{nextCodeByClassification.get(classification.code) || `${classification.code}-????`}</strong>
-                    <b>{classification.name}</b>
-                  </button>
-                ))}
+              <div className="sample-picker-grid category-step">
+                {pickerGroups.map((group) => {
+                  const typeCount = activeClassifications.filter((item) => item.group_name === group).length
+                  const sectionCount = new Set(activeClassifications.filter((item) => item.group_name === group).map((item) => item.section_name)).size
+                  return (
+                    <button type="button" key={group} className={`sample-picker-card category-card ${toneForGroup(group)}`} onClick={() => openSamplePicker(group, 'new')}>
+                      <div><span className="picker-range">{rangeForGroup(group)}</span><strong>{group}</strong><small>{sectionCount} section{sectionCount === 1 ? '' : 's'} · {typeCount} sample type{typeCount === 1 ? '' : 's'}</small></div>
+                      <ChevronRight size={24} />
+                    </button>
+                  )
+                })}
               </div>
             </section>
 
@@ -1095,7 +1156,7 @@ export default function MallardSampleTrackerV3() {
 
         {view === 'samples' && (
           <main className="mallard-v3-main">
-            <div className="mallard-v3-page-heading"><div><span className="eyebrow">Sample database</span><h2>Samples</h2></div><div><button className="secondary" type="button" onClick={exportCsv}><Download size={18} /> Export</button><button className="primary" type="button" onClick={() => beginNewSample(201)}><Plus size={18} /> New</button></div></div>
+            <div className="mallard-v3-page-heading"><div><span className="eyebrow">Sample database</span><h2>Samples</h2></div><div><button className="secondary" type="button" onClick={exportCsv}><Download size={18} /> Export</button><button className="primary" type="button" onClick={() => openSamplePicker(null, 'new')}><Plus size={18} /> New</button></div></div>
             <section className="mallard-v3-filters">
               <label className="search"><Search size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search samples" /></label>
               <div>
@@ -1110,6 +1171,65 @@ export default function MallardSampleTrackerV3() {
           </main>
         )}
 
+        {view === 'picker' && (
+          <main className="mallard-v3-main narrow sample-picker-page">
+            <button className="back" type="button" onClick={() => {
+              if (pickerSection) setPickerSection(null)
+              else if (pickerGroup) setPickerGroup(null)
+              else setView(pickerMode === 'change' ? 'new' : 'dashboard')
+            }}><ChevronLeft size={18} /> {pickerSection ? 'Sections' : pickerGroup ? 'Categories' : 'Back'}</button>
+
+            <div className="sample-picker-progress" aria-label="Sample classification progress">
+              <span className={pickerGroup ? 'done' : 'active'}>1 <b>Category</b></span>
+              <ChevronRight size={15} />
+              <span className={pickerGroup && !pickerSection ? 'active' : pickerSection ? 'done' : ''}>2 <b>Section</b></span>
+              <ChevronRight size={15} />
+              <span className={pickerSection ? 'active' : ''}>3 <b>Sample</b></span>
+            </div>
+
+            {!pickerGroup && (
+              <>
+                <div className="mallard-v3-page-heading picker-heading"><div><span className="eyebrow">Step 1 of 3</span><h2>What kind of work is this?</h2><p>Start broad. You will choose the exact material in the next two steps.</p></div></div>
+                <div className="sample-picker-grid">
+                  {pickerGroups.map((group) => {
+                    const typeCount = activeClassifications.filter((item) => item.group_name === group).length
+                    const sectionCount = new Set(activeClassifications.filter((item) => item.group_name === group).map((item) => item.section_name)).size
+                    return <button key={group} type="button" className={`sample-picker-card category-card ${toneForGroup(group)}`} onClick={() => { setPickerGroup(group); setPickerSection(null) }}><div><span className="picker-range">{rangeForGroup(group)}</span><strong>{group}</strong><small>{sectionCount} section{sectionCount === 1 ? '' : 's'} · {typeCount} sample type{typeCount === 1 ? '' : 's'}</small></div><ChevronRight size={24} /></button>
+                  })}
+                </div>
+              </>
+            )}
+
+            {pickerGroup && !pickerSection && (
+              <>
+                <div className="mallard-v3-page-heading picker-heading"><div><span className="eyebrow">Step 2 of 3 · {pickerGroup}</span><h2>Choose a section</h2><p>Only sections used by {pickerGroup} samples are shown.</p></div></div>
+                <div className="sample-picker-grid">
+                  {pickerSections.map((section) => {
+                    const types = activeClassifications.filter((item) => item.group_name === pickerGroup && item.section_name === section)
+                    return <button key={section} type="button" className={`sample-picker-card section-card ${toneForGroup(pickerGroup)}`} onClick={() => setPickerSection(section)}><div><span className="picker-range">{pickerGroup}</span><strong>{section}</strong><small>{types.length} sample type{types.length === 1 ? '' : 's'}</small></div><ChevronRight size={24} /></button>
+                  })}
+                </div>
+              </>
+            )}
+
+            {pickerGroup && pickerSection && (
+              <>
+                <div className="mallard-v3-page-heading picker-heading"><div><span className="eyebrow">Step 3 of 3 · {pickerGroup} · {pickerSection}</span><h2>What is the sample?</h2><p>Choose the exact classification. The next bottle number is shown on each option.</p></div></div>
+                <div className="sample-picker-grid type-step">
+                  {pickerTypes.map((classification) => (
+                    <button key={classification.code} type="button" className={`sample-picker-card type-card ${toneForCode(classification.code)}`} onClick={() => choosePickerClassification(classification)}>
+                      <div className="type-code">{classification.code}</div>
+                      <div className="type-copy"><strong>{classification.name}</strong><small>Next bottle: <b>{nextCodeByClassification.get(classification.code) || `${classification.code}-????`}</b></small></div>
+                      <ChevronRight size={22} />
+                    </button>
+                  ))}
+                </div>
+                {pickerTypes.length === 0 && <div className="empty">No active sample types are assigned to this section.</div>}
+              </>
+            )}
+          </main>
+        )}
+
         {view === 'new' && (
           <main className="mallard-v3-main narrow">
             <button className="back" type="button" onClick={() => setView('dashboard')}><ChevronLeft size={18} /> Back</button>
@@ -1121,17 +1241,12 @@ export default function MallardSampleTrackerV3() {
               </div>
             </div>
             <form className="mallard-v3-form" onSubmit={createSample}>
-              <section className="mallard-v3-panel">
-                <div className="mallard-v3-heading"><div><span className="eyebrow">Classification</span><h2>What kind of sample is it?</h2></div><button className="link" type="button" onClick={() => setView('classifications')}>Manage</button></div>
-                <label><span>Material classification *</span>
-                  <select required value={newForm.classification_code} onChange={(event) => setNewForm({ ...newForm, classification_code: Number(event.target.value) })}>
-                    {activeClassifications.map((classification) => <option key={classification.code} value={classification.code}>{classification.code} · {classification.name} · {classification.group_name}</option>)}
-                  </select>
-                </label>
-                <div className={`classification-preview ${toneForCode(newForm.classification_code)}`}>
-                  <strong>{nextCodeByClassification.get(newForm.classification_code) || `${newForm.classification_code}-????`}</strong>
-                  <span>{classificationByCode.get(newForm.classification_code)?.group_name || categoryInfo[categoryFromCode(newForm.classification_code)].label}</span>
-                </div>
+              <section className="mallard-v3-panel classification-selected-panel">
+                <div className="mallard-v3-heading"><div><span className="eyebrow">Classification</span><h2>Selected sample type</h2></div><button className="secondary" type="button" onClick={changeCurrentClassification}>Change</button></div>
+                {(() => {
+                  const classification = classificationByCode.get(newForm.classification_code)
+                  return <div className={`selected-classification ${toneForCode(newForm.classification_code)}`}><div className="selected-classification-code">{newForm.classification_code}</div><div><strong>{classification?.name || 'Sample'}</strong><span>{classification?.group_name || categoryInfo[categoryFromCode(newForm.classification_code)].label} · {classification?.section_name || 'General'}</span><small>Next bottle: {nextCodeByClassification.get(newForm.classification_code) || `${newForm.classification_code}-????`}</small></div></div>
+                })()}
               </section>
 
               <section className="mallard-v3-panel">
@@ -1174,18 +1289,20 @@ export default function MallardSampleTrackerV3() {
             <button className="back" type="button" onClick={() => setView('dashboard')}><ChevronLeft size={18} /> Home</button>
             <div className="mallard-v3-page-heading"><div><span className="eyebrow">Admin</span><h2>Classification Manager</h2><p>Codes are permanent. Rename or disable them, but a code can never be reused for a different meaning.</p></div></div>
             <form className="mallard-v3-panel mallard-manager-form" onSubmit={saveClassification}>
-              <div className="mallard-v3-heading"><div><span className="eyebrow">{editingClassificationCode ? 'Edit classification' : 'New classification'}</span><h2>{editingClassificationCode ? `Code ${editingClassificationCode}` : 'Add sample type'}</h2></div>{editingClassificationCode && <button className="link" type="button" onClick={() => { setEditingClassificationCode(null); setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', description: '' }) }}>Cancel</button>}</div>
+              <div className="mallard-v3-heading"><div><span className="eyebrow">{editingClassificationCode ? 'Edit classification' : 'New classification'}</span><h2>{editingClassificationCode ? `Code ${editingClassificationCode}` : 'Add sample type'}</h2></div>{editingClassificationCode && <button className="link" type="button" onClick={() => { setEditingClassificationCode(null); setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', section_name: 'General', description: '' }) }}>Cancel</button>}</div>
               <div className="grid two">
                 <label><span>Three digit code *</span><input inputMode="numeric" maxLength={3} disabled={editingClassificationCode !== null} value={classificationEditor.code} onChange={(event) => setClassificationEditor({ ...classificationEditor, code: event.target.value.replace(/\D/g, '').slice(0, 3) })} placeholder="205" /></label>
-                <label><span>Group *</span><select value={classificationEditor.group_name} onChange={(event) => setClassificationEditor({ ...classificationEditor, group_name: event.target.value })}><option>Non Oilfield</option><option>Oilfield</option><option>Other / Specialty</option><option>Future / Custom</option><option>System / Legacy</option></select></label>
+                <label><span>Category *</span><select value={classificationEditor.group_name} onChange={(event) => setClassificationEditor({ ...classificationEditor, group_name: event.target.value })}><option>Non Oilfield</option><option>Oilfield</option><option>Other / Specialty</option><option>Future / Custom</option><option>System / Legacy</option></select></label>
               </div>
-              <label><span>Name *</span><input value={classificationEditor.name} onChange={(event) => setClassificationEditor({ ...classificationEditor, name: event.target.value })} placeholder="Produced Water" /></label>
+              <label><span>Section *</span><input list="mallard-classification-sections" value={classificationEditor.section_name} onChange={(event) => setClassificationEditor({ ...classificationEditor, section_name: event.target.value })} placeholder="Production Fluids" /></label>
+              <datalist id="mallard-classification-sections">{Array.from(new Set(classifications.filter((item) => item.group_name === classificationEditor.group_name).map((item) => item.section_name))).sort().map((section) => <option key={section} value={section} />)}</datalist>
+              <label><span>Sample type name *</span><input value={classificationEditor.name} onChange={(event) => setClassificationEditor({ ...classificationEditor, name: event.target.value })} placeholder="Produced Water" /></label>
               <label><span>Description</span><textarea rows={2} value={classificationEditor.description} onChange={(event) => setClassificationEditor({ ...classificationEditor, description: event.target.value })} placeholder="Optional internal description" /></label>
               <button className="primary" type="submit" disabled={saving}><Save size={17} /> {editingClassificationCode ? 'Save changes' : 'Add classification'}</button>
             </form>
             <section className="mallard-v3-panel">
               <div className="mallard-v3-heading"><div><span className="eyebrow">Codes</span><h2>All classifications</h2></div><span className="count">{classifications.length}</span></div>
-              <div className="manager-list">{classifications.map((classification) => <div className={`manager-row ${classification.active ? '' : 'disabled'}`} key={classification.code}><div className={`manager-code ${toneForCode(classification.code)}`}>{classification.code}</div><div className="manager-main"><strong>{classification.name}</strong><span>{classification.group_name}{classification.description ? ` · ${classification.description}` : ''}</span><small>Next: {nextCodeByClassification.get(classification.code) || 'Disabled / unavailable'}</small></div><div className="manager-actions"><button className="secondary" type="button" onClick={() => editClassification(classification)}>Edit</button><button className="secondary" type="button" onClick={() => void toggleClassification(classification)}>{classification.active ? 'Disable' : 'Enable'}</button></div></div>)}</div>
+              <div className="manager-list">{classifications.map((classification) => <div className={`manager-row ${classification.active ? '' : 'disabled'}`} key={classification.code}><div className={`manager-code ${toneForCode(classification.code)}`}>{classification.code}</div><div className="manager-main"><strong>{classification.name}</strong><span>{classification.group_name} › {classification.section_name}{classification.description ? ` · ${classification.description}` : ''}</span><small>Next: {nextCodeByClassification.get(classification.code) || 'Disabled / unavailable'}</small></div><div className="manager-actions"><button className="secondary" type="button" onClick={() => editClassification(classification)}>Edit</button><button className="secondary" type="button" onClick={() => void toggleClassification(classification)}>{classification.active ? 'Disable' : 'Enable'}</button></div></div>)}</div>
             </section>
           </main>
         )}
@@ -1216,7 +1333,7 @@ export default function MallardSampleTrackerV3() {
           <main className="mallard-v3-main narrow detail">
             <button className="back" type="button" onClick={() => setView('samples')}><ChevronLeft size={18} /> Samples</button>
             <section className={`mallard-v3-sample-hero ${toneForCode(selected.classification_code)}`}>
-              <div><span className="eyebrow">Permanent bottle ID</span><div className="big-number">{selected.sample_code}</div><div className="meta"><span>{selected.classification_code} · {classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</span><span>{selected.sample_matrix || 'Unknown matrix'}</span></div></div>
+              <div><span className="eyebrow">Permanent bottle ID</span><div className="big-number">{selected.sample_code}</div><div className="meta"><span>{selected.classification_code} · {classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</span><span>{classificationByCode.get(selected.classification_code)?.section_name || 'General'}</span><span>{selected.sample_matrix || 'Unknown matrix'}</span></div></div>
               <div className="actions">{selected.priority && <span className="priority">Priority</span>}<span className={`status status-${selected.status}`}>{statusLabels[selected.status]}</span><button className="secondary light" type="button" onClick={() => requestPrint(selected)}><Printer size={18} /> Label</button></div>
             </section>
             <div className="mallard-v3-record-actions"><button type="button" className="secondary" onClick={() => cloneSample(selected)}><Plus size={18} /> Create another like this</button>{selected.disposal_destination && <span className="dump-chip"><MapPin size={15} /> {selected.disposal_destination}</span>}</div>
@@ -1304,7 +1421,7 @@ export default function MallardSampleTrackerV3() {
         <nav className="mallard-v3-bottom-nav" aria-label="Mallard navigation">
           <button className={view === 'dashboard' ? 'active' : ''} type="button" onClick={() => setView('dashboard')}><Beaker size={21} /><span>Home</span></button>
           <button className={view === 'samples' || view === 'detail' ? 'active' : ''} type="button" onClick={() => setView('samples')}><ClipboardList size={21} /><span>Samples</span></button>
-          <button className={view === 'new' ? 'active create' : 'create'} type="button" onClick={() => beginNewSample(201)}><Plus size={24} /><span>New</span></button>
+          <button className={view === 'new' || view === 'picker' ? 'active create' : 'create'} type="button" onClick={() => openSamplePicker(null, 'new')}><Plus size={24} /><span>New</span></button>
         </nav>
       </div>
 

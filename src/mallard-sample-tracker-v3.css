@@ -296,3 +296,55 @@ button:disabled, input:disabled { opacity:.55; cursor:not-allowed; }
   .manager-actions { grid-column:1 / -1; justify-content:flex-end; }
   .site-record-grid { grid-template-columns:1fr; }
 }
+
+
+/* Hierarchical sample picker */
+.sample-start-hero { gap:20px; }
+.sample-picker-page { padding-top:14px; }
+.sample-picker-progress { display:flex; align-items:center; gap:7px; margin:4px 0 18px; color:#657068; font-size:.72rem; font-weight:800; }
+.sample-picker-progress > span { display:inline-flex; align-items:center; gap:5px; min-height:30px; padding:5px 9px; border:1px solid #303a34; border-radius:999px; background:#0b110d; }
+.sample-picker-progress > span.active { color:var(--mallard-gold-light); border-color:rgba(196,154,69,.55); background:rgba(196,154,69,.08); }
+.sample-picker-progress > span.done { color:#a7d8ba; border-color:rgba(93,157,120,.42); background:rgba(47,118,85,.08); }
+.picker-heading { align-items:flex-start; margin-bottom:16px; }
+.sample-picker-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.sample-picker-card { min-height:112px; display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; padding:16px; border:1px solid var(--mallard-border); border-radius:17px; background:linear-gradient(145deg,#111814,#0b100d); color:var(--mallard-text); text-align:left; cursor:pointer; }
+.sample-picker-card > div:first-child { min-width:0; }
+.sample-picker-card strong { display:block; margin:5px 0 4px; font-size:1.05rem; line-height:1.2; }
+.sample-picker-card small { display:block; color:var(--mallard-muted); font-size:.76rem; line-height:1.35; }
+.sample-picker-card > svg { flex:0 0 auto; color:var(--mallard-muted); }
+.sample-picker-card.green { border-color:rgba(93,157,120,.46); }
+.sample-picker-card.gold { border-color:rgba(196,154,69,.48); }
+.sample-picker-card.grey { border-color:#56605a; }
+.sample-picker-card:active { transform:translateY(1px); }
+.picker-range { display:block; color:var(--mallard-gold-light); font-size:.68rem; font-weight:900; letter-spacing:.07em; text-transform:uppercase; }
+.category-card { min-height:124px; }
+.category-card strong { font-size:1.3rem; }
+.section-card { min-height:105px; }
+.type-step { grid-template-columns:1fr; }
+.type-card { min-height:78px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; padding:12px 14px; }
+.type-code { width:55px; height:52px; display:grid; place-items:center; border-radius:12px; background:#18211b; font-weight:950; font-size:1.05rem; }
+.type-card.green .type-code { border:1px solid rgba(93,157,120,.5); }
+.type-card.gold .type-code { border:1px solid rgba(196,154,69,.5); }
+.type-card.grey .type-code { border:1px solid #59625d; }
+.type-copy strong { margin:0 0 5px; font-size:1rem; }
+.type-copy small b { color:var(--mallard-gold-light); }
+.classification-selected-panel { border-color:rgba(196,154,69,.28); }
+.selected-classification { display:grid; grid-template-columns:auto minmax(0,1fr); gap:12px; align-items:center; padding:13px; border:1px solid var(--mallard-border); border-radius:14px; background:#09100c; }
+.selected-classification.green { border-color:rgba(93,157,120,.44); }
+.selected-classification.gold { border-color:rgba(196,154,69,.46); }
+.selected-classification.grey { border-color:#56605a; }
+.selected-classification-code { width:60px; height:58px; display:grid; place-items:center; border-radius:12px; background:#17211b; font-size:1.12rem; font-weight:950; }
+.selected-classification strong, .selected-classification span, .selected-classification small { display:block; }
+.selected-classification strong { font-size:1.02rem; }
+.selected-classification span { margin-top:3px; color:var(--mallard-muted); font-size:.78rem; }
+.selected-classification small { margin-top:5px; color:var(--mallard-gold-light); font-size:.74rem; font-weight:750; }
+
+@media (max-width: 680px) {
+  .sample-picker-grid { grid-template-columns:1fr; }
+  .sample-picker-grid.category-step { grid-template-columns:1fr; }
+  .sample-picker-card { min-height:96px; }
+  .category-card { min-height:108px; }
+  .sample-picker-progress { gap:4px; overflow-x:auto; padding-bottom:3px; }
+  .sample-picker-progress > span { white-space:nowrap; padding:5px 7px; }
+  .sample-picker-progress > svg { flex:0 0 auto; }
+}

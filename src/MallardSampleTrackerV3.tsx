@@ -292,6 +292,13 @@ export default function MallardSampleTrackerV3() {
   const [attachmentProgress, setAttachmentProgress] = React.useState('')
   const [attachmentProgressValue, setAttachmentProgressValue] = React.useState(0)
   const attachmentInputRef = React.useRef<HTMLInputElement>(null)
+  const deepLinkOpenedRef = React.useRef(false)
+
+  const classificationByCode = React.useMemo(() => new Map(classifications.map((item) => [item.code, item])), [classifications])
+  const nextCodeByClassification = React.useMemo(() => new Map(nextClassificationNumbers.map((item) => [item.classification_code, item.next_sample_code])), [nextClassificationNumbers])
+  const activeClassifications = React.useMemo(() => classifications.filter((item) => item.active && !item.name.startsWith('Legacy /')), [classifications])
+  const selectedSite = selected?.site_id ? sites.find((site) => site.id === selected.site_id) || null : null
+  const selectedSiteHistory = selected?.site_id ? samples.filter((sample) => sample.site_id === selected.site_id && sample.id !== selected.id) : []
 
   const loadSamples = React.useCallback(async () => {
     setLoading(true)
@@ -475,6 +482,144 @@ export default function MallardSampleTrackerV3() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  React.useEffect(() => {
+    if (deepLinkOpenedRef.current) return
+    const sampleId = new URLSearchParams(window.location.search).get('sample')
+    if (!sampleId) return
+    deepLinkOpenedRef.current = true
+    void openSample(sampleId)
+  }, [])
+
+  const chooseSiteForForm = (siteId: string) => {
+    const site = sites.find((item) => item.id === siteId)
+    if (!site) {
+      setNewForm({ ...newForm, site_id: '' })
+      return
+    }
+    setNewForm({
+      ...newForm,
+      site_id: site.id,
+      location: site.lsd || site.uwi || site.site_name,
+      customer_site: [site.customer, site.site_name].filter(Boolean).join(' / '),
+    })
+  }
+
+  const saveClassification = async (event: React.FormEvent) => {
+    event.preventDefault()
+    const code = Number(classificationEditor.code)
+    if (!Number.isInteger(code) || code < 100 || code > 999 || !classificationEditor.name.trim() || !classificationEditor.group_name.trim()) {
+      setMessage({ type: 'error', text: 'Enter a three digit code, name and group.' })
+      return
+    }
+    setSaving(true)
+    const payload = {
+      name: classificationEditor.name.trim(),
+      group_name: classificationEditor.group_name.trim(),
+      description: classificationEditor.description.trim() || null,
+      sort_order: code,
+    }
+    const response = editingClassificationCode
+      ? await db.from('mallard_classifications').update(payload).eq('code', editingClassificationCode)
+      : await db.from('mallard_classifications').insert({ code, ...payload, active: true })
+    setSaving(false)
+    if (response.error) {
+      setMessage({ type: 'error', text: `Could not save classification: ${response.error.message}` })
+      return
+    }
+    setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', description: '' })
+    setEditingClassificationCode(null)
+    await loadSamples()
+    setMessage({ type: 'success', text: editingClassificationCode ? 'Classification updated.' : `Classification ${code} added.` })
+  }
+
+  const editClassification = (classification: Classification) => {
+    setEditingClassificationCode(classification.code)
+    setClassificationEditor({
+      code: String(classification.code),
+      name: classification.name,
+      group_name: classification.group_name,
+      description: classification.description || '',
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const toggleClassification = async (classification: Classification) => {
+    const { error } = await db.from('mallard_classifications').update({ active: !classification.active }).eq('code', classification.code)
+    if (error) {
+      setMessage({ type: 'error', text: `Could not update classification: ${error.message}` })
+      return
+    }
+    await loadSamples()
+    setMessage({ type: 'success', text: `${classification.code} ${classification.active ? 'disabled' : 'enabled'}.` })
+  }
+
+  const saveSite = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!siteEditor.site_name.trim()) {
+      setMessage({ type: 'error', text: 'Site name is required.' })
+      return
+    }
+    const latitude = siteEditor.latitude.trim() ? Number(siteEditor.latitude) : null
+    const longitude = siteEditor.longitude.trim() ? Number(siteEditor.longitude) : null
+    if ((latitude !== null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) || (longitude !== null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180))) {
+      setMessage({ type: 'error', text: 'Check the GPS latitude and longitude.' })
+      return
+    }
+    const payload = {
+      customer: siteEditor.customer.trim() || null,
+      site_name: siteEditor.site_name.trim(),
+      lsd: siteEditor.lsd.trim() || null,
+      uwi: siteEditor.uwi.trim() || null,
+      latitude,
+      longitude,
+      access_directions: siteEditor.access_directions.trim() || null,
+      contact_name: siteEditor.contact_name.trim() || null,
+      contact_phone: siteEditor.contact_phone.trim() || null,
+      contact_email: siteEditor.contact_email.trim() || null,
+      notes: siteEditor.notes.trim() || null,
+    }
+    setSaving(true)
+    const response = siteEditor.id
+      ? await db.from('mallard_sites').update(payload).eq('id', siteEditor.id)
+      : await db.from('mallard_sites').insert({ ...payload, active: true })
+    setSaving(false)
+    if (response.error) {
+      setMessage({ type: 'error', text: `Could not save site: ${response.error.message}` })
+      return
+    }
+    setSiteEditor({ id: '', customer: '', site_name: '', lsd: '', uwi: '', latitude: '', longitude: '', access_directions: '', contact_name: '', contact_phone: '', contact_email: '', notes: '' })
+    await loadSamples()
+    setMessage({ type: 'success', text: siteEditor.id ? 'Site updated.' : 'Reusable site added.' })
+  }
+
+  const editSite = (site: Site) => {
+    setSiteEditor({
+      id: site.id,
+      customer: site.customer || '',
+      site_name: site.site_name,
+      lsd: site.lsd || '',
+      uwi: site.uwi || '',
+      latitude: site.latitude == null ? '' : String(site.latitude),
+      longitude: site.longitude == null ? '' : String(site.longitude),
+      access_directions: site.access_directions || '',
+      contact_name: site.contact_name || '',
+      contact_phone: site.contact_phone || '',
+      contact_email: site.contact_email || '',
+      notes: site.notes || '',
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const toggleSite = async (site: Site) => {
+    const { error } = await db.from('mallard_sites').update({ active: !site.active }).eq('id', site.id)
+    if (error) {
+      setMessage({ type: 'error', text: `Could not update site: ${error.message}` })
+      return
+    }
+    await loadSamples()
+    setMessage({ type: 'success', text: `${site.site_name} ${site.active ? 'disabled' : 'enabled'}.` })
+  }
+
   const savePatch = async (patch: Record<string, unknown>, successText: string) => {
     if (!selected) return false
     setSaving(true)
@@ -508,6 +653,7 @@ export default function MallardSampleTrackerV3() {
       collected_at: selected.collected_at,
       location: selected.location.trim(),
       customer_site: selected.customer_site?.trim() || null,
+      site_id: selected.site_id || null,
       description_of_work: selected.description_of_work.trim(),
       suspected_contents: selected.suspected_contents.trim(),
       collector_name: selected.collector_name?.trim() || null,
@@ -534,7 +680,8 @@ export default function MallardSampleTrackerV3() {
       lab_submission_number: selected.lab_submission_number?.trim() || null,
       submitted_at: selected.submitted_at,
       results_received_at: selected.results_received_at,
-      final_determination: selected.final_determination?.trim() || null,
+      confirmed_material: selected.confirmed_material?.trim() || null,
+      final_determination: selected.confirmed_material?.trim() || selected.final_determination?.trim() || null,
       lab_notes: selected.lab_notes?.trim() || null,
     }, 'Mallard and lab information saved.')
   }
@@ -555,7 +702,7 @@ export default function MallardSampleTrackerV3() {
     }
     if (target === 'submitted' && !selected.submitted_at) patch.submitted_at = now
     if (target === 'results_received' && !selected.results_received_at) patch.results_received_at = now
-    await savePatch(patch, `Sample ${selected.sample_number} is now ${statusLabels[target]}.`)
+    await savePatch(patch, `Sample ${selected.sample_code} is now ${statusLabels[target]}.`)
   }
 
   const saveTestResults = async () => {
@@ -745,7 +892,7 @@ export default function MallardSampleTrackerV3() {
 
   const archiveSample = async () => {
     if (!selected) return
-    if (!window.confirm(`Archive sample ${selected.sample_number}? It will leave the active sample list, but its sample number will stay reserved.`)) return
+    if (!window.confirm(`Archive sample ${selected.sample_code}? It will leave the active sample list, but its sample code will stay reserved.`)) return
     const { data, error } = await db.from('mallard_samples')
       .update({ archived: true, last_updated_by: actorName.trim() || selected.collector_name || 'Mallard' })
       .eq('id', selected.id)
@@ -765,7 +912,7 @@ export default function MallardSampleTrackerV3() {
   const deleteSample = async () => {
     if (!selected) return
     const confirmed = window.confirm(
-      `Permanently delete sample ${selected.sample_number}?\n\nThis deletes the sample, its uploaded test files, lab results and history. This cannot be undone.\n\nSample number ${selected.sample_number} will become available for reuse. Archived samples keep their numbers reserved.`
+      `Permanently delete sample ${selected.sample_code}?\n\nThis deletes the sample, its uploaded test files, lab results and active history. A deletion audit snapshot is retained.\n\nSample code ${selected.sample_code} will become available for reuse. Archived samples keep their codes reserved.`
     )
     if (!confirmed) return
     setSaving(true)
@@ -786,29 +933,34 @@ export default function MallardSampleTrackerV3() {
     setSelected(null)
     setView('samples')
     await loadSamples()
-    setMessage({ type: 'success', text: `Sample ${selected.sample_number} permanently deleted. Number ${selected.sample_number} is available for reuse.` })
+    setMessage({ type: 'success', text: `Sample ${selected.sample_code} permanently deleted. Code ${selected.sample_code} is available for reuse, with deletion history retained.` })
   }
 
   const exportCsv = () => {
-    const headers = ['Sample Number', 'Category', 'Status', 'Priority', 'Collection Date', 'Location', 'Customer / Site', 'Matrix', 'Description of Work', 'Suspected Contents', 'Collector', 'Dump Location', 'Dump Date', 'Lab', 'Lab Submission', 'Final Determination']
-    const rows = samples.map((sample) => [
-      sample.sample_number,
-      categoryInfo[sample.category].label,
-      statusLabels[sample.status],
-      sample.priority ? 'Yes' : 'No',
-      toDateValue(sample.collected_at),
-      sample.location,
-      sample.customer_site,
-      sample.sample_matrix,
-      sample.description_of_work,
-      sample.suspected_contents,
-      sample.collector_name,
-      sample.disposal_destination,
-      sample.disposed_at ? toDateValue(sample.disposed_at) : '',
-      sample.lab_name,
-      sample.lab_submission_number,
-      sample.final_determination,
-    ])
+    const headers = ['Sample Code', 'Classification Code', 'Classification', 'Group', 'Status', 'Priority', 'Collection Date', 'Location', 'Customer / Site', 'Matrix', 'Description of Work', 'Suspected Material', 'Confirmed Material', 'Collector', 'Dump Location', 'Dump Date', 'Lab', 'Lab Submission']
+    const rows = samples.map((sample) => {
+      const classification = classificationByCode.get(sample.classification_code)
+      return [
+        sample.sample_code,
+        sample.classification_code,
+        classification?.name || '',
+        classification?.group_name || categoryInfo[sample.category].label,
+        statusLabels[sample.status],
+        sample.priority ? 'Yes' : 'No',
+        toDateValue(sample.collected_at),
+        sample.location,
+        sample.customer_site,
+        sample.sample_matrix,
+        sample.description_of_work,
+        sample.suspected_contents,
+        sample.confirmed_material,
+        sample.collector_name,
+        sample.disposal_destination,
+        sample.disposed_at ? toDateValue(sample.disposed_at) : '',
+        sample.lab_name,
+        sample.lab_submission_number,
+      ]
+    })
     const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -833,7 +985,9 @@ export default function MallardSampleTrackerV3() {
       if (disposalFilter !== 'all' && disposalFilter !== 'undumped' && sample.disposal_destination !== disposalFilter) return false
       if (!normalized) return true
       const haystack = [
+        sample.sample_code,
         sample.sample_number,
+        classificationByCode.get(sample.classification_code)?.name,
         categoryInfo[sample.category].label,
         statusLabels[sample.status],
         sample.location,
@@ -841,10 +995,12 @@ export default function MallardSampleTrackerV3() {
         sample.sample_matrix,
         sample.description_of_work,
         sample.suspected_contents,
+        sample.confirmed_material,
         sample.collector_name,
         sample.disposal_destination,
         sample.lab_name,
         sample.lab_submission_number,
+        sample.confirmed_material,
         sample.final_determination,
       ].join(' ').toLowerCase()
       return haystack.includes(normalized)

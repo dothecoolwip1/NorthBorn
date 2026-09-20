@@ -1196,7 +1196,7 @@ export default function MallardSampleTrackerV3() {
 
   return (
     <>
-      <div className="mallard-v3-app">
+      <div className={`mallard-v3-app ${view === 'picker' ? 'picker-active' : ''}`}>
         <header className="mallard-v3-header">
           <div className="mallard-v3-brand">
             <img src="/icons/mallard-icon.svg" alt="" />
@@ -1557,11 +1557,11 @@ export default function MallardSampleTrackerV3() {
           </main>
         )}
 
-        <nav className="mallard-v3-bottom-nav" aria-label="Mallard navigation">
+        {view !== 'picker' && <nav className="mallard-v3-bottom-nav" aria-label="Mallard navigation">
           <button className={view === 'dashboard' ? 'active' : ''} type="button" onClick={() => navigateView('dashboard')}><Beaker size={21} /><span>Home</span></button>
           <button className={view === 'samples' || view === 'detail' ? 'active' : ''} type="button" onClick={() => navigateView('samples')}><ClipboardList size={21} /><span>Samples</span></button>
-          <button className={view === 'new' || view === 'picker' ? 'active create' : 'create'} type="button" onClick={() => openSamplePicker(null, 'new')}><Plus size={24} /><span>New</span></button>
-        </nav>
+          <button className={view === 'new' ? 'active create' : 'create'} type="button" onClick={() => openSamplePicker(null, 'new')}><Plus size={24} /><span>New</span></button>
+        </nav>}
       </div>
 
       {printSample && <div className="mallard-v3-print-label" aria-hidden="true"><div className="print-copy"><div className="brand">MALLARD ENVIRONMENTAL</div><div className="number">{printSample.sample_code}</div><div className="category">{printSample.classification_code} · {(classificationByCode.get(printSample.classification_code)?.name || categoryInfo[printSample.category].label).toUpperCase()}</div><div>{formatDate(printSample.collected_at)}</div><div>{printSample.location}</div><div>Suspected: {printSample.suspected_contents}</div>{printSample.confirmed_material && <div>Confirmed: {printSample.confirmed_material}</div>}</div><div className="print-qr"><QRCodeSVG value={`${window.location.origin}/mallard?sample=${printSample.id}`} size={118} level="M" /><small>Scan to open exact sample</small></div></div>}

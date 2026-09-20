@@ -230,7 +230,28 @@ function rangeForGroup(group: string) {
   if (group === 'Oilfield') return '200–299'
   if (group === 'Non Oilfield') return '100–199'
   if (group === 'Other / Specialty') return '300–399'
+  if (group === 'Future / Custom') return '400–899'
+  if (group === 'System / Legacy') return '900–999'
   return 'Custom'
+}
+
+function classificationCodeRange(group: string): [number, number] | null {
+  if (group === 'Non Oilfield') return [101, 198]
+  if (group === 'Oilfield') return [201, 298]
+  if (group === 'Other / Specialty') return [301, 398]
+  if (group === 'Future / Custom') return [400, 899]
+  if (group === 'System / Legacy') return [900, 999]
+  return null
+}
+
+function nextClassificationCodePreview(group: string, classifications: Classification[]) {
+  const range = classificationCodeRange(group)
+  if (!range) return null
+  const used = new Set(classifications.map((item) => item.code))
+  for (let code = range[0]; code <= range[1]; code += 1) {
+    if (!used.has(code)) return code
+  }
+  return null
 }
 
 function descriptionForGroup(group: string) {
@@ -388,6 +409,8 @@ export default function MallardSampleTrackerV3() {
   const [pickerSection, setPickerSection] = React.useState<string | null>(null)
   const [pickerMode, setPickerMode] = React.useState<'new' | 'change'>('new')
   const [editingClassificationCode, setEditingClassificationCode] = React.useState<number | null>(null)
+  const [quickClassificationOpen, setQuickClassificationOpen] = React.useState(false)
+  const [quickClassificationEditor, setQuickClassificationEditor] = React.useState({ name: '', section_name: 'General', description: '' })
   const [siteEditor, setSiteEditor] = React.useState({ id: '', customer: '', site_name: '', lsd: '', uwi: '', latitude: '', longitude: '', access_directions: '', contact_name: '', contact_phone: '', contact_email: '', notes: '' })
   const [query, setQuery] = React.useState('')
   const [categoryFilter, setCategoryFilter] = React.useState<'all' | SampleCategory>('all')
@@ -424,6 +447,14 @@ export default function MallardSampleTrackerV3() {
     if (!pickerGroup || !pickerSection) return []
     return activeClassifications.filter((item) => item.group_name === pickerGroup && item.section_name === pickerSection)
   }, [activeClassifications, pickerGroup, pickerSection])
+  const managerClassificationCodePreview = React.useMemo(
+    () => nextClassificationCodePreview(classificationEditor.group_name, classifications),
+    [classificationEditor.group_name, classifications],
+  )
+  const quickClassificationCodePreview = React.useMemo(
+    () => pickerGroup ? nextClassificationCodePreview(pickerGroup, classifications) : null,
+    [pickerGroup, classifications],
+  )
   const selectedSite = selected?.site_id ? sites.find((site) => site.id === selected.site_id) || null : null
   const selectedSiteHistory = selected?.site_id ? allSamples.filter((sample) => sample.site_id === selected.site_id && sample.id !== selected.id) : []
 
@@ -527,6 +558,7 @@ export default function MallardSampleTrackerV3() {
       setPickerMode(options.mode ?? 'new')
       setPickerGroup(options.group ?? null)
       setPickerSection(options.section ?? null)
+      setQuickClassificationOpen(false)
     }
     const state = makeNavState(nextView, options)
     if (options.replace) replaceNavState(state)
@@ -756,31 +788,78 @@ export default function MallardSampleTrackerV3() {
 
   const saveClassification = async (event: React.FormEvent) => {
     event.preventDefault()
-    const code = Number(classificationEditor.code)
-    if (!Number.isInteger(code) || code < 100 || code > 999 || !classificationEditor.name.trim() || !classificationEditor.group_name.trim() || !classificationEditor.section_name.trim()) {
-      setMessage({ type: 'error', text: 'Enter a three digit code, name, category and section.' })
+    if (!classificationEditor.name.trim() || !classificationEditor.group_name.trim() || !classificationEditor.section_name.trim()) {
+      setMessage({ type: 'error', text: 'Enter a name, category and section.' })
       return
     }
+
     setSaving(true)
-    const payload = {
-      name: classificationEditor.name.trim(),
-      group_name: classificationEditor.group_name.trim(),
-      section_name: classificationEditor.section_name.trim(),
-      description: classificationEditor.description.trim() || null,
-      sort_order: code,
+    let response: any
+    let createdCode: number | null = null
+
+    if (editingClassificationCode) {
+      response = await db.from('mallard_classifications').update({
+        name: classificationEditor.name.trim(),
+        group_name: classificationEditor.group_name.trim(),
+        section_name: classificationEditor.section_name.trim(),
+        description: classificationEditor.description.trim() || null,
+      }).eq('code', editingClassificationCode)
+    } else {
+      response = await db.rpc('mallard_create_classification_auto', {
+        p_name: classificationEditor.name.trim(),
+        p_group_name: classificationEditor.group_name.trim(),
+        p_section_name: classificationEditor.section_name.trim(),
+        p_description: classificationEditor.description.trim() || null,
+      })
+      const created = Array.isArray(response.data) ? response.data[0] : response.data
+      createdCode = created?.code ?? null
     }
-    const response = editingClassificationCode
-      ? await db.from('mallard_classifications').update(payload).eq('code', editingClassificationCode)
-      : await db.from('mallard_classifications').insert({ code, ...payload, active: true })
+
     setSaving(false)
     if (response.error) {
       setMessage({ type: 'error', text: `Could not save classification: ${response.error.message}` })
       return
     }
+
     setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', section_name: 'General', description: '' })
     setEditingClassificationCode(null)
     await loadSamples()
-    setMessage({ type: 'success', text: editingClassificationCode ? 'Classification updated.' : `Classification ${code} added.` })
+    setMessage({ type: 'success', text: editingClassificationCode ? 'Classification updated.' : `Classification ${createdCode ?? 'created'} added.` })
+  }
+
+  const saveQuickClassification = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!pickerGroup || !quickClassificationEditor.name.trim() || !quickClassificationEditor.section_name.trim()) {
+      setMessage({ type: 'error', text: 'Enter a sample type name and section.' })
+      return
+    }
+
+    setSaving(true)
+    const response = await db.rpc('mallard_create_classification_auto', {
+      p_name: quickClassificationEditor.name.trim(),
+      p_group_name: pickerGroup,
+      p_section_name: quickClassificationEditor.section_name.trim(),
+      p_description: quickClassificationEditor.description.trim() || null,
+    })
+    setSaving(false)
+
+    if (response.error) {
+      setMessage({ type: 'error', text: `Could not add classification: ${response.error.message}` })
+      return
+    }
+
+    const created = (Array.isArray(response.data) ? response.data[0] : response.data) as Classification | null
+    if (!created?.code) {
+      setMessage({ type: 'error', text: 'Classification was created but Mallard could not read the assigned code.' })
+      await loadSamples()
+      return
+    }
+
+    setQuickClassificationOpen(false)
+    setQuickClassificationEditor({ name: '', section_name: 'General', description: '' })
+    await loadSamples()
+    choosePickerClassification(created)
+    setMessage({ type: 'success', text: `Added ${created.name} as classification ${created.code}.` })
   }
 
   const editClassification = (classification: Classification) => {
@@ -1616,6 +1695,36 @@ export default function MallardSampleTrackerV3() {
                   ))}
                 </div>
                 {pickerTypes.length === 0 && <div className="empty">No active sample types are assigned to this section.</div>}
+
+                {!quickClassificationOpen ? (
+                  <button
+                    className="sample-flow-add-classification"
+                    type="button"
+                    onClick={() => {
+                      setQuickClassificationEditor({ name: '', section_name: pickerSection || 'General', description: '' })
+                      setQuickClassificationOpen(true)
+                    }}
+                  >
+                    <Plus size={19} />
+                    <span><strong>Sample type not listed?</strong><small>Add a new classification without leaving this sample.</small></span>
+                  </button>
+                ) : (
+                  <form className="mallard-v3-panel quick-classification-form" onSubmit={saveQuickClassification}>
+                    <div className="mallard-v3-heading">
+                      <div><span className="eyebrow">New classification</span><h2>Add and use it now</h2></div>
+                      <button className="link" type="button" onClick={() => setQuickClassificationOpen(false)}>Cancel</button>
+                    </div>
+                    <div className="quick-classification-meta">
+                      <div><span>Category</span><strong>{pickerGroup}</strong></div>
+                      <div><span>Code</span><strong>{quickClassificationCodePreview ?? 'Full'}</strong><small>Assigned automatically</small></div>
+                    </div>
+                    <label><span>Section *</span><input list="mallard-quick-classification-sections" value={quickClassificationEditor.section_name} onChange={(event) => setQuickClassificationEditor({ ...quickClassificationEditor, section_name: event.target.value })} placeholder="Production Fluids" /></label>
+                    <datalist id="mallard-quick-classification-sections">{Array.from(new Set(classifications.filter((item) => item.group_name === pickerGroup).map((item) => item.section_name))).sort().map((section) => <option key={section} value={section} />)}</datalist>
+                    <label><span>Sample type name *</span><input autoFocus value={quickClassificationEditor.name} onChange={(event) => setQuickClassificationEditor({ ...quickClassificationEditor, name: event.target.value })} placeholder="e.g. Drilling mud" /></label>
+                    <label><span>Description</span><textarea rows={2} value={quickClassificationEditor.description} onChange={(event) => setQuickClassificationEditor({ ...quickClassificationEditor, description: event.target.value })} placeholder="Optional internal description" /></label>
+                    <button className="primary" type="submit" disabled={saving || quickClassificationCodePreview == null}><Plus size={17} /> {saving ? 'Adding...' : 'Add classification and continue'}</button>
+                  </form>
+                )}
               </>
             )}
           </main>
@@ -1682,14 +1791,14 @@ export default function MallardSampleTrackerV3() {
             <form className="mallard-v3-panel mallard-manager-form" onSubmit={saveClassification}>
               <div className="mallard-v3-heading"><div><span className="eyebrow">{editingClassificationCode ? 'Edit classification' : 'New classification'}</span><h2>{editingClassificationCode ? `Code ${editingClassificationCode}` : 'Add sample type'}</h2></div>{editingClassificationCode && <button className="link" type="button" onClick={() => { setEditingClassificationCode(null); setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', section_name: 'General', description: '' }) }}>Cancel</button>}</div>
               <div className="grid two">
-                <label><span>Three digit code *</span><input inputMode="numeric" maxLength={3} disabled={editingClassificationCode !== null} value={classificationEditor.code} onChange={(event) => setClassificationEditor({ ...classificationEditor, code: event.target.value.replace(/\D/g, '').slice(0, 3) })} placeholder="205" /></label>
-                <label><span>Category *</span><select value={classificationEditor.group_name} onChange={(event) => setClassificationEditor({ ...classificationEditor, group_name: event.target.value })}><option>Non Oilfield</option><option>Oilfield</option><option>Other / Specialty</option><option>Future / Custom</option><option>System / Legacy</option></select></label>
+                <label><span>Three digit code</span><div className="auto-code-preview"><strong>{editingClassificationCode ?? managerClassificationCodePreview ?? 'Full'}</strong><small>{editingClassificationCode ? 'Permanent code' : 'Mallard assigns this automatically'}</small></div></label>
+                <label><span>Category *</span><select disabled={editingClassificationCode !== null} value={classificationEditor.group_name} onChange={(event) => setClassificationEditor({ ...classificationEditor, group_name: event.target.value })}><option>Non Oilfield</option><option>Oilfield</option><option>Other / Specialty</option><option>Future / Custom</option><option>System / Legacy</option></select></label>
               </div>
               <label><span>Section *</span><input list="mallard-classification-sections" value={classificationEditor.section_name} onChange={(event) => setClassificationEditor({ ...classificationEditor, section_name: event.target.value })} placeholder="Production Fluids" /></label>
               <datalist id="mallard-classification-sections">{Array.from(new Set(classifications.filter((item) => item.group_name === classificationEditor.group_name).map((item) => item.section_name))).sort().map((section) => <option key={section} value={section} />)}</datalist>
               <label><span>Sample type name *</span><input value={classificationEditor.name} onChange={(event) => setClassificationEditor({ ...classificationEditor, name: event.target.value })} placeholder="Produced Water" /></label>
               <label><span>Description</span><textarea rows={2} value={classificationEditor.description} onChange={(event) => setClassificationEditor({ ...classificationEditor, description: event.target.value })} placeholder="Optional internal description" /></label>
-              <button className="primary" type="submit" disabled={saving}><Save size={17} /> {editingClassificationCode ? 'Save changes' : 'Add classification'}</button>
+              <button className="primary" type="submit" disabled={saving || (!editingClassificationCode && managerClassificationCodePreview == null)}><Save size={17} /> {editingClassificationCode ? 'Save changes' : 'Add classification'}</button>
             </form>
             <section className="mallard-v3-panel">
               <div className="mallard-v3-heading"><div><span className="eyebrow">Codes</span><h2>All classifications</h2></div><span className="count">{classifications.length}</span></div>

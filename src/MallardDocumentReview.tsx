@@ -155,6 +155,17 @@ export default function MallardDocumentReview({
     setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row))
   }
 
+  React.useEffect(() => {
+    const previousOverflow = document.documentElement.style.overflow
+    const previousBodyOverflow = document.body.style.overflow
+    document.documentElement.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.documentElement.style.overflow = previousOverflow
+      document.body.style.overflow = previousBodyOverflow
+    }
+  }, [])
+
   return (
     <div className="mallard-document-review-backdrop" role="presentation">
       <section className="mallard-document-review" role="dialog" aria-modal="true" aria-labelledby="mallard-document-review-title">
@@ -169,6 +180,7 @@ export default function MallardDocumentReview({
           </button>
         </header>
 
+        <div className="document-review-body">
         <div className="document-review-summary">
           <div><span>Document</span><strong>{typeLabel(document.document_type)}</strong><Confidence value={document.document_confidence} /></div>
           <div><span>Reader</span><strong>{methodLabel(document.method)}</strong><small>Parser {document.parser_version}</small></div>
@@ -285,6 +297,8 @@ export default function MallardDocumentReview({
             </div>
           )}
         </section>
+
+        </div>
 
         <footer className="document-review-actions">
           <div>

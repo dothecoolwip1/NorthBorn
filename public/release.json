@@ -1,9 +1,9 @@
 {
-  "version": "0.8.43",
-  "title": "Automatic Version Correction",
+  "version": "0.8.44",
+  "title": "Stability, Auth and QA Hardening",
   "notes": [
-    "Synchronized Northborn package, lockfile and release versions.",
-    "Applied the mandatory version bump rule automatically after detecting inconsistent or unversioned changes.",
-    "No user data or operational records were changed by this correction."
+    "Hardened workspace and session resolution so temporary backend failures no longer masquerade as disconnected accounts.",
+    "Added self-healing isolated test accounts and complete internal role switching for owner, admin, supervisor, dispatcher, safety, mechanic and accounting QA.",
+    "Expanded production browser QA for deep links, reloads, hamburger navigation, browser and Android-style back history, sign-out, role isolation and notification routing."
   ]
 }

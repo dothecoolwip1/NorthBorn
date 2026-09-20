@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: northborn-production-qa
@@ -30,16 +30,9 @@ jobs:
 
       - name: Enforce Northborn version rule
         id: version_guard
-        run: node scripts/version-guard.mjs --repair
-
-      - name: Commit automatic version correction
-        if: steps.version_guard.outputs.changed == 'true'
         run: |
-          git config user.name "Northborn QA"
-          git config user.email "actions@users.noreply.github.com"
-          git add package.json package-lock.json public/release.json
-          git commit -m "Bump Northborn to ${{ steps.version_guard.outputs.version }}"
-          git push origin HEAD:main
+          node scripts/version-guard.mjs
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Install application dependencies
         run: npm ci

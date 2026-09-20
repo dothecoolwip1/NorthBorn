@@ -36,6 +36,8 @@ import LogoutPage from './LogoutPage'
 import AppErrorBoundary from './AppErrorBoundary'
 import { supabase } from './lib/supabase'
 import { initializeNorthbornPwa } from './pwa'
+import { resolveWorkspaceAccess } from './workspace-access'
+import { canAccessInternalRoute } from './role-access'
 import './styles.css'
 import './contact-hierarchy.css'
 import './mobile-first.css'
@@ -46,9 +48,7 @@ import './qa-final-polish.css'
 const RETIRED_TEST_KEYS = ['northborn_test_mode', 'northborn_test_persona']
 for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)
 
-type RouteRole = 'loading' | 'guest' | 'unconnected' | 'manager' | 'operator' | 'client'
-const db = supabase as any
-
+type RouteRole = 'loading' | 'guest' | 'unconnected' | 'manager' | 'operator' | 'client' | 'error'
 function isMallardPath(pathname: string) {
   const path = pathname.replace(/\/+$/, '') || '/'
   return path === '/mallard' || path.startsWith('/mallard/')
@@ -62,13 +62,22 @@ function WorkspaceNotFound({ homeLabel = 'Back to dashboard' }:{ homeLabel?:stri
   return <div className="center-screen"><div className="auth-card account-choice-card"><div className="auth-logo">N</div><h1>Page not found</h1><p>This Northborn page is unavailable or the link is out of date.</p><div className="account-choice-actions"><a className="primary account-choice-link" href={import.meta.env.BASE_URL}>{homeLabel}</a><button className="secondary" type="button" onClick={()=>window.history.back()}>Go back</button></div></div></div>
 }
 
-function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole }) {
+function WorkspaceLoadError() {
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    window.location.replace(new URL(import.meta.env.BASE_URL, window.location.origin).toString())
+  }
+  return <div className="center-screen"><div className="auth-card account-choice-card"><div className="auth-logo">N</div><h1>Workspace unavailable</h1><p>Northborn could not verify your workspace access. Your account has not been changed. Check your connection and try again.</p><div className="account-choice-actions"><button className="primary" type="button" onClick={()=>window.location.reload()}>Try again</button><button className="secondary" type="button" onClick={()=>void signOut()}>Sign out</button></div></div></div>
+}
+
+function RoutedWorkspace({ normalizedPath, hasInvite, routeRole, internalRoleKey }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole; internalRoleKey:string }) {
   if (isMallardPath(normalizedPath)) return <MallardRoute />
   if (normalizedPath === '/logout') return <LogoutPage />
   if (normalizedPath === '/client-join') return <ClientJoinPage />
   if (normalizedPath === '/join' || (hasInvite && normalizedPath !== '/client-join')) return <JoinOrganizationPage />
 
   if (routeRole === 'loading') return <div className="center-screen">Loading your Northborn workspace…</div>
+  if (routeRole === 'error') return <WorkspaceLoadError />
 
   if (routeRole === 'guest') {
     if (normalizedPath === '/') return <MarketingHome />
@@ -95,6 +104,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
   }
 
   if (routeRole === 'manager') {
+    if (!canAccessInternalRoute(internalRoleKey, normalizedPath)) return <WorkspaceNotFound homeLabel="Back to dashboard" />
     if (normalizedPath === '/') return <ManagerDashboardV2 />
     if (normalizedPath === '/team-access') return <TeamAccessPage />
     if (normalizedPath === '/dispatch') return <ManagerDispatchPage />
@@ -125,8 +135,10 @@ function NorthbornRouter() {
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/'
   const params = new URLSearchParams(location.search)
   const hasInvite = params.has('invite')
-  const [session, setSession] = React.useState<Session | null>(null)
+  const [session, setSession] = React.useState<Session | null | undefined>(undefined)
   const [routeRole, setRouteRole] = React.useState<RouteRole>('loading')
+  const [internalRoleKey, setInternalRoleKey] = React.useState('')
+  const [authError, setAuthError] = React.useState('')
 
   React.useEffect(() => {
     if (isMallardPath(normalizedPath)) return
@@ -135,52 +147,80 @@ function NorthbornRouter() {
 
   React.useEffect(() => {
     let active = true
-    void supabase.auth.getSession().then(({ data }) => { if (active) setSession(data.session) })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => { if (active) setSession(next) })
+    let sessionLoadFailed = false
+    void supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) {
+          sessionLoadFailed = true
+          setAuthError(error.message)
+          setSession(null)
+          return
+        }
+        sessionLoadFailed = false
+        setAuthError('')
+        setSession(data.session)
+      })
+      .catch(caught => {
+        if (!active) return
+        sessionLoadFailed = true
+        setAuthError(caught instanceof Error ? caught.message : String(caught))
+        setSession(null)
+      })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
+      if (!active) return
+      if (event === 'INITIAL_SESSION' && sessionLoadFailed) return
+      sessionLoadFailed = false
+      setAuthError('')
+      setSession(next)
+    })
     return () => { active = false; listener.subscription.unsubscribe() }
   }, [])
 
   React.useEffect(() => {
     if (isMallardPath(normalizedPath)) return
     let active = true
+
     const resolveRole = async () => {
+      if (authError) {
+        if (active) setRouteRole('error')
+        return
+      }
+      if (session === undefined) {
+        if (active) setRouteRole('loading')
+        return
+      }
       if (!session?.user.id) {
         if (active) setRouteRole('guest')
         return
       }
 
       setRouteRole('loading')
-      const membership = await db.from('organization_members')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .eq('status', 'active')
-        .limit(1)
-        .maybeSingle()
-
-      if (!active) return
-      if (!membership.error && membership.data?.id) {
-        const roles = await db.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id)
+      try {
+        const access = await resolveWorkspaceAccess(session.user.id)
         if (!active) return
-        const roleKey = roles.data?.[0]?.role?.key || ''
-        setRouteRole(roleKey === 'operator' ? 'operator' : 'manager')
-        return
+        if (access.kind === 'internal') {
+          setInternalRoleKey(access.roleKey)
+          setRouteRole(access.roleKey === 'operator' ? 'operator' : 'manager')
+          return
+        }
+        setInternalRoleKey('')
+        if (access.kind === 'client') {
+          setRouteRole('client')
+          return
+        }
+        setRouteRole('unconnected')
+      } catch {
+        if (active) setRouteRole('error')
       }
-
-      const portal = await db.rpc('get_my_customer_portal_context')
-      if (!active) return
-      if (!portal.error && portal.data?.length) {
-        setRouteRole('client')
-        return
-      }
-
-      setRouteRole('unconnected')
     }
 
     void resolveRole()
     return () => { active = false }
-  }, [normalizedPath, session?.user.id])
+  }, [normalizedPath, session, authError])
 
-  return <RoutedWorkspace normalizedPath={normalizedPath} hasInvite={hasInvite} routeRole={routeRole} />
+  return <RoutedWorkspace normalizedPath={normalizedPath} hasInvite={hasInvite} routeRole={routeRole} internalRoleKey={internalRoleKey} />
 }
 
 function NorthbornOnlyChrome() {

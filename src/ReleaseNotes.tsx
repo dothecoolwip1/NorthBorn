@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.8.44':[
+    'Hardened workspace and session resolution so temporary backend failures no longer look like disconnected accounts.',
+    'Added self-healing functional test accounts and full internal role QA coverage.',
+    'Expanded production browser checks for reloads, history navigation, sign-out, role isolation and notification routing.',
+  ],
   '0.5.0':[
     'Replaced the manager home screen with a role-aware command centre focused on work that needs attention now.',
     'Updated the universal hamburger so accounting, safety, mechanic, dispatcher and supervisor accounts only see relevant modules.',

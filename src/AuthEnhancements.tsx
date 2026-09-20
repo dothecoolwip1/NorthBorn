@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { supabase } from './lib/supabase'
-import { signInFunctionalTestAdmin } from './functional-test-auth'
+import { personaFromSession, restoreFunctionalTestWorkspace, signInFunctionalTestAdmin } from './functional-test-auth'
 import './auth-enhancements.css'
 
 const PRODUCTION_URL = 'https://northborn.vercel.app'
@@ -101,6 +101,7 @@ function enhanceAuthCard() {
         }
 
         if (result.data.session) {
+          if (personaFromSession(result.data.session)) await restoreFunctionalTestWorkspace()
           window.location.replace(getAuthRedirectUrl())
           return
         }

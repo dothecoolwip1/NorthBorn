@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: northborn-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,6 +26,9 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Verify Northborn version discipline
+        run: node scripts/version-guard.mjs
+
       - name: Install dependencies
         run: npm ci
 
@@ -31,7 +38,45 @@ jobs:
       - name: Build Northborn
         run: npm run build
 
+      - name: Install browser test runner
+        run: |
+          npm install --no-save --package-lock=false @playwright/test@1.63.0
+          npx playwright install chromium
+
+      - name: Start compiled Northborn preview
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/northborn-preview.log 2>&1 &
+          echo $! > /tmp/northborn-preview.pid
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/northborn-preview.log
+          exit 1
+
+      - name: Run role, auth, navigation and mobile browser QA
+        env:
+          NORTHBORN_BASE_URL: http://127.0.0.1:4173
+        run: |
+          export NORTHBORN_VERSION="$(node -p "require('./package.json').version")"
+          npx playwright test tests/e2e/production-smoke.spec.mjs --workers=1 --reporter=line --timeout=120000
+
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: northborn-pr-browser-qa
+          path: |
+            test-results
+            playwright-report
+            /tmp/northborn-preview.log
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload compiled preview
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: northborn-dist

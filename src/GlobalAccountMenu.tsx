@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Activity, BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLeft, CircleDollarSign, ClipboardCheck, ContactRound, Download, FileClock, FileText, Gauge, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
 import packageInfo from '../package.json'
 import { supabase } from './lib/supabase'
+import { resolveWorkspaceAccess } from './workspace-access'
+import { INTERNAL_ROLE_PATHS } from './role-access'
 import { FUNCTIONAL_TEST_USERS, personaFromSession, switchFunctionalTestPersona, type FunctionalTestPersona } from './functional-test-auth'
 import { applyNorthbornUpdate, checkForNorthbornUpdate, getPwaUpdateMode, hasInstallPrompt, isNorthbornInstalled, promptNorthbornInstall, setPwaUpdateMode, type NorthbornUpdateMode } from './pwa'
 import './global-account-menu.css'
@@ -33,16 +35,6 @@ const managerNavigation = [
   ['Templates','/templates',FileText],
   ['Reports','/reports',Activity],
 ] as const
-
-const ROLE_NAV_PATHS:Record<string,readonly string[]> = {
-  owner: managerNavigation.map(([,path])=>path),
-  admin: managerNavigation.map(([,path])=>path),
-  supervisor: ['/', '/calendar', '/dispatch', '/jobs', '/customers', '/employees', '/fleet', '/maintenance', '/safety', '/tickets', '/timesheets', '/reports'],
-  dispatcher: ['/', '/calendar', '/dispatch', '/jobs', '/customers', '/employees', '/fleet', '/maintenance', '/safety', '/tickets', '/timesheets', '/reports'],
-  safety: ['/', '/calendar', '/jobs', '/customers', '/employees', '/fleet', '/maintenance', '/safety', '/tickets', '/timesheets', '/reports'],
-  mechanic: ['/', '/calendar', '/jobs', '/employees', '/fleet', '/maintenance', '/safety', '/timesheets'],
-  accounting: ['/', '/customers', '/employees', '/tickets', '/timesheets', '/invoices', '/billing', '/reports'],
-}
 
 const operatorNavigation = [
   ['Home','/',Gauge],
@@ -108,7 +100,7 @@ export default function GlobalAccountMenu() {
   const canPricing = ['owner', 'admin', 'accounting'].includes(effectiveRole)
   const isOperator = effectiveRole === 'operator'
   const isClient = effectiveRole === 'client'
-  const allowedManagerPaths = ROLE_NAV_PATHS[effectiveRole] || ['/']
+  const allowedManagerPaths = INTERNAL_ROLE_PATHS[effectiveRole] || ['/']
   const navigation = isClient ? clientNavigation : isOperator ? operatorNavigation : managerNavigation.filter(([,path])=>allowedManagerPaths.includes(path))
 
   useEffect(() => {
@@ -123,12 +115,15 @@ export default function GlobalAccountMenu() {
     const loadRole = async () => {
       if (!session?.user.id) { if (active) setRoleKey(''); return }
       if (persona === 'client') { if (active) setRoleKey('client'); return }
-      const membership = await db.from('organization_members').select('id').eq('user_id', session.user.id).eq('status', 'active').limit(1).maybeSingle()
-      if (!active) return
-      if (membership.error || !membership.data?.id) { setRoleKey(''); return }
-      const roles = await db.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id)
-      if (!active) return
-      setRoleKey(roles.data?.[0]?.role?.key || '')
+      try {
+        const access = await resolveWorkspaceAccess(session.user.id)
+        if (!active) return
+        if (access.kind === 'internal') setRoleKey(access.roleKey)
+        else if (access.kind === 'client') setRoleKey('client')
+        else setRoleKey('')
+      } catch {
+        if (active) setToast({ title: 'Navigation unavailable', message: 'Northborn could not refresh your role. Reload the app to try again.' })
+      }
     }
     void loadRole()
     return () => { active = false }

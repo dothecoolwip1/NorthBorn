@@ -421,6 +421,15 @@ export default function MallardSampleTrackerV3() {
 
   const pushNavState = (state: MallardNavState) => {
     if (!historyReadyRef.current) return
+    const current = window.history.state as MallardNavState | null
+    if (
+      current?.mallardTracker &&
+      current.view === state.view &&
+      current.pickerGroup === state.pickerGroup &&
+      current.pickerSection === state.pickerSection &&
+      current.pickerMode === state.pickerMode &&
+      current.sampleId === state.sampleId
+    ) return
     window.history.pushState(state, '', window.location.href)
   }
 
@@ -1209,8 +1218,8 @@ export default function MallardSampleTrackerV3() {
                 <h2>Start a new sample</h2>
                 <p>Choose the main category first. Mallard will narrow it down to the section and exact sample type.</p>
                 <div className="mallard-v3-admin-links">
-                  <button className="secondary" type="button" onClick={() => setView('classifications')}>Classification Manager</button>
-                  <button className="secondary" type="button" onClick={() => setView('sites')}>Site Manager</button>
+                  <button className="secondary" type="button" onClick={() => navigateView('classifications')}>Classification Manager</button>
+                  <button className="secondary" type="button" onClick={() => navigateView('sites')}>Site Manager</button>
                 </div>
               </div>
               <div className="sample-picker-grid category-step">
@@ -1228,14 +1237,14 @@ export default function MallardSampleTrackerV3() {
             </section>
 
             <section className="mallard-v3-quick-search">
-              <Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') setView('samples') }} placeholder="Search code, site, material or dump location" /><button type="button" onClick={() => setView('samples')}>Search</button>
+              <Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') navigateView('samples') }} placeholder="Search code, site, material or dump location" /><button type="button" onClick={() => navigateView('samples')}>Search</button>
             </section>
 
             <section className="mallard-v3-stats">
-              <button type="button" onClick={() => { setStatusFilter('all'); setView('samples') }}><span>Active</span><strong>{stats.total}</strong></button>
-              <button type="button" onClick={() => { setStatusFilter('collected'); setView('samples') }}><span>To deliver</span><strong>{stats.toDeliver}</strong></button>
-              <button type="button" onClick={() => { setDisposalFilter('undumped'); setView('samples') }}><span>No dump site</span><strong>{stats.awaitingDisposal}</strong></button>
-              <button type="button" onClick={() => { setStatusFilter('complete'); setView('samples') }}><span>Complete</span><strong>{stats.complete}</strong></button>
+              <button type="button" onClick={() => { setStatusFilter('all'); navigateView('samples') }}><span>Active</span><strong>{stats.total}</strong></button>
+              <button type="button" onClick={() => { setStatusFilter('collected'); navigateView('samples') }}><span>To deliver</span><strong>{stats.toDeliver}</strong></button>
+              <button type="button" onClick={() => { setDisposalFilter('undumped'); navigateView('samples') }}><span>No dump site</span><strong>{stats.awaitingDisposal}</strong></button>
+              <button type="button" onClick={() => { setStatusFilter('complete'); navigateView('samples') }}><span>Complete</span><strong>{stats.complete}</strong></button>
             </section>
 
             {drafts.length > 0 && (
@@ -1248,7 +1257,7 @@ export default function MallardSampleTrackerV3() {
             )}
 
             <section className="mallard-v3-panel">
-              <div className="mallard-v3-heading"><div><span className="eyebrow">Database</span><h2>Recent samples</h2></div><button className="link" type="button" onClick={() => setView('samples')}>View all</button></div>
+              <div className="mallard-v3-heading"><div><span className="eyebrow">Database</span><h2>Recent samples</h2></div><button className="link" type="button" onClick={() => navigateView('samples')}>View all</button></div>
               {loading ? <div className="empty">Loading samples...</div> : samples.length === 0 ? <div className="empty">No samples yet.</div> : <div className="mallard-v3-sample-list">{samples.slice(0, 6).map((sample) => <SampleRow key={sample.id} sample={sample} onOpen={() => void openSample(sample.id)} />)}</div>}
             </section>
           </main>
@@ -1380,7 +1389,7 @@ export default function MallardSampleTrackerV3() {
               </section>
 
               <section className="mallard-v3-panel">
-                <div className="mallard-v3-heading"><div><span className="eyebrow">Site</span><h2>Where was it collected?</h2></div><button className="link" type="button" onClick={() => setView('sites')}>Manage sites</button></div>
+                <div className="mallard-v3-heading"><div><span className="eyebrow">Site</span><h2>Where was it collected?</h2></div><button className="link" type="button" onClick={() => navigateView('sites')}>Manage sites</button></div>
                 <label><span>Reusable site</span>
                   <select value={newForm.site_id} onChange={(event) => chooseSiteForForm(event.target.value)}>
                     <option value="">Enter location manually</option>
@@ -1495,7 +1504,7 @@ export default function MallardSampleTrackerV3() {
             </section>
 
             {selectedSite && <section className="mallard-v3-panel site-record-panel">
-              <div className="mallard-v3-heading"><div><span className="eyebrow">Reusable site</span><h2>{selectedSite.site_name}</h2></div><button className="link" type="button" onClick={() => { editSite(selectedSite); setView('sites') }}>Edit site</button></div>
+              <div className="mallard-v3-heading"><div><span className="eyebrow">Reusable site</span><h2>{selectedSite.site_name}</h2></div><button className="link" type="button" onClick={() => { editSite(selectedSite); navigateView('sites') }}>Edit site</button></div>
               <div className="site-record-grid">
                 <div><span>Customer</span><strong>{selectedSite.customer || 'Not entered'}</strong></div>
                 <div><span>LSD</span><strong>{selectedSite.lsd || 'Not entered'}</strong></div>
@@ -1549,8 +1558,8 @@ export default function MallardSampleTrackerV3() {
         )}
 
         <nav className="mallard-v3-bottom-nav" aria-label="Mallard navigation">
-          <button className={view === 'dashboard' ? 'active' : ''} type="button" onClick={() => setView('dashboard')}><Beaker size={21} /><span>Home</span></button>
-          <button className={view === 'samples' || view === 'detail' ? 'active' : ''} type="button" onClick={() => setView('samples')}><ClipboardList size={21} /><span>Samples</span></button>
+          <button className={view === 'dashboard' ? 'active' : ''} type="button" onClick={() => navigateView('dashboard')}><Beaker size={21} /><span>Home</span></button>
+          <button className={view === 'samples' || view === 'detail' ? 'active' : ''} type="button" onClick={() => navigateView('samples')}><ClipboardList size={21} /><span>Samples</span></button>
           <button className={view === 'new' || view === 'picker' ? 'active create' : 'create'} type="button" onClick={() => openSamplePicker(null, 'new')}><Plus size={24} /><span>New</span></button>
         </nav>
       </div>

@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  ClipboardCheck,
   Download,
   ExternalLink,
   FileText,
@@ -33,6 +34,13 @@ import {
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { parseLabDocument } from './mallardDocumentParser'
+import {
+  buildProfileLearningPayload,
+  type DocumentFieldKey,
+  type MallardDocumentProfile,
+  type ParsedLabDocument,
+} from './mallardDocumentEngine'
+import MallardDocumentReview, { type MallardDocumentReviewResult } from './MallardDocumentReview'
 import './mallard-sample-tracker-v3.css'
 
 type SampleCategory = 'non_oilfield' | 'oilfield' | 'odd_weird'
@@ -116,11 +124,16 @@ type TestResult = {
   result_value: string
   unit: string
   qualifier: string
+  method: string
+  reporting_limit: string
+  detection_limit: string
+  flag: string
   notes: string
   sort_order: number
   source_attachment_id?: string | null
   parse_confidence?: number | null
   source_page?: number | null
+  source_bbox?: Record<string, number> | null
 }
 
 type TestAttachment = {
@@ -135,6 +148,14 @@ type TestAttachment = {
   parsed_line_count: number
   parse_error: string | null
   parsed_at: string | null
+  document_type: string | null
+  document_confidence: number | null
+  parser_version: string | null
+  layout_fingerprint: string | null
+  extraction_json: ParsedLabDocument | null
+  review_status: 'unreviewed' | 'reviewed' | 'corrected'
+  review_json: Record<string, unknown> | null
+  reviewed_at: string | null
   created_at: string
 }
 
@@ -244,6 +265,7 @@ const eventLabels: Record<string, string> = {
   attachment_uploaded: 'Test paperwork uploaded',
   attachment_parsed: 'Test paperwork read',
   attachment_parse_review: 'Test paperwork needs review',
+  attachment_reviewed: 'Test paperwork reviewed',
 }
 
 const matrixOptions = ['Unknown', 'Water', 'Soil', 'Sludge', 'Hydrocarbon / product', 'Mixed waste', 'Other']
@@ -292,6 +314,57 @@ function escapeCsv(value: unknown) {
   return `"${text.replace(/"/g, '""')}"`
 }
 
+function parseDocumentDate(value: string, timeValue?: string) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+  const year = parsed.getFullYear()
+  const month = parsed.getMonth()
+  const day = parsed.getDate()
+  let hours = 12
+  let minutes = 0
+  const timeMatch = timeValue?.match(/\b(\d{1,2}):(\d{2})(?:\s*([ap]m))?\b/i)
+  if (timeMatch) {
+    hours = Number(timeMatch[1])
+    minutes = Number(timeMatch[2])
+    const meridiem = timeMatch[3]?.toLowerCase()
+    if (meridiem === 'pm' && hours < 12) hours += 12
+    if (meridiem === 'am' && hours === 12) hours = 0
+  }
+  return new Date(year, month, day, hours, minutes, 0, 0).toISOString()
+}
+
+function normalizeImportedMatrix(value: string) {
+  const normalized = value.trim().toLowerCase()
+  if (/soil|sediment|earth|dirt/.test(normalized)) return 'Soil'
+  if (/water|aqueous|groundwater|surface water/.test(normalized)) return 'Water'
+  if (/sludge|slurry|mud/.test(normalized)) return 'Sludge'
+  if (/oil|fuel|diesel|gasoline|hydrocarbon|product/.test(normalized)) return 'Hydrocarbon / product'
+  if (/mixed|waste/.test(normalized)) return 'Mixed waste'
+  return normalized ? 'Other' : 'Unknown'
+}
+
+function isParsedDocument(value: unknown): value is ParsedLabDocument {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<ParsedLabDocument>
+  return typeof candidate.fingerprint === 'string'
+    && Array.isArray(candidate.fields)
+    && Array.isArray(candidate.rows)
+    && typeof candidate.parser_version === 'string'
+}
+
+function mergeAliasMaps(
+  current: Record<string, string[]> | null | undefined,
+  incoming: Record<string, string[]> | null | undefined,
+) {
+  const merged: Record<string, string[]> = {}
+  const keys = new Set([...Object.keys(current || {}), ...Object.keys(incoming || {})])
+  for (const key of keys) {
+    const values = [...(current?.[key] || []), ...(incoming?.[key] || [])]
+    merged[key] = Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+  }
+  return merged
+}
+
 export default function MallardSampleTrackerV3() {
   const [view, setView] = React.useState<ViewMode>('dashboard')
   const [samples, setSamples] = React.useState<MallardSample[]>([])
@@ -329,6 +402,8 @@ export default function MallardSampleTrackerV3() {
   const [attachmentBusy, setAttachmentBusy] = React.useState(false)
   const [attachmentProgress, setAttachmentProgress] = React.useState('')
   const [attachmentProgressValue, setAttachmentProgressValue] = React.useState(0)
+  const [reviewAttachment, setReviewAttachment] = React.useState<TestAttachment | null>(null)
+  const [reviewDocument, setReviewDocument] = React.useState<ParsedLabDocument | null>(null)
   const attachmentInputRef = React.useRef<HTMLInputElement>(null)
   const deepLinkOpenedRef = React.useRef(false)
   const historyReadyRef = React.useRef(false)
@@ -601,13 +676,22 @@ export default function MallardSampleTrackerV3() {
       result_value: row.result_value || '',
       unit: row.unit || '',
       qualifier: row.qualifier || '',
+      method: row.method || '',
+      reporting_limit: row.reporting_limit || '',
+      detection_limit: row.detection_limit || '',
+      flag: row.flag || '',
       notes: row.notes || '',
       sort_order: row.sort_order || 0,
       source_attachment_id: row.source_attachment_id || null,
       parse_confidence: row.parse_confidence == null ? null : Number(row.parse_confidence),
       source_page: row.source_page == null ? null : Number(row.source_page),
+      source_bbox: row.source_bbox || null,
     })))
-    setAttachments(attachmentResponse.data || [])
+    setAttachments((attachmentResponse.data || []).map((row: any) => ({
+      ...row,
+      document_confidence: row.document_confidence == null ? null : Number(row.document_confidence),
+      extraction_json: isParsedDocument(row.extraction_json) ? row.extraction_json : null,
+    })))
     setDeletedResultIds([])
     setEvents(eventResponse.data || [])
     setView('detail')
@@ -890,11 +974,16 @@ export default function MallardSampleTrackerV3() {
           result_value: row.result_value.trim() || null,
           unit: row.unit.trim() || null,
           qualifier: row.qualifier.trim() || null,
+          method: row.method.trim() || null,
+          reporting_limit: row.reporting_limit.trim() || null,
+          detection_limit: row.detection_limit.trim() || null,
+          flag: row.flag.trim() || null,
           notes: row.notes.trim() || null,
           sort_order: index,
           source_attachment_id: row.source_attachment_id || null,
           parse_confidence: row.parse_confidence ?? null,
           source_page: row.source_page ?? null,
+          source_bbox: row.source_bbox || null,
         }
         const response = row.id
           ? await db.from('mallard_test_results').update(payload).eq('id', row.id)
@@ -926,10 +1015,16 @@ export default function MallardSampleTrackerV3() {
     }
 
     setAttachmentBusy(true)
-    const existingKeys = new Set(testResults.map((row) => `${row.test_name.trim().toLowerCase()}|${row.result_value.trim().toLowerCase()}|${row.unit.trim().toLowerCase()}`))
-    let importedTotal = 0
+    let candidateFields = 0
+    let candidateRows = 0
+    let firstReview: { attachment: TestAttachment; document: ParsedLabDocument } | null = null
 
     try {
+      const profileResponse = await db.from('mallard_document_profiles').select(
+        'fingerprint, document_type, lab_name, field_aliases, field_positions, column_aliases',
+      )
+      const profiles = profileResponse.error ? [] : (profileResponse.data || []) as MallardDocumentProfile[]
+
       for (const file of files) {
         setAttachmentProgress(`Uploading ${file.name}…`)
         setAttachmentProgressValue(0.03)
@@ -948,6 +1043,7 @@ export default function MallardSampleTrackerV3() {
           mime_type: file.type,
           size_bytes: file.size,
           parse_status: 'processing',
+          review_status: 'unreviewed',
         }).select('*').single()
 
         if (attachmentInsert.error) {
@@ -960,42 +1056,41 @@ export default function MallardSampleTrackerV3() {
           const parsed = await parseLabDocument(file, (label, progress) => {
             setAttachmentProgress(label)
             if (typeof progress === 'number') setAttachmentProgressValue(progress)
-          })
+          }, profiles)
 
-          const newRows = parsed.rows.filter((row) => {
-            const key = `${row.test_name.trim().toLowerCase()}|${row.result_value.trim().toLowerCase()}|${row.unit.trim().toLowerCase()}`
-            if (existingKeys.has(key)) return false
-            existingKeys.add(key)
-            return true
-          })
-
-          if (newRows.length) {
-            const insertRows = newRows.map((row, index) => ({
-              sample_id: selected.id,
-              test_name: row.test_name,
-              result_value: row.result_value || null,
-              unit: row.unit || null,
-              qualifier: row.qualifier || null,
-              notes: row.notes || null,
-              sort_order: testResults.length + importedTotal + index,
-              source_attachment_id: attachment.id,
-              parse_confidence: row.confidence,
-              source_page: row.source_page,
-            }))
-            const resultInsert = await db.from('mallard_test_results').insert(insertRows)
-            if (resultInsert.error) throw resultInsert.error
-            importedTotal += insertRows.length
-          }
-
-          const attachmentUpdate = await db.from('mallard_sample_attachments').update({
-            parse_status: newRows.length ? 'parsed' : 'needs_review',
+          candidateFields += parsed.fields.length
+          candidateRows += parsed.rows.length
+          const hasCandidates = parsed.fields.length > 0 || parsed.rows.length > 0 || parsed.requested_analyses.length > 0
+          const attachmentPatch = {
+            parse_status: hasCandidates ? 'needs_review' : 'needs_review',
             parse_method: parsed.method,
-            parsed_line_count: newRows.length,
+            parsed_line_count: parsed.rows.length,
             extracted_text: parsed.text.slice(0, 100000),
-            parse_error: null,
+            document_type: parsed.document_type,
+            document_confidence: parsed.document_confidence,
+            parser_version: parsed.parser_version,
+            layout_fingerprint: parsed.fingerprint,
+            extraction_json: parsed,
+            review_status: 'unreviewed',
+            parse_error: hasCandidates ? null : 'No confident fields or result rows were identified. Review the source manually.',
             parsed_at: new Date().toISOString(),
-          }).eq('id', attachment.id)
+          }
+          const attachmentUpdate = await db.from('mallard_sample_attachments').update(attachmentPatch).eq('id', attachment.id)
           if (attachmentUpdate.error) throw attachmentUpdate.error
+
+          if (!firstReview) {
+            firstReview = {
+              attachment: {
+                ...attachment,
+                ...attachmentPatch,
+                document_confidence: parsed.document_confidence,
+                extraction_json: parsed,
+                review_json: null,
+                reviewed_at: null,
+              } as TestAttachment,
+              document: parsed,
+            }
+          }
         } catch (parseError: any) {
           await db.from('mallard_sample_attachments').update({
             parse_status: 'failed',
@@ -1006,11 +1101,15 @@ export default function MallardSampleTrackerV3() {
       }
 
       await openSample(selected.id, 'none')
+      if (firstReview) {
+        setReviewAttachment(firstReview.attachment)
+        setReviewDocument(firstReview.document)
+      }
       setMessage({
-        type: importedTotal ? 'success' : 'info',
-        text: importedTotal
-          ? `Imported ${importedTotal} test line${importedTotal === 1 ? '' : 's'} from the uploaded paperwork. Review them against the file before final use.`
-          : 'File uploaded, but Mallard could not confidently identify test lines. The document is saved so you can enter the results manually.',
+        type: firstReview ? 'success' : 'info',
+        text: firstReview
+          ? `Document read. Mallard found ${candidateFields} field${candidateFields === 1 ? '' : 's'} and ${candidateRows} result row${candidateRows === 1 ? '' : 's'}. Review them before anything is applied.`
+          : 'The file was saved, but automatic reading failed. You can still open it and enter information manually.',
       })
     } catch (error: any) {
       setMessage({ type: 'error', text: `Could not upload test paperwork: ${error?.message || 'Unknown error'}` })
@@ -1019,6 +1118,159 @@ export default function MallardSampleTrackerV3() {
       setAttachmentProgress('')
       setAttachmentProgressValue(0)
       if (attachmentInputRef.current) attachmentInputRef.current.value = ''
+    }
+  }
+
+  const openAttachmentReview = (attachment: TestAttachment) => {
+    if (!attachment.extraction_json || !isParsedDocument(attachment.extraction_json)) {
+      setMessage({ type: 'info', text: 'This older upload does not contain a structured extraction to review.' })
+      return
+    }
+    setReviewAttachment(attachment)
+    setReviewDocument(attachment.extraction_json)
+  }
+
+  const applyDocumentReview = async (review: MallardDocumentReviewResult) => {
+    if (!selected || !reviewAttachment || !reviewDocument) return
+    setAttachmentBusy(true)
+
+    try {
+      const selectedFields = review.fields.filter((field) => field.apply)
+      const selectedRows = review.rows.filter((row) => row.apply && row.test_name.trim())
+      const values = new Map<DocumentFieldKey, string>(
+        selectedFields.map((field) => [field.key, field.value.trim()] as [DocumentFieldKey, string]),
+      )
+      const samplePatch: Record<string, unknown> = {}
+
+      if (values.has('sample_type')) samplePatch.sample_matrix = normalizeImportedMatrix(values.get('sample_type') || '')
+      if (values.has('collected_by')) samplePatch.collector_name = values.get('collected_by') || null
+      if (values.has('location')) samplePatch.location = values.get('location') || selected.location
+      if (values.has('work_description')) samplePatch.description_of_work = values.get('work_description') || selected.description_of_work
+      if (values.has('suspected_contents')) samplePatch.suspected_contents = values.get('suspected_contents') || selected.suspected_contents
+      if (values.has('field_observations')) {
+        const imported = values.get('field_observations') || ''
+        samplePatch.field_notes = selected.field_notes && selected.field_notes.trim() !== imported
+          ? `${selected.field_notes.trim()}\n\nImported field observations: ${imported}`
+          : imported || selected.field_notes
+      }
+      if (values.has('lab_name')) samplePatch.lab_name = values.get('lab_name') || null
+      if (values.has('lab_number')) samplePatch.lab_submission_number = values.get('lab_number') || null
+      if (values.has('received_by')) samplePatch.received_by = values.get('received_by') || null
+      if (values.has('received_date')) {
+        const received = parseDocumentDate(values.get('received_date') || '')
+        if (received) samplePatch.received_at = received
+      }
+      if (values.has('collection_date')) {
+        const collected = parseDocumentDate(
+          values.get('collection_date') || '',
+          values.get('collection_time') || undefined,
+        )
+        if (collected) samplePatch.collected_at = collected
+      }
+      samplePatch.last_updated_by = actorName.trim() || selected.collector_name || 'Mallard document review'
+
+      if (Object.keys(samplePatch).length > 1) {
+        const sampleUpdate = await db.from('mallard_samples').update(samplePatch).eq('id', selected.id)
+        if (sampleUpdate.error) throw sampleUpdate.error
+      }
+
+      const existingKeys = new Set(
+        testResults.map((row) => `${row.test_name.trim().toLowerCase()}|${row.result_value.trim().toLowerCase()}|${row.unit.trim().toLowerCase()}`),
+      )
+      const resultPayloads = selectedRows.flatMap((row, index) => {
+        const key = `${row.test_name.trim().toLowerCase()}|${row.result_value.trim().toLowerCase()}|${row.unit.trim().toLowerCase()}`
+        if (existingKeys.has(key)) return []
+        existingKeys.add(key)
+        return [{
+          sample_id: selected.id,
+          test_name: row.test_name.trim(),
+          result_value: row.result_value.trim() || null,
+          unit: row.unit.trim() || null,
+          qualifier: row.qualifier.trim() || null,
+          method: row.method.trim() || null,
+          reporting_limit: row.reporting_limit.trim() || null,
+          detection_limit: row.detection_limit.trim() || null,
+          flag: row.flag.trim() || null,
+          notes: row.notes.trim() || null,
+          sort_order: testResults.length + index,
+          source_attachment_id: reviewAttachment.id,
+          parse_confidence: row.confidence,
+          source_page: row.source_page,
+          source_bbox: row.source_bbox,
+        }]
+      })
+
+      if (resultPayloads.length) {
+        const resultInsert = await db.from('mallard_test_results').insert(resultPayloads)
+        if (resultInsert.error) throw resultInsert.error
+      }
+
+      const reviewJson = {
+        corrected: review.corrected,
+        applied_fields: selectedFields.map((field) => ({
+          key: field.key,
+          value: field.value,
+          confidence: field.confidence,
+          page: field.page,
+        })),
+        applied_results: resultPayloads.length,
+        reviewed_at: new Date().toISOString(),
+      }
+      const reviewedAt = new Date().toISOString()
+      const attachmentUpdate = await db.from('mallard_sample_attachments').update({
+        parse_status: 'parsed',
+        parsed_line_count: resultPayloads.length,
+        review_status: review.corrected ? 'corrected' : 'reviewed',
+        review_json: reviewJson,
+        reviewed_at: reviewedAt,
+        parse_error: null,
+      }).eq('id', reviewAttachment.id)
+      if (attachmentUpdate.error) throw attachmentUpdate.error
+
+      const learning = buildProfileLearningPayload(reviewDocument)
+      for (const field of review.fields) {
+        if (field.value.trim() !== field.original_value.trim()) {
+          delete learning.field_positions[field.key]
+        }
+      }
+      const existingProfileResponse = await db.from('mallard_document_profiles')
+        .select('*')
+        .eq('fingerprint', learning.fingerprint)
+        .maybeSingle()
+
+      const existingProfile = existingProfileResponse.data
+      const profilePayload = {
+        ...learning,
+        field_aliases: mergeAliasMaps(existingProfile?.field_aliases, learning.field_aliases),
+        field_positions: { ...(existingProfile?.field_positions || {}), ...(learning.field_positions || {}) },
+        column_aliases: mergeAliasMaps(existingProfile?.column_aliases, learning.column_aliases),
+        times_seen: Number(existingProfile?.times_seen || 0) + 1,
+        correction_count: Number(existingProfile?.correction_count || 0) + (review.corrected ? 1 : 0),
+        last_seen_at: reviewedAt,
+      }
+      const profileWrite = await db.from('mallard_document_profiles').upsert(profilePayload, { onConflict: 'fingerprint' })
+      if (profileWrite.error) throw profileWrite.error
+
+      await db.from('mallard_sample_events').insert({
+        sample_id: selected.id,
+        event_type: 'attachment_reviewed',
+        actor_name: actorName.trim() || selected.collector_name || 'Mallard',
+        note: `Reviewed ${reviewAttachment.original_name}: applied ${selectedFields.length} field(s) and ${resultPayloads.length} result row(s).`,
+      })
+
+      const sampleId = selected.id
+      setReviewAttachment(null)
+      setReviewDocument(null)
+      await openSample(sampleId, 'none')
+      await loadSamples()
+      setMessage({
+        type: 'success',
+        text: `Document approved. Applied ${selectedFields.length} field${selectedFields.length === 1 ? '' : 's'} and ${resultPayloads.length} new result row${resultPayloads.length === 1 ? '' : 's'}.`,
+      })
+    } catch (error: any) {
+      setMessage({ type: 'error', text: `Could not apply document review: ${error?.message || 'Unknown error'}` })
+    } finally {
+      setAttachmentBusy(false)
     }
   }
 
@@ -1184,7 +1436,7 @@ export default function MallardSampleTrackerV3() {
     complete: samples.filter((sample) => sample.status === 'complete').length,
   }), [samples])
 
-  const addTestResult = () => setTestResults((rows) => [...rows, { test_name: '', result_value: '', unit: '', qualifier: '', notes: '', sort_order: rows.length }])
+  const addTestResult = () => setTestResults((rows) => [...rows, { test_name: '', result_value: '', unit: '', qualifier: '', method: '', reporting_limit: '', detection_limit: '', flag: '', notes: '', sort_order: rows.length }])
   const removeTestResult = (index: number) => {
     const row = testResults[index]
     if (row.id) setDeletedResultIds((ids) => [...ids, row.id!])
@@ -1531,20 +1783,41 @@ export default function MallardSampleTrackerV3() {
                 <button className="primary" type="button" disabled={attachmentBusy} onClick={() => attachmentInputRef.current?.click()}><Upload size={17} /> Upload</button>
               </div>
               <input ref={attachmentInputRef} className="visually-hidden-file" type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => void uploadTestFiles(event.target.files)} />
-              <div className="attachment-explainer"><Sparkles size={18} /><div><strong>Automatic result import</strong><p>Upload a lab PDF or clear photo. Mallard reads the document and adds recognized test lines to the table below. Compare imported rows to the original file before relying on them.</p></div></div>
+              <div className="attachment-explainer"><Sparkles size={18} /><div><strong>Free layout-aware document reader</strong><p>Upload a PDF or clear photo. Mallard identifies fields, tables and result rows, then asks you to review them before anything changes on the sample.</p></div></div>
               {attachmentBusy && <div className="attachment-progress"><div><span>{attachmentProgress || 'Working…'}</span><b>{Math.round(attachmentProgressValue * 100)}%</b></div><progress max={1} value={attachmentProgressValue || 0.02} /></div>}
               {attachments.length === 0 ? <div className="empty small">No test paperwork uploaded yet.</div> : <div className="attachment-list">{attachments.map((attachment) => (
                 <div className="attachment-card" key={attachment.id}>
                   <div className="attachment-icon"><FileText size={22} /></div>
-                  <div className="attachment-main"><strong>{attachment.original_name}</strong><span>{Math.max(1, Math.round(attachment.size_bytes / 1024))} KB · {formatDate(attachment.created_at)}</span><div className={`parse-status ${attachment.parse_status}`}>{attachment.parse_status === 'parsed' ? `${attachment.parsed_line_count} lines imported` : attachment.parse_status === 'processing' ? 'Reading document…' : attachment.parse_status === 'needs_review' ? 'No confident lines found' : attachment.parse_status === 'failed' ? 'Saved · automatic reading failed' : 'Uploaded'}</div>{attachment.parse_error && <small>{attachment.parse_error}</small>}</div>
-                  <div className="attachment-actions"><button className="secondary square" type="button" onClick={() => void openAttachment(attachment)} aria-label={`Open ${attachment.original_name}`}><ExternalLink size={17} /></button><button className="icon-danger" type="button" disabled={attachmentBusy} onClick={() => void deleteAttachment(attachment)} aria-label={`Delete ${attachment.original_name}`}><Trash2 size={17} /></button></div>
+                  <div className="attachment-main">
+                    <strong>{attachment.original_name}</strong>
+                    <span>{Math.max(1, Math.round(attachment.size_bytes / 1024))} KB · {formatDate(attachment.created_at)}</span>
+                    {attachment.document_type && <span className="attachment-document-meta">{attachment.document_type.replaceAll('_', ' ')}{attachment.document_confidence != null ? ` · ${Math.round(attachment.document_confidence * 100)}%` : ''}{attachment.parse_method ? ` · ${attachment.parse_method === 'pdf_layout' ? 'PDF layout' : attachment.parse_method === 'ocr_layout' ? 'OCR layout' : attachment.parse_method}` : ''}</span>}
+                    <div className={`parse-status ${attachment.parse_status}`}>
+                      {attachment.parse_status === 'parsed'
+                        ? `Reviewed · ${attachment.parsed_line_count} result${attachment.parsed_line_count === 1 ? '' : 's'} imported`
+                        : attachment.parse_status === 'processing'
+                          ? 'Reading document…'
+                          : attachment.parse_status === 'needs_review'
+                            ? `${attachment.extraction_json?.fields?.length || 0} fields · ${attachment.extraction_json?.rows?.length || 0} results ready to review`
+                            : attachment.parse_status === 'failed'
+                              ? 'Saved · automatic reading failed'
+                              : 'Uploaded'}
+                    </div>
+                    {attachment.review_status === 'corrected' && <small>Corrections saved to improve this document layout next time.</small>}
+                    {attachment.parse_error && <small>{attachment.parse_error}</small>}
+                  </div>
+                  <div className="attachment-actions">
+                    {attachment.extraction_json && <button className="secondary review-button" type="button" disabled={attachmentBusy} onClick={() => openAttachmentReview(attachment)}><ClipboardCheck size={16} /> Review</button>}
+                    <button className="secondary square" type="button" onClick={() => void openAttachment(attachment)} aria-label={`Open ${attachment.original_name}`}><ExternalLink size={17} /></button>
+                    <button className="icon-danger" type="button" disabled={attachmentBusy} onClick={() => void deleteAttachment(attachment)} aria-label={`Delete ${attachment.original_name}`}><Trash2 size={17} /></button>
+                  </div>
                 </div>
               ))}</div>}
             </section>
 
             <section className="mallard-v3-panel">
               <div className="mallard-v3-heading"><div><span className="eyebrow">Results</span><h2>Test results</h2></div><button className="secondary" type="button" onClick={addTestResult}><Plus size={17} /> Add test</button></div>
-              {testResults.length === 0 ? <div className="empty small">No test rows yet.</div> : <div className="test-list">{testResults.map((row, index) => <div className="test-card" key={row.id || `new-${index}`}><div className="test-head"><strong>Test {index + 1}{row.source_attachment_id ? <span className="imported-badge"><Sparkles size={13} /> Imported{row.parse_confidence != null ? ` · ${Math.round(row.parse_confidence * 100)}%` : ''}</span> : null}</strong><button className="icon-danger" type="button" onClick={() => removeTestResult(index)} aria-label="Remove test"><Trash2 size={17} /></button></div><label><span>Test name</span><input value={row.test_name} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, test_name: event.target.value } : item))} /></label><div className="grid three"><label><span>Result</span><input value={row.result_value} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, result_value: event.target.value } : item))} /></label><label><span>Unit</span><input value={row.unit} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, unit: event.target.value } : item))} /></label><label><span>Qualifier</span><input value={row.qualifier} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, qualifier: event.target.value } : item))} /></label></div><label><span>Notes</span><input value={row.notes} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, notes: event.target.value } : item))} /></label></div>)}</div>}
+              {testResults.length === 0 ? <div className="empty small">No test rows yet.</div> : <div className="test-list">{testResults.map((row, index) => <div className="test-card" key={row.id || `new-${index}`}><div className="test-head"><strong>Test {index + 1}{row.source_attachment_id ? <span className="imported-badge"><Sparkles size={13} /> Imported{row.parse_confidence != null ? ` · ${Math.round(row.parse_confidence * 100)}%` : ''}</span> : null}</strong><button className="icon-danger" type="button" onClick={() => removeTestResult(index)} aria-label="Remove test"><Trash2 size={17} /></button></div><label><span>Test name</span><input value={row.test_name} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, test_name: event.target.value } : item))} /></label><div className="grid three"><label><span>Result</span><input value={row.result_value} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, result_value: event.target.value } : item))} /></label><label><span>Unit</span><input value={row.unit} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, unit: event.target.value } : item))} /></label><label><span>Qualifier</span><input value={row.qualifier} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, qualifier: event.target.value } : item))} /></label></div><div className="grid four test-result-details"><label><span>Method</span><input value={row.method} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, method: event.target.value } : item))} /></label><label><span>Reporting limit</span><input value={row.reporting_limit} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, reporting_limit: event.target.value } : item))} /></label><label><span>Detection limit</span><input value={row.detection_limit} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, detection_limit: event.target.value } : item))} /></label><label><span>Flag</span><input value={row.flag} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, flag: event.target.value } : item))} /></label></div><label><span>Notes</span><input value={row.notes} onChange={(event) => setTestResults((rows) => rows.map((item, rowIndex) => rowIndex === index ? { ...item, notes: event.target.value } : item))} /></label></div>)}</div>}
               <div className="panel-footer"><button className="primary" type="button" disabled={saving} onClick={() => void saveTestResults()}><Save size={18} /> Save results</button></div>
             </section>
 
@@ -1565,6 +1838,13 @@ export default function MallardSampleTrackerV3() {
       </div>
 
       {printSample && <div className="mallard-v3-print-label" aria-hidden="true"><div className="print-copy"><div className="brand">MALLARD ENVIRONMENTAL</div><div className="number">{printSample.sample_code}</div><div className="category">{printSample.classification_code} · {(classificationByCode.get(printSample.classification_code)?.name || categoryInfo[printSample.category].label).toUpperCase()}</div><div>{formatDate(printSample.collected_at)}</div><div>{printSample.location}</div><div>Suspected: {printSample.suspected_contents}</div>{printSample.confirmed_material && <div>Confirmed: {printSample.confirmed_material}</div>}</div><div className="print-qr"><QRCodeSVG value={`${window.location.origin}/mallard?sample=${printSample.id}`} size={118} level="M" /><small>Scan to open exact sample</small></div></div>}
+      {reviewAttachment && reviewDocument && <MallardDocumentReview
+        attachmentName={reviewAttachment.original_name}
+        document={reviewDocument}
+        busy={attachmentBusy}
+        onCancel={() => { if (!attachmentBusy) { setReviewAttachment(null); setReviewDocument(null) } }}
+        onApply={applyDocumentReview}
+      />}
     </>
   )
 }

@@ -1761,7 +1761,7 @@ export default function MallardSampleTrackerV3() {
                 <div className="mallard-v3-heading"><div><span className="eyebrow">Collection</span><h2>Sample details</h2></div></div>
                 <div className="grid two"><label><span>Collection date *</span><input type="date" required value={newForm.collected_date} onChange={(event) => setNewForm({ ...newForm, collected_date: event.target.value })} /></label><label><span>Collected by</span><input value={newForm.collector_name} onChange={(event) => setNewForm({ ...newForm, collector_name: event.target.value })} placeholder="Your name" /></label></div>
                 <label><span>Location *</span><input required value={newForm.location} onChange={(event) => setNewForm({ ...newForm, location: event.target.value, site_id: '' })} placeholder="Lease, facility, address, LSD or site" /></label>
-                <label><span>Customer / site</span><input value={newForm.customer_site} onChange={(event) => setNewForm({ ...newForm, customer_site: event.target.value })} placeholder="Optional" /></label>
+                <label><span>Company / customer</span><input value={newForm.customer_site} onChange={(event) => setNewForm({ ...newForm, customer_site: event.target.value })} placeholder="Company responsible for the sample" /></label>
                 <div className="grid two"><label><span>Sample matrix</span><select value={newForm.sample_matrix} onChange={(event) => setNewForm({ ...newForm, sample_matrix: event.target.value })}>{matrixOptions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label><label className="check"><input type="checkbox" checked={newForm.priority} onChange={(event) => setNewForm({ ...newForm, priority: event.target.checked })} /><span><strong>Priority</strong><small>Flag for attention</small></span></label></div>
                 <label><span>Description of work *</span><textarea required rows={2} value={newForm.description_of_work} onChange={(event) => setNewForm({ ...newForm, description_of_work: event.target.value })} placeholder="What work was being done?" /></label>
                 <label><span>Suspected material *</span><textarea required rows={2} value={newForm.suspected_contents} onChange={(event) => setNewForm({ ...newForm, suspected_contents: event.target.value })} placeholder="Oily water, produced water, glycol, unknown liquid..." /></label>
@@ -1843,13 +1843,14 @@ export default function MallardSampleTrackerV3() {
                 <span className="bottle-writing-brand">MALLARD</span>
                 <strong>{selected.sample_code}</strong>
                 <span>{formatBottleDate(selected.collected_at)}</span>
+                <span>Company: {selectedSite?.customer || selected.customer_site || 'Not entered'}</span>
                 <span>{classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</span>
                 <span>{selected.location}</span>
                 {selected.collector_name && <span>{selected.collector_name}</span>}
               </div>
               <div className="bottle-writing-minimum">
                 <span>If space is tight, at minimum write:</span>
-                <strong>{selected.sample_code} · {formatBottleDate(selected.collected_at)} · {classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</strong>
+                <strong>{selected.sample_code} · {selectedSite?.customer || selected.customer_site || 'Company'} · {formatBottleDate(selected.collected_at)} · {classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</strong>
               </div>
             </section>
 
@@ -1874,7 +1875,7 @@ export default function MallardSampleTrackerV3() {
               <div className="grid two"><label><span>Collection date</span><input type="date" value={toDateValue(selected.collected_at)} onChange={(event) => setSelected({ ...selected, collected_at: dateToIso(event.target.value) || selected.collected_at })} /></label><label><span>Collected by</span><input value={selected.collector_name || ''} onChange={(event) => setSelected({ ...selected, collector_name: event.target.value })} /></label></div>
               <label><span>Reusable site</span><select value={selected.site_id || ''} onChange={(event) => { const site = sites.find((item) => item.id === event.target.value); setSelected({ ...selected, site_id: event.target.value || null, location: site ? (site.lsd || site.uwi || site.site_name) : selected.location, customer_site: site ? [site.customer, site.site_name].filter(Boolean).join(' / ') : selected.customer_site }) }}><option value="">No linked site</option>{sites.filter((site) => site.active || site.id === selected.site_id).map((site) => <option value={site.id} key={site.id}>{[site.customer, site.site_name, site.lsd || site.uwi].filter(Boolean).join(' · ')}</option>)}</select></label>
               <label><span>Location</span><input value={selected.location} onChange={(event) => setSelected({ ...selected, location: event.target.value })} /></label>
-              <label><span>Customer / site</span><input value={selected.customer_site || ''} onChange={(event) => setSelected({ ...selected, customer_site: event.target.value })} /></label>
+              <label><span>Company / customer</span><input value={selected.customer_site || ''} onChange={(event) => setSelected({ ...selected, customer_site: event.target.value })} /></label>
               <div className="grid two"><label><span>Sample matrix</span><select value={selected.sample_matrix || 'Unknown'} onChange={(event) => setSelected({ ...selected, sample_matrix: event.target.value })}>{matrixOptions.map((item) => <option key={item} value={item}>{item}</option>)}</select></label><label className="check"><input type="checkbox" checked={selected.priority} onChange={(event) => setSelected({ ...selected, priority: event.target.checked })} /><span><strong>Priority</strong><small>Highlight this sample</small></span></label></div>
               <label><span>Description of work</span><textarea rows={2} value={selected.description_of_work} onChange={(event) => setSelected({ ...selected, description_of_work: event.target.value })} /></label>
               <label><span>Suspected contents</span><textarea rows={2} value={selected.suspected_contents} onChange={(event) => setSelected({ ...selected, suspected_contents: event.target.value })} /></label>

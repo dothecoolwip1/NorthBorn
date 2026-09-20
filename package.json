@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:mallard-documents": "node scripts/mallard-document-engine-test.mjs"
   },
   "dependencies": {
     "@capacitor/core": "7.6.9",

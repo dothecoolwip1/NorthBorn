@@ -156,13 +156,14 @@ export default function MallardDocumentReview({
   }
 
   React.useEffect(() => {
-    const previousOverflow = document.documentElement.style.overflow
-    const previousBodyOverflow = document.body.style.overflow
-    document.documentElement.style.overflow = 'hidden'
-    document.body.style.overflow = 'hidden'
+    const browserDocument = window.document
+    const previousOverflow = browserDocument.documentElement.style.overflow
+    const previousBodyOverflow = browserDocument.body.style.overflow
+    browserDocument.documentElement.style.overflow = 'hidden'
+    browserDocument.body.style.overflow = 'hidden'
     return () => {
-      document.documentElement.style.overflow = previousOverflow
-      document.body.style.overflow = previousBodyOverflow
+      browserDocument.documentElement.style.overflow = previousOverflow
+      browserDocument.body.style.overflow = previousBodyOverflow
     }
   }, [])
 

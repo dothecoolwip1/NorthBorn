@@ -1,5 +1,5 @@
 {
-  "version": "0.8.34",
+  "version": "0.8.35",
   "title": "Automatic Version Correction",
   "notes": [
     "Synchronized Northborn package, lockfile and release versions.",

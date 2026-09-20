@@ -1,4 +1,5 @@
 import React from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import {
   Archive,
   Beaker,
@@ -32,11 +33,48 @@ import './mallard-sample-tracker-v3.css'
 
 type SampleCategory = 'non_oilfield' | 'oilfield' | 'odd_weird'
 type SampleStatus = 'collected' | 'with_driver' | 'received' | 'submitted' | 'testing' | 'results_received' | 'complete'
-type ViewMode = 'dashboard' | 'samples' | 'new' | 'detail'
+type ViewMode = 'dashboard' | 'samples' | 'new' | 'detail' | 'classifications' | 'sites'
+
+type Classification = {
+  code: number
+  name: string
+  group_name: string
+  description: string | null
+  active: boolean
+  sort_order: number
+}
+
+type Site = {
+  id: string
+  customer: string | null
+  site_name: string
+  lsd: string | null
+  uwi: string | null
+  latitude: number | null
+  longitude: number | null
+  access_directions: string | null
+  contact_name: string | null
+  contact_phone: string | null
+  contact_email: string | null
+  notes: string | null
+  active: boolean
+}
+
+type NextClassificationNumber = {
+  classification_code: number
+  classification_name: string
+  group_name: string
+  next_sequence: number | null
+  next_sample_code: string | null
+}
 
 type MallardSample = {
   id: string
   sample_number: number
+  sample_code: string
+  classification_code: number
+  sequence_number: number
+  site_id: string | null
   category: SampleCategory
   status: SampleStatus
   collected_at: string
@@ -44,6 +82,7 @@ type MallardSample = {
   customer_site: string | null
   description_of_work: string
   suspected_contents: string
+  confirmed_material: string | null
   collector_name: string | null
   field_notes: string | null
   received_at: string | null
@@ -105,7 +144,8 @@ type SampleEvent = {
 }
 
 type SampleForm = {
-  category: SampleCategory
+  classification_code: number
+  site_id: string
   collected_date: string
   location: string
   customer_site: string
@@ -130,9 +170,19 @@ const DRAFT_KEY = 'mallard_sample_drafts_v3'
 const ACTOR_KEY = 'mallard_last_actor_v1'
 
 const categoryInfo: Record<SampleCategory, { label: string; range: string; tone: string }> = {
-  non_oilfield: { label: 'Non Oilfield', range: '1000 series', tone: 'green' },
-  oilfield: { label: 'Oilfield', range: '2000 series', tone: 'gold' },
-  odd_weird: { label: 'Odd / Weird', range: '3000 series', tone: 'grey' },
+  non_oilfield: { label: 'Non Oilfield', range: '100–199', tone: 'green' },
+  oilfield: { label: 'Oilfield', range: '200–299', tone: 'gold' },
+  odd_weird: { label: 'Other / Specialty', range: '300–399', tone: 'grey' },
+}
+
+function categoryFromCode(code: number): SampleCategory {
+  if (code >= 100 && code <= 199) return 'non_oilfield'
+  if (code >= 200 && code <= 299) return 'oilfield'
+  return 'odd_weird'
+}
+
+function toneForCode(code: number) {
+  return categoryInfo[categoryFromCode(code)].tone
 }
 
 const statusOrder: SampleStatus[] = ['collected', 'with_driver', 'received', 'submitted', 'testing', 'results_received', 'complete']
@@ -185,9 +235,10 @@ function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat('en-CA', { dateStyle: 'medium' }).format(new Date(value))
 }
 
-function blankForm(category: SampleCategory = 'oilfield'): SampleForm {
+function blankForm(classificationCode = 201): SampleForm {
   return {
-    category,
+    classification_code: classificationCode,
+    site_id: '',
     collected_date: todayForInput(),
     location: '',
     customer_site: '',
@@ -210,6 +261,7 @@ function escapeCsv(value: unknown) {
 export default function MallardSampleTrackerV3() {
   const [view, setView] = React.useState<ViewMode>('dashboard')
   const [samples, setSamples] = React.useState<MallardSample[]>([])
+  const [allSamples, setAllSamples] = React.useState<MallardSample[]>([])
   const [selected, setSelected] = React.useState<MallardSample | null>(null)
   const [testResults, setTestResults] = React.useState<TestResult[]>([])
   const [attachments, setAttachments] = React.useState<TestAttachment[]>([])
@@ -221,7 +273,12 @@ export default function MallardSampleTrackerV3() {
     try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '[]') }
     catch { return [] }
   })
-  const [nextNumbers, setNextNumbers] = React.useState<Record<SampleCategory, number>>({ non_oilfield: 1001, oilfield: 2001, odd_weird: 3001 })
+  const [classifications, setClassifications] = React.useState<Classification[]>([])
+  const [nextClassificationNumbers, setNextClassificationNumbers] = React.useState<NextClassificationNumber[]>([])
+  const [sites, setSites] = React.useState<Site[]>([])
+  const [classificationEditor, setClassificationEditor] = React.useState({ code: '', name: '', group_name: 'Oilfield', description: '' })
+  const [editingClassificationCode, setEditingClassificationCode] = React.useState<number | null>(null)
+  const [siteEditor, setSiteEditor] = React.useState({ id: '', customer: '', site_name: '', lsd: '', uwi: '', latitude: '', longitude: '', access_directions: '', contact_name: '', contact_phone: '', contact_email: '', notes: '' })
   const [query, setQuery] = React.useState('')
   const [categoryFilter, setCategoryFilter] = React.useState<'all' | SampleCategory>('all')
   const [statusFilter, setStatusFilter] = React.useState<'all' | SampleStatus>('all')
@@ -236,27 +293,39 @@ export default function MallardSampleTrackerV3() {
   const [attachmentProgress, setAttachmentProgress] = React.useState('')
   const [attachmentProgressValue, setAttachmentProgressValue] = React.useState(0)
   const attachmentInputRef = React.useRef<HTMLInputElement>(null)
+  const deepLinkOpenedRef = React.useRef(false)
+
+  const classificationByCode = React.useMemo(() => new Map(classifications.map((item) => [item.code, item])), [classifications])
+  const nextCodeByClassification = React.useMemo(() => new Map(nextClassificationNumbers.map((item) => [item.classification_code, item.next_sample_code])), [nextClassificationNumbers])
+  const activeClassifications = React.useMemo(() => classifications.filter((item) => item.active && !item.name.startsWith('Legacy /')), [classifications])
+  const selectedSite = selected?.site_id ? sites.find((site) => site.id === selected.site_id) || null : null
+  const selectedSiteHistory = selected?.site_id ? allSamples.filter((sample) => sample.site_id === selected.site_id && sample.id !== selected.id) : []
 
   const loadSamples = React.useCallback(async () => {
     setLoading(true)
-    const [sampleResponse, counterResponse] = await Promise.all([
-      db.from('mallard_samples').select('*').eq('archived', false).order('collected_at', { ascending: false }),
-      db.rpc('mallard_get_next_numbers'),
+    const [sampleResponse, classificationResponse, counterResponse, siteResponse] = await Promise.all([
+      db.from('mallard_samples').select('*').order('collected_at', { ascending: false }),
+      db.from('mallard_classifications').select('*').order('sort_order', { ascending: true }).order('code', { ascending: true }),
+      db.rpc('mallard_get_classification_numbers'),
+      db.from('mallard_sites').select('*').order('customer', { ascending: true, nullsFirst: false }).order('site_name', { ascending: true }),
     ])
 
     if (sampleResponse.error) {
       setMessage({ type: 'error', text: `Could not load samples: ${sampleResponse.error.message}` })
     } else {
-      setSamples(sampleResponse.data || [])
+      const loadedSamples = (sampleResponse.data || []) as MallardSample[]
+      setAllSamples(loadedSamples)
+      setSamples(loadedSamples.filter((sample) => !sample.archived))
     }
 
-    if (!counterResponse.error && counterResponse.data) {
-      const next = { non_oilfield: 1001, oilfield: 2001, odd_weird: 3001 } as Record<SampleCategory, number>
-      counterResponse.data.forEach((row: { category: SampleCategory; next_number: number }) => {
-        if (row.category in next) next[row.category] = row.next_number
-      })
-      setNextNumbers(next)
+    if (classificationResponse.error) {
+      setMessage({ type: 'error', text: `Could not load classifications: ${classificationResponse.error.message}` })
+    } else {
+      setClassifications(classificationResponse.data || [])
     }
+
+    if (!counterResponse.error) setNextClassificationNumbers(counterResponse.data || [])
+    if (!siteResponse.error) setSites(siteResponse.data || [])
     setLoading(false)
   }, [])
 
@@ -282,8 +351,8 @@ export default function MallardSampleTrackerV3() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(next))
   }
 
-  const beginNewSample = (category: SampleCategory) => {
-    setNewForm(blankForm(category))
+  const beginNewSample = (classificationCode = 201) => {
+    setNewForm(blankForm(classificationCode))
     setActiveDraftId(null)
     setView('new')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -291,7 +360,8 @@ export default function MallardSampleTrackerV3() {
 
   const cloneSample = (sample: MallardSample) => {
     setNewForm({
-      category: sample.category,
+      classification_code: sample.classification_code,
+      site_id: sample.site_id || '',
       collected_date: todayForInput(),
       location: sample.location,
       customer_site: sample.customer_site || '',
@@ -318,7 +388,7 @@ export default function MallardSampleTrackerV3() {
   }
 
   const resumeDraft = (draft: SavedDraft) => {
-    setNewForm(draft.form)
+    setNewForm({ ...blankForm(), ...draft.form, classification_code: draft.form.classification_code || 201, site_id: draft.form.site_id || '' })
     setActiveDraftId(draft.id)
     setView('new')
   }
@@ -349,7 +419,8 @@ export default function MallardSampleTrackerV3() {
     }
 
     const payload = {
-      category: newForm.category,
+      classification_code: newForm.classification_code,
+      site_id: newForm.site_id || null,
       collected_at: dateToIso(newForm.collected_date),
       location: newForm.location.trim(),
       customer_site: newForm.customer_site.trim() || null,
@@ -373,10 +444,10 @@ export default function MallardSampleTrackerV3() {
     }
 
     if (activeDraftId) discardDraft(activeDraftId)
-    setNewForm(blankForm(newForm.category))
+    setNewForm(blankForm(newForm.classification_code))
     await loadSamples()
     await openSample(data.id)
-    setMessage({ type: 'success', text: `Sample ${data.sample_number} created. Label the bottle with this number.` })
+    setMessage({ type: 'success', text: `Sample ${data.sample_code} created. Label the bottle with this code.` })
   }
 
   const openSample = async (id: string) => {
@@ -414,6 +485,144 @@ export default function MallardSampleTrackerV3() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  React.useEffect(() => {
+    if (deepLinkOpenedRef.current) return
+    const sampleId = new URLSearchParams(window.location.search).get('sample')
+    if (!sampleId) return
+    deepLinkOpenedRef.current = true
+    void openSample(sampleId)
+  }, [])
+
+  const chooseSiteForForm = (siteId: string) => {
+    const site = sites.find((item) => item.id === siteId)
+    if (!site) {
+      setNewForm({ ...newForm, site_id: '' })
+      return
+    }
+    setNewForm({
+      ...newForm,
+      site_id: site.id,
+      location: site.lsd || site.uwi || site.site_name,
+      customer_site: [site.customer, site.site_name].filter(Boolean).join(' / '),
+    })
+  }
+
+  const saveClassification = async (event: React.FormEvent) => {
+    event.preventDefault()
+    const code = Number(classificationEditor.code)
+    if (!Number.isInteger(code) || code < 100 || code > 999 || !classificationEditor.name.trim() || !classificationEditor.group_name.trim()) {
+      setMessage({ type: 'error', text: 'Enter a three digit code, name and group.' })
+      return
+    }
+    setSaving(true)
+    const payload = {
+      name: classificationEditor.name.trim(),
+      group_name: classificationEditor.group_name.trim(),
+      description: classificationEditor.description.trim() || null,
+      sort_order: code,
+    }
+    const response = editingClassificationCode
+      ? await db.from('mallard_classifications').update(payload).eq('code', editingClassificationCode)
+      : await db.from('mallard_classifications').insert({ code, ...payload, active: true })
+    setSaving(false)
+    if (response.error) {
+      setMessage({ type: 'error', text: `Could not save classification: ${response.error.message}` })
+      return
+    }
+    setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', description: '' })
+    setEditingClassificationCode(null)
+    await loadSamples()
+    setMessage({ type: 'success', text: editingClassificationCode ? 'Classification updated.' : `Classification ${code} added.` })
+  }
+
+  const editClassification = (classification: Classification) => {
+    setEditingClassificationCode(classification.code)
+    setClassificationEditor({
+      code: String(classification.code),
+      name: classification.name,
+      group_name: classification.group_name,
+      description: classification.description || '',
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const toggleClassification = async (classification: Classification) => {
+    const { error } = await db.from('mallard_classifications').update({ active: !classification.active }).eq('code', classification.code)
+    if (error) {
+      setMessage({ type: 'error', text: `Could not update classification: ${error.message}` })
+      return
+    }
+    await loadSamples()
+    setMessage({ type: 'success', text: `${classification.code} ${classification.active ? 'disabled' : 'enabled'}.` })
+  }
+
+  const saveSite = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!siteEditor.site_name.trim()) {
+      setMessage({ type: 'error', text: 'Site name is required.' })
+      return
+    }
+    const latitude = siteEditor.latitude.trim() ? Number(siteEditor.latitude) : null
+    const longitude = siteEditor.longitude.trim() ? Number(siteEditor.longitude) : null
+    if ((latitude !== null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) || (longitude !== null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180))) {
+      setMessage({ type: 'error', text: 'Check the GPS latitude and longitude.' })
+      return
+    }
+    const payload = {
+      customer: siteEditor.customer.trim() || null,
+      site_name: siteEditor.site_name.trim(),
+      lsd: siteEditor.lsd.trim() || null,
+      uwi: siteEditor.uwi.trim() || null,
+      latitude,
+      longitude,
+      access_directions: siteEditor.access_directions.trim() || null,
+      contact_name: siteEditor.contact_name.trim() || null,
+      contact_phone: siteEditor.contact_phone.trim() || null,
+      contact_email: siteEditor.contact_email.trim() || null,
+      notes: siteEditor.notes.trim() || null,
+    }
+    setSaving(true)
+    const response = siteEditor.id
+      ? await db.from('mallard_sites').update(payload).eq('id', siteEditor.id)
+      : await db.from('mallard_sites').insert({ ...payload, active: true })
+    setSaving(false)
+    if (response.error) {
+      setMessage({ type: 'error', text: `Could not save site: ${response.error.message}` })
+      return
+    }
+    setSiteEditor({ id: '', customer: '', site_name: '', lsd: '', uwi: '', latitude: '', longitude: '', access_directions: '', contact_name: '', contact_phone: '', contact_email: '', notes: '' })
+    await loadSamples()
+    setMessage({ type: 'success', text: siteEditor.id ? 'Site updated.' : 'Reusable site added.' })
+  }
+
+  const editSite = (site: Site) => {
+    setSiteEditor({
+      id: site.id,
+      customer: site.customer || '',
+      site_name: site.site_name,
+      lsd: site.lsd || '',
+      uwi: site.uwi || '',
+      latitude: site.latitude == null ? '' : String(site.latitude),
+      longitude: site.longitude == null ? '' : String(site.longitude),
+      access_directions: site.access_directions || '',
+      contact_name: site.contact_name || '',
+      contact_phone: site.contact_phone || '',
+      contact_email: site.contact_email || '',
+      notes: site.notes || '',
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const toggleSite = async (site: Site) => {
+    const { error } = await db.from('mallard_sites').update({ active: !site.active }).eq('id', site.id)
+    if (error) {
+      setMessage({ type: 'error', text: `Could not update site: ${error.message}` })
+      return
+    }
+    await loadSamples()
+    setMessage({ type: 'success', text: `${site.site_name} ${site.active ? 'disabled' : 'enabled'}.` })
+  }
+
   const savePatch = async (patch: Record<string, unknown>, successText: string) => {
     if (!selected) return false
     setSaving(true)
@@ -447,6 +656,7 @@ export default function MallardSampleTrackerV3() {
       collected_at: selected.collected_at,
       location: selected.location.trim(),
       customer_site: selected.customer_site?.trim() || null,
+      site_id: selected.site_id || null,
       description_of_work: selected.description_of_work.trim(),
       suspected_contents: selected.suspected_contents.trim(),
       collector_name: selected.collector_name?.trim() || null,
@@ -473,7 +683,8 @@ export default function MallardSampleTrackerV3() {
       lab_submission_number: selected.lab_submission_number?.trim() || null,
       submitted_at: selected.submitted_at,
       results_received_at: selected.results_received_at,
-      final_determination: selected.final_determination?.trim() || null,
+      confirmed_material: selected.confirmed_material?.trim() || null,
+      final_determination: selected.confirmed_material?.trim() || selected.final_determination?.trim() || null,
       lab_notes: selected.lab_notes?.trim() || null,
     }, 'Mallard and lab information saved.')
   }
@@ -494,7 +705,7 @@ export default function MallardSampleTrackerV3() {
     }
     if (target === 'submitted' && !selected.submitted_at) patch.submitted_at = now
     if (target === 'results_received' && !selected.results_received_at) patch.results_received_at = now
-    await savePatch(patch, `Sample ${selected.sample_number} is now ${statusLabels[target]}.`)
+    await savePatch(patch, `Sample ${selected.sample_code} is now ${statusLabels[target]}.`)
   }
 
   const saveTestResults = async () => {
@@ -684,7 +895,7 @@ export default function MallardSampleTrackerV3() {
 
   const archiveSample = async () => {
     if (!selected) return
-    if (!window.confirm(`Archive sample ${selected.sample_number}? It will leave the active sample list, but its sample number will stay reserved.`)) return
+    if (!window.confirm(`Archive sample ${selected.sample_code}? It will leave the active sample list, but its sample code will stay reserved.`)) return
     const { data, error } = await db.from('mallard_samples')
       .update({ archived: true, last_updated_by: actorName.trim() || selected.collector_name || 'Mallard' })
       .eq('id', selected.id)
@@ -704,7 +915,7 @@ export default function MallardSampleTrackerV3() {
   const deleteSample = async () => {
     if (!selected) return
     const confirmed = window.confirm(
-      `Permanently delete sample ${selected.sample_number}?\n\nThis deletes the sample, its uploaded test files, lab results and history. This cannot be undone.\n\nSample number ${selected.sample_number} will become available for reuse. Archived samples keep their numbers reserved.`
+      `Permanently delete sample ${selected.sample_code}?\n\nThis deletes the sample, its uploaded test files, lab results and active history. A deletion audit snapshot is retained.\n\nSample code ${selected.sample_code} will become available for reuse. Archived samples keep their codes reserved.`
     )
     if (!confirmed) return
     setSaving(true)
@@ -725,29 +936,34 @@ export default function MallardSampleTrackerV3() {
     setSelected(null)
     setView('samples')
     await loadSamples()
-    setMessage({ type: 'success', text: `Sample ${selected.sample_number} permanently deleted. Number ${selected.sample_number} is available for reuse.` })
+    setMessage({ type: 'success', text: `Sample ${selected.sample_code} permanently deleted. Code ${selected.sample_code} is available for reuse, with deletion history retained.` })
   }
 
   const exportCsv = () => {
-    const headers = ['Sample Number', 'Category', 'Status', 'Priority', 'Collection Date', 'Location', 'Customer / Site', 'Matrix', 'Description of Work', 'Suspected Contents', 'Collector', 'Dump Location', 'Dump Date', 'Lab', 'Lab Submission', 'Final Determination']
-    const rows = samples.map((sample) => [
-      sample.sample_number,
-      categoryInfo[sample.category].label,
-      statusLabels[sample.status],
-      sample.priority ? 'Yes' : 'No',
-      toDateValue(sample.collected_at),
-      sample.location,
-      sample.customer_site,
-      sample.sample_matrix,
-      sample.description_of_work,
-      sample.suspected_contents,
-      sample.collector_name,
-      sample.disposal_destination,
-      sample.disposed_at ? toDateValue(sample.disposed_at) : '',
-      sample.lab_name,
-      sample.lab_submission_number,
-      sample.final_determination,
-    ])
+    const headers = ['Sample Code', 'Classification Code', 'Classification', 'Group', 'Status', 'Priority', 'Collection Date', 'Location', 'Customer / Site', 'Matrix', 'Description of Work', 'Suspected Material', 'Confirmed Material', 'Collector', 'Dump Location', 'Dump Date', 'Lab', 'Lab Submission']
+    const rows = samples.map((sample) => {
+      const classification = classificationByCode.get(sample.classification_code)
+      return [
+        sample.sample_code,
+        sample.classification_code,
+        classification?.name || '',
+        classification?.group_name || categoryInfo[sample.category].label,
+        statusLabels[sample.status],
+        sample.priority ? 'Yes' : 'No',
+        toDateValue(sample.collected_at),
+        sample.location,
+        sample.customer_site,
+        sample.sample_matrix,
+        sample.description_of_work,
+        sample.suspected_contents,
+        sample.confirmed_material,
+        sample.collector_name,
+        sample.disposal_destination,
+        sample.disposed_at ? toDateValue(sample.disposed_at) : '',
+        sample.lab_name,
+        sample.lab_submission_number,
+      ]
+    })
     const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -772,7 +988,9 @@ export default function MallardSampleTrackerV3() {
       if (disposalFilter !== 'all' && disposalFilter !== 'undumped' && sample.disposal_destination !== disposalFilter) return false
       if (!normalized) return true
       const haystack = [
+        sample.sample_code,
         sample.sample_number,
+        classificationByCode.get(sample.classification_code)?.name,
         categoryInfo[sample.category].label,
         statusLabels[sample.status],
         sample.location,
@@ -780,10 +998,12 @@ export default function MallardSampleTrackerV3() {
         sample.sample_matrix,
         sample.description_of_work,
         sample.suspected_contents,
+        sample.confirmed_material,
         sample.collector_name,
         sample.disposal_destination,
         sample.lab_name,
         sample.lab_submission_number,
+        sample.confirmed_material,
         sample.final_determination,
       ].join(' ').toLowerCase()
       return haystack.includes(normalized)
@@ -826,18 +1046,28 @@ export default function MallardSampleTrackerV3() {
         {view === 'dashboard' && (
           <main className="mallard-v3-main">
             <section className="mallard-v3-hero">
-              <div><span className="eyebrow">Fast field entry</span><h2>Start a new sample</h2><p>Pick the sample type. The number shown is the next permanent database number.</p></div>
-              <div className="mallard-v3-category-grid">
-                {(Object.keys(categoryInfo) as SampleCategory[]).map((category) => (
-                  <button type="button" key={category} className={`mallard-v3-category ${categoryInfo[category].tone}`} onClick={() => beginNewSample(category)}>
-                    <span>Next</span><strong>{nextNumbers[category]}</strong><b>{categoryInfo[category].label}</b><small>{categoryInfo[category].range}</small>
+              <div>
+                <span className="eyebrow">Fast field entry</span>
+                <h2>Start a new sample</h2>
+                <p>Pick the material classification. Each type has its own four digit sequence.</p>
+                <div className="mallard-v3-admin-links">
+                  <button className="secondary" type="button" onClick={() => setView('classifications')}>Classification Manager</button>
+                  <button className="secondary" type="button" onClick={() => setView('sites')}>Site Manager</button>
+                </div>
+              </div>
+              <div className="mallard-v3-category-grid classification-grid">
+                {activeClassifications.map((classification) => (
+                  <button type="button" key={classification.code} className={`mallard-v3-category ${toneForCode(classification.code)}`} onClick={() => beginNewSample(classification.code)}>
+                    <span>{classification.code} · {classification.group_name}</span>
+                    <strong>{nextCodeByClassification.get(classification.code) || `${classification.code}-????`}</strong>
+                    <b>{classification.name}</b>
                   </button>
                 ))}
               </div>
             </section>
 
             <section className="mallard-v3-quick-search">
-              <Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') setView('samples') }} placeholder="Search number, site, contents or dump location" /><button type="button" onClick={() => setView('samples')}>Search</button>
+              <Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') setView('samples') }} placeholder="Search code, site, material or dump location" /><button type="button" onClick={() => setView('samples')}>Search</button>
             </section>
 
             <section className="mallard-v3-stats">
@@ -851,7 +1081,7 @@ export default function MallardSampleTrackerV3() {
               <section className="mallard-v3-panel">
                 <div className="mallard-v3-heading"><div><span className="eyebrow">This device</span><h2>Saved drafts</h2></div><span className="count">{drafts.length}</span></div>
                 <div className="mallard-v3-drafts">
-                  {drafts.map((draft) => <div key={draft.id}><button type="button" onClick={() => resumeDraft(draft)}><strong>{categoryInfo[draft.form.category].label}</strong><span>{draft.form.location || 'Location not entered'} · {formatDate(draft.saved_at)}</span></button><button className="icon-danger" type="button" onClick={() => discardDraft(draft.id)} aria-label="Delete draft"><Trash2 size={18} /></button></div>)}
+                  {drafts.map((draft) => <div key={draft.id}><button type="button" onClick={() => resumeDraft(draft)}><strong>{classificationByCode.get(draft.form.classification_code || 201)?.name || 'Sample'}</strong><span>{draft.form.location || 'Location not entered'} · {formatDate(draft.saved_at)}</span></button><button className="icon-danger" type="button" onClick={() => discardDraft(draft.id)} aria-label="Delete draft"><Trash2 size={18} /></button></div>)}
                 </div>
               </section>
             )}
@@ -865,11 +1095,11 @@ export default function MallardSampleTrackerV3() {
 
         {view === 'samples' && (
           <main className="mallard-v3-main">
-            <div className="mallard-v3-page-heading"><div><span className="eyebrow">Sample database</span><h2>Samples</h2></div><div><button className="secondary" type="button" onClick={exportCsv}><Download size={18} /> Export</button><button className="primary" type="button" onClick={() => beginNewSample('oilfield')}><Plus size={18} /> New</button></div></div>
+            <div className="mallard-v3-page-heading"><div><span className="eyebrow">Sample database</span><h2>Samples</h2></div><div><button className="secondary" type="button" onClick={exportCsv}><Download size={18} /> Export</button><button className="primary" type="button" onClick={() => beginNewSample(201)}><Plus size={18} /> New</button></div></div>
             <section className="mallard-v3-filters">
               <label className="search"><Search size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search samples" /></label>
               <div>
-                <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as any)}><option value="all">All types</option><option value="non_oilfield">Non Oilfield</option><option value="oilfield">Oilfield</option><option value="odd_weird">Odd / Weird</option></select>
+                <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as any)}><option value="all">All groups</option><option value="non_oilfield">Non Oilfield</option><option value="oilfield">Oilfield</option><option value="odd_weird">Other / Specialty</option></select>
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as any)}><option value="all">All statuses</option>{statusOrder.map((status) => <option value={status} key={status}>{statusLabels[status]}</option>)}</select>
                 <select value={disposalFilter} onChange={(event) => setDisposalFilter(event.target.value)}><option value="all">All dump sites</option><option value="undumped">Not entered</option>{disposalSuggestions.map((facility) => <option key={facility} value={facility}>{facility}</option>)}</select>
                 <button className="secondary square" type="button" onClick={() => void loadSamples()} aria-label="Refresh"><RefreshCw size={18} /></button>
@@ -883,20 +1113,46 @@ export default function MallardSampleTrackerV3() {
         {view === 'new' && (
           <main className="mallard-v3-main narrow">
             <button className="back" type="button" onClick={() => setView('dashboard')}><ChevronLeft size={18} /> Back</button>
-            <div className="mallard-v3-page-heading"><div><span className="eyebrow">New sample</span><h2>{categoryInfo[newForm.category].label}</h2><p>Expected bottle <strong>{nextNumbers[newForm.category]}</strong></p></div></div>
+            <div className="mallard-v3-page-heading">
+              <div>
+                <span className="eyebrow">New sample</span>
+                <h2>{classificationByCode.get(newForm.classification_code)?.name || 'Select classification'}</h2>
+                <p>Expected bottle <strong>{nextCodeByClassification.get(newForm.classification_code) || `${newForm.classification_code}-????`}</strong></p>
+              </div>
+            </div>
             <form className="mallard-v3-form" onSubmit={createSample}>
-              <section className="mallard-v3-panel compact">
-                <div className="mallard-v3-segmented">{(Object.keys(categoryInfo) as SampleCategory[]).map((category) => <button key={category} type="button" className={newForm.category === category ? 'active' : ''} onClick={() => setNewForm({ ...newForm, category })}><strong>{categoryInfo[category].label}</strong><span>{categoryInfo[category].range}</span></button>)}</div>
+              <section className="mallard-v3-panel">
+                <div className="mallard-v3-heading"><div><span className="eyebrow">Classification</span><h2>What kind of sample is it?</h2></div><button className="link" type="button" onClick={() => setView('classifications')}>Manage</button></div>
+                <label><span>Material classification *</span>
+                  <select required value={newForm.classification_code} onChange={(event) => setNewForm({ ...newForm, classification_code: Number(event.target.value) })}>
+                    {activeClassifications.map((classification) => <option key={classification.code} value={classification.code}>{classification.code} · {classification.name} · {classification.group_name}</option>)}
+                  </select>
+                </label>
+                <div className={`classification-preview ${toneForCode(newForm.classification_code)}`}>
+                  <strong>{nextCodeByClassification.get(newForm.classification_code) || `${newForm.classification_code}-????`}</strong>
+                  <span>{classificationByCode.get(newForm.classification_code)?.group_name || categoryInfo[categoryFromCode(newForm.classification_code)].label}</span>
+                </div>
+              </section>
+
+              <section className="mallard-v3-panel">
+                <div className="mallard-v3-heading"><div><span className="eyebrow">Site</span><h2>Where was it collected?</h2></div><button className="link" type="button" onClick={() => setView('sites')}>Manage sites</button></div>
+                <label><span>Reusable site</span>
+                  <select value={newForm.site_id} onChange={(event) => chooseSiteForForm(event.target.value)}>
+                    <option value="">Enter location manually</option>
+                    {sites.filter((site) => site.active).map((site) => <option key={site.id} value={site.id}>{[site.customer, site.site_name, site.lsd || site.uwi].filter(Boolean).join(' · ')}</option>)}
+                  </select>
+                </label>
+                {newForm.site_id && (() => { const site = sites.find((item) => item.id === newForm.site_id); return site ? <div className="site-summary"><strong>{site.site_name}</strong><span>{[site.customer, site.lsd, site.uwi].filter(Boolean).join(' · ')}</span>{site.access_directions && <small>{site.access_directions}</small>}</div> : null })()}
               </section>
 
               <section className="mallard-v3-panel">
                 <div className="mallard-v3-heading"><div><span className="eyebrow">Collection</span><h2>Sample details</h2></div></div>
                 <div className="grid two"><label><span>Collection date *</span><input type="date" required value={newForm.collected_date} onChange={(event) => setNewForm({ ...newForm, collected_date: event.target.value })} /></label><label><span>Collected by</span><input value={newForm.collector_name} onChange={(event) => setNewForm({ ...newForm, collector_name: event.target.value })} placeholder="Your name" /></label></div>
-                <label><span>Location *</span><input required value={newForm.location} onChange={(event) => setNewForm({ ...newForm, location: event.target.value })} placeholder="Lease, facility, address, LSD or site" /></label>
+                <label><span>Location *</span><input required value={newForm.location} onChange={(event) => setNewForm({ ...newForm, location: event.target.value, site_id: '' })} placeholder="Lease, facility, address, LSD or site" /></label>
                 <label><span>Customer / site</span><input value={newForm.customer_site} onChange={(event) => setNewForm({ ...newForm, customer_site: event.target.value })} placeholder="Optional" /></label>
                 <div className="grid two"><label><span>Sample matrix</span><select value={newForm.sample_matrix} onChange={(event) => setNewForm({ ...newForm, sample_matrix: event.target.value })}>{matrixOptions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label><label className="check"><input type="checkbox" checked={newForm.priority} onChange={(event) => setNewForm({ ...newForm, priority: event.target.checked })} /><span><strong>Priority</strong><small>Flag for attention</small></span></label></div>
                 <label><span>Description of work *</span><textarea required rows={2} value={newForm.description_of_work} onChange={(event) => setNewForm({ ...newForm, description_of_work: event.target.value })} placeholder="What work was being done?" /></label>
-                <label><span>What do you think is in it? *</span><textarea required rows={2} value={newForm.suspected_contents} onChange={(event) => setNewForm({ ...newForm, suspected_contents: event.target.value })} placeholder="Oily water, produced water, glycol, unknown liquid..." /></label>
+                <label><span>Suspected material *</span><textarea required rows={2} value={newForm.suspected_contents} onChange={(event) => setNewForm({ ...newForm, suspected_contents: event.target.value })} placeholder="Oily water, produced water, glycol, unknown liquid..." /></label>
                 <label><span>Field notes</span><textarea rows={2} value={newForm.field_notes} onChange={(event) => setNewForm({ ...newForm, field_notes: event.target.value })} placeholder="Colour, smell, layers or anything unusual" /></label>
               </section>
 
@@ -907,17 +1163,60 @@ export default function MallardSampleTrackerV3() {
                 <datalist id="mallard-disposal-facilities-new">{disposalSuggestions.map((facility) => <option value={facility} key={facility} />)}</datalist>
               </section>
 
-              <div className="mallard-v3-assignment"><span>Expected bottle</span><strong>{nextNumbers[newForm.category]}</strong><small>Confirmed when saved</small></div>
+              <div className="mallard-v3-assignment"><span>Expected bottle</span><strong>{nextCodeByClassification.get(newForm.classification_code) || `${newForm.classification_code}-????`}</strong><small>Confirmed when saved</small></div>
               <div className="mallard-v3-sticky-actions"><button className="secondary" type="button" onClick={saveDraft}><Save size={18} /> Draft</button><button className="primary large" type="submit" disabled={saving}>{saving ? 'Creating...' : <><FlaskConical size={19} /> Create sample</>}</button></div>
             </form>
+          </main>
+        )}
+
+        {view === 'classifications' && (
+          <main className="mallard-v3-main narrow">
+            <button className="back" type="button" onClick={() => setView('dashboard')}><ChevronLeft size={18} /> Home</button>
+            <div className="mallard-v3-page-heading"><div><span className="eyebrow">Admin</span><h2>Classification Manager</h2><p>Codes are permanent. Rename or disable them, but a code can never be reused for a different meaning.</p></div></div>
+            <form className="mallard-v3-panel mallard-manager-form" onSubmit={saveClassification}>
+              <div className="mallard-v3-heading"><div><span className="eyebrow">{editingClassificationCode ? 'Edit classification' : 'New classification'}</span><h2>{editingClassificationCode ? `Code ${editingClassificationCode}` : 'Add sample type'}</h2></div>{editingClassificationCode && <button className="link" type="button" onClick={() => { setEditingClassificationCode(null); setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', description: '' }) }}>Cancel</button>}</div>
+              <div className="grid two">
+                <label><span>Three digit code *</span><input inputMode="numeric" maxLength={3} disabled={editingClassificationCode !== null} value={classificationEditor.code} onChange={(event) => setClassificationEditor({ ...classificationEditor, code: event.target.value.replace(/\D/g, '').slice(0, 3) })} placeholder="205" /></label>
+                <label><span>Group *</span><select value={classificationEditor.group_name} onChange={(event) => setClassificationEditor({ ...classificationEditor, group_name: event.target.value })}><option>Non Oilfield</option><option>Oilfield</option><option>Other / Specialty</option><option>Future / Custom</option><option>System / Legacy</option></select></label>
+              </div>
+              <label><span>Name *</span><input value={classificationEditor.name} onChange={(event) => setClassificationEditor({ ...classificationEditor, name: event.target.value })} placeholder="Produced Water" /></label>
+              <label><span>Description</span><textarea rows={2} value={classificationEditor.description} onChange={(event) => setClassificationEditor({ ...classificationEditor, description: event.target.value })} placeholder="Optional internal description" /></label>
+              <button className="primary" type="submit" disabled={saving}><Save size={17} /> {editingClassificationCode ? 'Save changes' : 'Add classification'}</button>
+            </form>
+            <section className="mallard-v3-panel">
+              <div className="mallard-v3-heading"><div><span className="eyebrow">Codes</span><h2>All classifications</h2></div><span className="count">{classifications.length}</span></div>
+              <div className="manager-list">{classifications.map((classification) => <div className={`manager-row ${classification.active ? '' : 'disabled'}`} key={classification.code}><div className={`manager-code ${toneForCode(classification.code)}`}>{classification.code}</div><div className="manager-main"><strong>{classification.name}</strong><span>{classification.group_name}{classification.description ? ` · ${classification.description}` : ''}</span><small>Next: {nextCodeByClassification.get(classification.code) || 'Disabled / unavailable'}</small></div><div className="manager-actions"><button className="secondary" type="button" onClick={() => editClassification(classification)}>Edit</button><button className="secondary" type="button" onClick={() => void toggleClassification(classification)}>{classification.active ? 'Disable' : 'Enable'}</button></div></div>)}</div>
+            </section>
+          </main>
+        )}
+
+        {view === 'sites' && (
+          <main className="mallard-v3-main narrow">
+            <button className="back" type="button" onClick={() => setView('dashboard')}><ChevronLeft size={18} /> Home</button>
+            <div className="mallard-v3-page-heading"><div><span className="eyebrow">Reusable records</span><h2>Site Manager</h2><p>Save a site once, then reuse its customer, legal location, GPS, directions and contact details on future samples.</p></div></div>
+            <form className="mallard-v3-panel mallard-manager-form" onSubmit={saveSite}>
+              <div className="mallard-v3-heading"><div><span className="eyebrow">{siteEditor.id ? 'Edit site' : 'New site'}</span><h2>{siteEditor.id ? siteEditor.site_name : 'Add reusable site'}</h2></div>{siteEditor.id && <button className="link" type="button" onClick={() => setSiteEditor({ id: '', customer: '', site_name: '', lsd: '', uwi: '', latitude: '', longitude: '', access_directions: '', contact_name: '', contact_phone: '', contact_email: '', notes: '' })}>Cancel</button>}</div>
+              <div className="grid two"><label><span>Customer</span><input value={siteEditor.customer} onChange={(event) => setSiteEditor({ ...siteEditor, customer: event.target.value })} /></label><label><span>Site name *</span><input required value={siteEditor.site_name} onChange={(event) => setSiteEditor({ ...siteEditor, site_name: event.target.value })} /></label></div>
+              <div className="grid two"><label><span>LSD</span><input value={siteEditor.lsd} onChange={(event) => setSiteEditor({ ...siteEditor, lsd: event.target.value })} placeholder="14-15-31-26W4" /></label><label><span>UWI</span><input value={siteEditor.uwi} onChange={(event) => setSiteEditor({ ...siteEditor, uwi: event.target.value })} /></label></div>
+              <div className="grid two"><label><span>Latitude</span><input inputMode="decimal" value={siteEditor.latitude} onChange={(event) => setSiteEditor({ ...siteEditor, latitude: event.target.value })} /></label><label><span>Longitude</span><input inputMode="decimal" value={siteEditor.longitude} onChange={(event) => setSiteEditor({ ...siteEditor, longitude: event.target.value })} /></label></div>
+              <label><span>Access directions</span><textarea rows={2} value={siteEditor.access_directions} onChange={(event) => setSiteEditor({ ...siteEditor, access_directions: event.target.value })} /></label>
+              <div className="grid two"><label><span>Contact name</span><input value={siteEditor.contact_name} onChange={(event) => setSiteEditor({ ...siteEditor, contact_name: event.target.value })} /></label><label><span>Contact phone</span><input value={siteEditor.contact_phone} onChange={(event) => setSiteEditor({ ...siteEditor, contact_phone: event.target.value })} /></label></div>
+              <label><span>Contact email</span><input type="email" value={siteEditor.contact_email} onChange={(event) => setSiteEditor({ ...siteEditor, contact_email: event.target.value })} /></label>
+              <label><span>Site notes</span><textarea rows={2} value={siteEditor.notes} onChange={(event) => setSiteEditor({ ...siteEditor, notes: event.target.value })} /></label>
+              <button className="primary" type="submit" disabled={saving}><Save size={17} /> {siteEditor.id ? 'Save site' : 'Add site'}</button>
+            </form>
+            <section className="mallard-v3-panel">
+              <div className="mallard-v3-heading"><div><span className="eyebrow">Saved sites</span><h2>Site database</h2></div><span className="count">{sites.length}</span></div>
+              <div className="manager-list">{sites.map((site) => <div className={`manager-row site-row ${site.active ? '' : 'disabled'}`} key={site.id}><div className="manager-main"><strong>{site.site_name}</strong><span>{[site.customer, site.lsd, site.uwi].filter(Boolean).join(' · ') || 'No legal location entered'}</span><small>{allSamples.filter((sample) => sample.site_id === site.id).length} historical sample(s){site.contact_name ? ` · ${site.contact_name}` : ''}</small></div><div className="manager-actions"><button className="secondary" type="button" onClick={() => editSite(site)}>Edit</button><button className="secondary" type="button" onClick={() => void toggleSite(site)}>{site.active ? 'Disable' : 'Enable'}</button></div></div>)}</div>
+            </section>
           </main>
         )}
 
         {view === 'detail' && selected && (
           <main className="mallard-v3-main narrow detail">
             <button className="back" type="button" onClick={() => setView('samples')}><ChevronLeft size={18} /> Samples</button>
-            <section className={`mallard-v3-sample-hero ${categoryInfo[selected.category].tone}`}>
-              <div><span className="eyebrow">Permanent bottle ID</span><div className="big-number">{selected.sample_number}</div><div className="meta"><span>{categoryInfo[selected.category].label}</span><span>{selected.sample_matrix || 'Unknown matrix'}</span></div></div>
+            <section className={`mallard-v3-sample-hero ${toneForCode(selected.classification_code)}`}>
+              <div><span className="eyebrow">Permanent bottle ID</span><div className="big-number">{selected.sample_code}</div><div className="meta"><span>{selected.classification_code} · {classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</span><span>{selected.sample_matrix || 'Unknown matrix'}</span></div></div>
               <div className="actions">{selected.priority && <span className="priority">Priority</span>}<span className={`status status-${selected.status}`}>{statusLabels[selected.status]}</span><button className="secondary light" type="button" onClick={() => requestPrint(selected)}><Printer size={18} /> Label</button></div>
             </section>
             <div className="mallard-v3-record-actions"><button type="button" className="secondary" onClick={() => cloneSample(selected)}><Plus size={18} /> Create another like this</button>{selected.disposal_destination && <span className="dump-chip"><MapPin size={15} /> {selected.disposal_destination}</span>}</div>
@@ -939,6 +1238,7 @@ export default function MallardSampleTrackerV3() {
             <section className="mallard-v3-panel">
               <div className="mallard-v3-heading"><div><span className="eyebrow">Field collection</span><h2>Collection record</h2></div><button className="secondary" type="button" disabled={saving} onClick={() => void saveFieldInfo()}><Save size={17} /> Save</button></div>
               <div className="grid two"><label><span>Collection date</span><input type="date" value={toDateValue(selected.collected_at)} onChange={(event) => setSelected({ ...selected, collected_at: dateToIso(event.target.value) || selected.collected_at })} /></label><label><span>Collected by</span><input value={selected.collector_name || ''} onChange={(event) => setSelected({ ...selected, collector_name: event.target.value })} /></label></div>
+              <label><span>Reusable site</span><select value={selected.site_id || ''} onChange={(event) => { const site = sites.find((item) => item.id === event.target.value); setSelected({ ...selected, site_id: event.target.value || null, location: site ? (site.lsd || site.uwi || site.site_name) : selected.location, customer_site: site ? [site.customer, site.site_name].filter(Boolean).join(' / ') : selected.customer_site }) }}><option value="">No linked site</option>{sites.filter((site) => site.active || site.id === selected.site_id).map((site) => <option value={site.id} key={site.id}>{[site.customer, site.site_name, site.lsd || site.uwi].filter(Boolean).join(' · ')}</option>)}</select></label>
               <label><span>Location</span><input value={selected.location} onChange={(event) => setSelected({ ...selected, location: event.target.value })} /></label>
               <label><span>Customer / site</span><input value={selected.customer_site || ''} onChange={(event) => setSelected({ ...selected, customer_site: event.target.value })} /></label>
               <div className="grid two"><label><span>Sample matrix</span><select value={selected.sample_matrix || 'Unknown'} onChange={(event) => setSelected({ ...selected, sample_matrix: event.target.value })}>{matrixOptions.map((item) => <option key={item} value={item}>{item}</option>)}</select></label><label className="check"><input type="checkbox" checked={selected.priority} onChange={(event) => setSelected({ ...selected, priority: event.target.checked })} /><span><strong>Priority</strong><small>Highlight this sample</small></span></label></div>
@@ -947,12 +1247,25 @@ export default function MallardSampleTrackerV3() {
               <label><span>Field notes</span><textarea rows={2} value={selected.field_notes || ''} onChange={(event) => setSelected({ ...selected, field_notes: event.target.value })} /></label>
             </section>
 
+            {selectedSite && <section className="mallard-v3-panel site-record-panel">
+              <div className="mallard-v3-heading"><div><span className="eyebrow">Reusable site</span><h2>{selectedSite.site_name}</h2></div><button className="link" type="button" onClick={() => { editSite(selectedSite); setView('sites') }}>Edit site</button></div>
+              <div className="site-record-grid">
+                <div><span>Customer</span><strong>{selectedSite.customer || 'Not entered'}</strong></div>
+                <div><span>LSD</span><strong>{selectedSite.lsd || 'Not entered'}</strong></div>
+                <div><span>UWI</span><strong>{selectedSite.uwi || 'Not entered'}</strong></div>
+                <div><span>GPS</span><strong>{selectedSite.latitude != null && selectedSite.longitude != null ? `${selectedSite.latitude}, ${selectedSite.longitude}` : 'Not entered'}</strong></div>
+              </div>
+              {selectedSite.access_directions && <p className="site-note"><strong>Access:</strong> {selectedSite.access_directions}</p>}
+              {(selectedSite.contact_name || selectedSite.contact_phone || selectedSite.contact_email) && <p className="site-note"><strong>Contact:</strong> {[selectedSite.contact_name, selectedSite.contact_phone, selectedSite.contact_email].filter(Boolean).join(' · ')}</p>}
+              <div className="site-history"><strong>Other active samples at this site</strong>{selectedSiteHistory.length === 0 ? <span>None yet</span> : selectedSiteHistory.slice(0, 6).map((sample) => <button type="button" key={sample.id} onClick={() => void openSample(sample.id)}><b>{sample.sample_code}</b><span>{formatDate(sample.collected_at)} · {classificationByCode.get(sample.classification_code)?.name || 'Sample'}</span></button>)}</div>
+            </section>}
+
             <section className="mallard-v3-panel">
               <div className="mallard-v3-heading"><div><span className="eyebrow">Mallard receiving</span><h2>Lab submission</h2></div><button className="secondary" type="button" disabled={saving} onClick={() => void saveLabInfo()}><Save size={17} /> Save</button></div>
               <div className="grid two"><label><span>Received date</span><input type="date" value={toDateValue(selected.received_at)} onChange={(event) => setSelected({ ...selected, received_at: dateToIso(event.target.value) })} /></label><label><span>Received by</span><input value={selected.received_by || ''} onChange={(event) => setSelected({ ...selected, received_by: event.target.value })} /></label></div>
               <div className="grid two"><label><span>Laboratory</span><input value={selected.lab_name || ''} onChange={(event) => setSelected({ ...selected, lab_name: event.target.value })} placeholder="Lab name" /></label><label><span>Lab submission #</span><input value={selected.lab_submission_number || ''} onChange={(event) => setSelected({ ...selected, lab_submission_number: event.target.value })} /></label></div>
               <div className="grid two"><label><span>Submitted date</span><input type="date" value={toDateValue(selected.submitted_at)} onChange={(event) => setSelected({ ...selected, submitted_at: dateToIso(event.target.value) })} /></label><label><span>Results received date</span><input type="date" value={toDateValue(selected.results_received_at)} onChange={(event) => setSelected({ ...selected, results_received_at: dateToIso(event.target.value) })} /></label></div>
-              <label><span>Final determination</span><textarea rows={2} value={selected.final_determination || ''} onChange={(event) => setSelected({ ...selected, final_determination: event.target.value })} /></label>
+              <label><span>Confirmed material</span><textarea rows={2} value={selected.confirmed_material || ''} onChange={(event) => setSelected({ ...selected, confirmed_material: event.target.value })} placeholder="What the lab or final review confirmed" /></label>
               <label><span>Lab / receiving notes</span><textarea rows={2} value={selected.lab_notes || ''} onChange={(event) => setSelected({ ...selected, lab_notes: event.target.value })} /></label>
             </section>
 
@@ -984,22 +1297,22 @@ export default function MallardSampleTrackerV3() {
               {events.length === 0 ? <div className="empty small">No history yet.</div> : <div className="timeline">{events.map((event) => <div className="timeline-row" key={event.id}><span className="dot" /><div><strong>{event.event_type === 'status_change' && event.to_status ? `${event.from_status ? statusLabels[event.from_status as SampleStatus] : 'Status'} → ${statusLabels[event.to_status as SampleStatus]}` : eventLabels[event.event_type] || event.event_type.replaceAll('_', ' ')}</strong><span>{formatDate(event.created_at)}{event.actor_name ? ` · ${event.actor_name}` : ''}</span>{event.note && <p>{event.note}</p>}</div></div>)}</div>}
             </section>
 
-            <div className="danger-zone"><button className="archive" type="button" onClick={() => void archiveSample()}><Archive size={18} /> Archive sample</button><button className="delete" type="button" disabled={saving} onClick={() => void deleteSample()}><Trash2 size={18} /> Delete sample {selected.sample_number}</button></div>
+            <div className="danger-zone"><button className="archive" type="button" onClick={() => void archiveSample()}><Archive size={18} /> Archive sample</button><button className="delete" type="button" disabled={saving} onClick={() => void deleteSample()}><Trash2 size={18} /> Delete sample {selected.sample_code}</button></div>
           </main>
         )}
 
         <nav className="mallard-v3-bottom-nav" aria-label="Mallard navigation">
           <button className={view === 'dashboard' ? 'active' : ''} type="button" onClick={() => setView('dashboard')}><Beaker size={21} /><span>Home</span></button>
           <button className={view === 'samples' || view === 'detail' ? 'active' : ''} type="button" onClick={() => setView('samples')}><ClipboardList size={21} /><span>Samples</span></button>
-          <button className={view === 'new' ? 'active create' : 'create'} type="button" onClick={() => beginNewSample('oilfield')}><Plus size={24} /><span>New</span></button>
+          <button className={view === 'new' ? 'active create' : 'create'} type="button" onClick={() => beginNewSample(201)}><Plus size={24} /><span>New</span></button>
         </nav>
       </div>
 
-      {printSample && <div className="mallard-v3-print-label" aria-hidden="true"><div className="brand">MALLARD ENVIRONMENTAL</div><div className="number">{printSample.sample_number}</div><div className="category">{categoryInfo[printSample.category].label.toUpperCase()}</div><div>{formatDate(printSample.collected_at)}</div><div>{printSample.location}</div><div>Suspected: {printSample.suspected_contents}</div>{printSample.disposal_destination && <div>Dump: {printSample.disposal_destination}</div>}</div>}
+      {printSample && <div className="mallard-v3-print-label" aria-hidden="true"><div className="print-copy"><div className="brand">MALLARD ENVIRONMENTAL</div><div className="number">{printSample.sample_code}</div><div className="category">{printSample.classification_code} · {(classificationByCode.get(printSample.classification_code)?.name || categoryInfo[printSample.category].label).toUpperCase()}</div><div>{formatDate(printSample.collected_at)}</div><div>{printSample.location}</div><div>Suspected: {printSample.suspected_contents}</div>{printSample.confirmed_material && <div>Confirmed: {printSample.confirmed_material}</div>}</div><div className="print-qr"><QRCodeSVG value={`${window.location.origin}/mallard?sample=${printSample.id}`} size={118} level="M" /><small>Scan to open exact sample</small></div></div>}
     </>
   )
 }
 
 function SampleRow({ sample, onOpen }: { sample: MallardSample; onOpen: () => void }) {
-  return <button className={`mallard-v3-sample-row ${sample.priority ? 'priority' : ''}`} type="button" onClick={onOpen}><div className={`sample-id ${categoryInfo[sample.category].tone}`}>{sample.sample_number}</div><div className="sample-main"><div className="sample-top"><strong>{sample.customer_site || sample.location}</strong><span className={`status mini status-${sample.status}`}>{statusLabels[sample.status]}</span></div><p>{sample.customer_site ? sample.location : sample.suspected_contents}</p><div className="sample-meta"><span><CalendarDays size={14} /> {formatDate(sample.collected_at)}</span>{sample.collector_name && <span><UserRound size={14} /> {sample.collector_name}</span>}{sample.disposal_destination && <span><MapPin size={14} /> {sample.disposal_destination}</span>}</div></div></button>
+  return <button className={`mallard-v3-sample-row ${sample.priority ? 'priority' : ''}`} type="button" onClick={onOpen}><div className={`sample-id ${toneForCode(sample.classification_code)}`}>{sample.sample_code}</div><div className="sample-main"><div className="sample-top"><strong>{sample.customer_site || sample.location}</strong><span className={`status mini status-${sample.status}`}>{statusLabels[sample.status]}</span></div><p>{sample.customer_site ? sample.location : sample.suspected_contents}</p><div className="sample-meta"><span><CalendarDays size={14} /> {formatDate(sample.collected_at)}</span>{sample.collector_name && <span><UserRound size={14} /> {sample.collector_name}</span>}{sample.disposal_destination && <span><MapPin size={14} /> {sample.disposal_destination}</span>}</div></div></button>
 }

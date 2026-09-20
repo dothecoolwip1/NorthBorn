@@ -12,6 +12,12 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.8.16':[
+    'Removed the public admin/admin functional test login and production test-role switching.',
+    'Disabled the functional test account bootstrap endpoint and suspended seeded test workspace access.',
+    'Added recoverable workspace access errors so connection or role lookup failures are not mistaken for guest accounts.',
+    'Reduced unnecessary database function privileges while preserving invite onboarding and Mallard no-login workflows.',
+  ],
   '0.5.0':[
     'Replaced the manager home screen with a role-aware command centre focused on work that needs attention now.',
     'Updated the universal hamburger so accounting, safety, mechanic, dispatcher and supervisor accounts only see relevant modules.',

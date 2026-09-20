@@ -1043,18 +1043,28 @@ export default function MallardSampleTrackerV3() {
         {view === 'dashboard' && (
           <main className="mallard-v3-main">
             <section className="mallard-v3-hero">
-              <div><span className="eyebrow">Fast field entry</span><h2>Start a new sample</h2><p>Pick the sample type. The number shown is the next permanent database number.</p></div>
-              <div className="mallard-v3-category-grid">
-                {(Object.keys(categoryInfo) as SampleCategory[]).map((category) => (
-                  <button type="button" key={category} className={`mallard-v3-category ${categoryInfo[category].tone}`} onClick={() => beginNewSample(category)}>
-                    <span>Next</span><strong>{nextNumbers[category]}</strong><b>{categoryInfo[category].label}</b><small>{categoryInfo[category].range}</small>
+              <div>
+                <span className="eyebrow">Fast field entry</span>
+                <h2>Start a new sample</h2>
+                <p>Pick the material classification. Each type has its own four digit sequence.</p>
+                <div className="mallard-v3-admin-links">
+                  <button className="secondary" type="button" onClick={() => setView('classifications')}>Classification Manager</button>
+                  <button className="secondary" type="button" onClick={() => setView('sites')}>Site Manager</button>
+                </div>
+              </div>
+              <div className="mallard-v3-category-grid classification-grid">
+                {activeClassifications.map((classification) => (
+                  <button type="button" key={classification.code} className={`mallard-v3-category ${toneForCode(classification.code)}`} onClick={() => beginNewSample(classification.code)}>
+                    <span>{classification.code} · {classification.group_name}</span>
+                    <strong>{nextCodeByClassification.get(classification.code) || `${classification.code}-????`}</strong>
+                    <b>{classification.name}</b>
                   </button>
                 ))}
               </div>
             </section>
 
             <section className="mallard-v3-quick-search">
-              <Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') setView('samples') }} placeholder="Search number, site, contents or dump location" /><button type="button" onClick={() => setView('samples')}>Search</button>
+              <Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') setView('samples') }} placeholder="Search code, site, material or dump location" /><button type="button" onClick={() => setView('samples')}>Search</button>
             </section>
 
             <section className="mallard-v3-stats">
@@ -1068,7 +1078,7 @@ export default function MallardSampleTrackerV3() {
               <section className="mallard-v3-panel">
                 <div className="mallard-v3-heading"><div><span className="eyebrow">This device</span><h2>Saved drafts</h2></div><span className="count">{drafts.length}</span></div>
                 <div className="mallard-v3-drafts">
-                  {drafts.map((draft) => <div key={draft.id}><button type="button" onClick={() => resumeDraft(draft)}><strong>{categoryInfo[draft.form.category].label}</strong><span>{draft.form.location || 'Location not entered'} · {formatDate(draft.saved_at)}</span></button><button className="icon-danger" type="button" onClick={() => discardDraft(draft.id)} aria-label="Delete draft"><Trash2 size={18} /></button></div>)}
+                  {drafts.map((draft) => <div key={draft.id}><button type="button" onClick={() => resumeDraft(draft)}><strong>{classificationByCode.get(draft.form.classification_code || 201)?.name || 'Sample'}</strong><span>{draft.form.location || 'Location not entered'} · {formatDate(draft.saved_at)}</span></button><button className="icon-danger" type="button" onClick={() => discardDraft(draft.id)} aria-label="Delete draft"><Trash2 size={18} /></button></div>)}
                 </div>
               </section>
             )}
@@ -1082,11 +1092,11 @@ export default function MallardSampleTrackerV3() {
 
         {view === 'samples' && (
           <main className="mallard-v3-main">
-            <div className="mallard-v3-page-heading"><div><span className="eyebrow">Sample database</span><h2>Samples</h2></div><div><button className="secondary" type="button" onClick={exportCsv}><Download size={18} /> Export</button><button className="primary" type="button" onClick={() => beginNewSample('oilfield')}><Plus size={18} /> New</button></div></div>
+            <div className="mallard-v3-page-heading"><div><span className="eyebrow">Sample database</span><h2>Samples</h2></div><div><button className="secondary" type="button" onClick={exportCsv}><Download size={18} /> Export</button><button className="primary" type="button" onClick={() => beginNewSample(201)}><Plus size={18} /> New</button></div></div>
             <section className="mallard-v3-filters">
               <label className="search"><Search size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search samples" /></label>
               <div>
-                <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as any)}><option value="all">All types</option><option value="non_oilfield">Non Oilfield</option><option value="oilfield">Oilfield</option><option value="odd_weird">Odd / Weird</option></select>
+                <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as any)}><option value="all">All groups</option><option value="non_oilfield">Non Oilfield</option><option value="oilfield">Oilfield</option><option value="odd_weird">Other / Specialty</option></select>
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as any)}><option value="all">All statuses</option>{statusOrder.map((status) => <option value={status} key={status}>{statusLabels[status]}</option>)}</select>
                 <select value={disposalFilter} onChange={(event) => setDisposalFilter(event.target.value)}><option value="all">All dump sites</option><option value="undumped">Not entered</option>{disposalSuggestions.map((facility) => <option key={facility} value={facility}>{facility}</option>)}</select>
                 <button className="secondary square" type="button" onClick={() => void loadSamples()} aria-label="Refresh"><RefreshCw size={18} /></button>
@@ -1100,20 +1110,46 @@ export default function MallardSampleTrackerV3() {
         {view === 'new' && (
           <main className="mallard-v3-main narrow">
             <button className="back" type="button" onClick={() => setView('dashboard')}><ChevronLeft size={18} /> Back</button>
-            <div className="mallard-v3-page-heading"><div><span className="eyebrow">New sample</span><h2>{categoryInfo[newForm.category].label}</h2><p>Expected bottle <strong>{nextNumbers[newForm.category]}</strong></p></div></div>
+            <div className="mallard-v3-page-heading">
+              <div>
+                <span className="eyebrow">New sample</span>
+                <h2>{classificationByCode.get(newForm.classification_code)?.name || 'Select classification'}</h2>
+                <p>Expected bottle <strong>{nextCodeByClassification.get(newForm.classification_code) || `${newForm.classification_code}-????`}</strong></p>
+              </div>
+            </div>
             <form className="mallard-v3-form" onSubmit={createSample}>
-              <section className="mallard-v3-panel compact">
-                <div className="mallard-v3-segmented">{(Object.keys(categoryInfo) as SampleCategory[]).map((category) => <button key={category} type="button" className={newForm.category === category ? 'active' : ''} onClick={() => setNewForm({ ...newForm, category })}><strong>{categoryInfo[category].label}</strong><span>{categoryInfo[category].range}</span></button>)}</div>
+              <section className="mallard-v3-panel">
+                <div className="mallard-v3-heading"><div><span className="eyebrow">Classification</span><h2>What kind of sample is it?</h2></div><button className="link" type="button" onClick={() => setView('classifications')}>Manage</button></div>
+                <label><span>Material classification *</span>
+                  <select required value={newForm.classification_code} onChange={(event) => setNewForm({ ...newForm, classification_code: Number(event.target.value) })}>
+                    {activeClassifications.map((classification) => <option key={classification.code} value={classification.code}>{classification.code} · {classification.name} · {classification.group_name}</option>)}
+                  </select>
+                </label>
+                <div className={`classification-preview ${toneForCode(newForm.classification_code)}`}>
+                  <strong>{nextCodeByClassification.get(newForm.classification_code) || `${newForm.classification_code}-????`}</strong>
+                  <span>{classificationByCode.get(newForm.classification_code)?.group_name || categoryInfo[categoryFromCode(newForm.classification_code)].label}</span>
+                </div>
+              </section>
+
+              <section className="mallard-v3-panel">
+                <div className="mallard-v3-heading"><div><span className="eyebrow">Site</span><h2>Where was it collected?</h2></div><button className="link" type="button" onClick={() => setView('sites')}>Manage sites</button></div>
+                <label><span>Reusable site</span>
+                  <select value={newForm.site_id} onChange={(event) => chooseSiteForForm(event.target.value)}>
+                    <option value="">Enter location manually</option>
+                    {sites.filter((site) => site.active).map((site) => <option key={site.id} value={site.id}>{[site.customer, site.site_name, site.lsd || site.uwi].filter(Boolean).join(' · ')}</option>)}
+                  </select>
+                </label>
+                {newForm.site_id && (() => { const site = sites.find((item) => item.id === newForm.site_id); return site ? <div className="site-summary"><strong>{site.site_name}</strong><span>{[site.customer, site.lsd, site.uwi].filter(Boolean).join(' · ')}</span>{site.access_directions && <small>{site.access_directions}</small>}</div> : null })()}
               </section>
 
               <section className="mallard-v3-panel">
                 <div className="mallard-v3-heading"><div><span className="eyebrow">Collection</span><h2>Sample details</h2></div></div>
                 <div className="grid two"><label><span>Collection date *</span><input type="date" required value={newForm.collected_date} onChange={(event) => setNewForm({ ...newForm, collected_date: event.target.value })} /></label><label><span>Collected by</span><input value={newForm.collector_name} onChange={(event) => setNewForm({ ...newForm, collector_name: event.target.value })} placeholder="Your name" /></label></div>
-                <label><span>Location *</span><input required value={newForm.location} onChange={(event) => setNewForm({ ...newForm, location: event.target.value })} placeholder="Lease, facility, address, LSD or site" /></label>
+                <label><span>Location *</span><input required value={newForm.location} onChange={(event) => setNewForm({ ...newForm, location: event.target.value, site_id: '' })} placeholder="Lease, facility, address, LSD or site" /></label>
                 <label><span>Customer / site</span><input value={newForm.customer_site} onChange={(event) => setNewForm({ ...newForm, customer_site: event.target.value })} placeholder="Optional" /></label>
                 <div className="grid two"><label><span>Sample matrix</span><select value={newForm.sample_matrix} onChange={(event) => setNewForm({ ...newForm, sample_matrix: event.target.value })}>{matrixOptions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label><label className="check"><input type="checkbox" checked={newForm.priority} onChange={(event) => setNewForm({ ...newForm, priority: event.target.checked })} /><span><strong>Priority</strong><small>Flag for attention</small></span></label></div>
                 <label><span>Description of work *</span><textarea required rows={2} value={newForm.description_of_work} onChange={(event) => setNewForm({ ...newForm, description_of_work: event.target.value })} placeholder="What work was being done?" /></label>
-                <label><span>What do you think is in it? *</span><textarea required rows={2} value={newForm.suspected_contents} onChange={(event) => setNewForm({ ...newForm, suspected_contents: event.target.value })} placeholder="Oily water, produced water, glycol, unknown liquid..." /></label>
+                <label><span>Suspected material *</span><textarea required rows={2} value={newForm.suspected_contents} onChange={(event) => setNewForm({ ...newForm, suspected_contents: event.target.value })} placeholder="Oily water, produced water, glycol, unknown liquid..." /></label>
                 <label><span>Field notes</span><textarea rows={2} value={newForm.field_notes} onChange={(event) => setNewForm({ ...newForm, field_notes: event.target.value })} placeholder="Colour, smell, layers or anything unusual" /></label>
               </section>
 
@@ -1124,17 +1160,60 @@ export default function MallardSampleTrackerV3() {
                 <datalist id="mallard-disposal-facilities-new">{disposalSuggestions.map((facility) => <option value={facility} key={facility} />)}</datalist>
               </section>
 
-              <div className="mallard-v3-assignment"><span>Expected bottle</span><strong>{nextNumbers[newForm.category]}</strong><small>Confirmed when saved</small></div>
+              <div className="mallard-v3-assignment"><span>Expected bottle</span><strong>{nextCodeByClassification.get(newForm.classification_code) || `${newForm.classification_code}-????`}</strong><small>Confirmed when saved</small></div>
               <div className="mallard-v3-sticky-actions"><button className="secondary" type="button" onClick={saveDraft}><Save size={18} /> Draft</button><button className="primary large" type="submit" disabled={saving}>{saving ? 'Creating...' : <><FlaskConical size={19} /> Create sample</>}</button></div>
             </form>
+          </main>
+        )}
+
+        {view === 'classifications' && (
+          <main className="mallard-v3-main narrow">
+            <button className="back" type="button" onClick={() => setView('dashboard')}><ChevronLeft size={18} /> Home</button>
+            <div className="mallard-v3-page-heading"><div><span className="eyebrow">Admin</span><h2>Classification Manager</h2><p>Codes are permanent. Rename or disable them, but a code can never be reused for a different meaning.</p></div></div>
+            <form className="mallard-v3-panel mallard-manager-form" onSubmit={saveClassification}>
+              <div className="mallard-v3-heading"><div><span className="eyebrow">{editingClassificationCode ? 'Edit classification' : 'New classification'}</span><h2>{editingClassificationCode ? `Code ${editingClassificationCode}` : 'Add sample type'}</h2></div>{editingClassificationCode && <button className="link" type="button" onClick={() => { setEditingClassificationCode(null); setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', description: '' }) }}>Cancel</button>}</div>
+              <div className="grid two">
+                <label><span>Three digit code *</span><input inputMode="numeric" maxLength={3} disabled={editingClassificationCode !== null} value={classificationEditor.code} onChange={(event) => setClassificationEditor({ ...classificationEditor, code: event.target.value.replace(/\D/g, '').slice(0, 3) })} placeholder="205" /></label>
+                <label><span>Group *</span><select value={classificationEditor.group_name} onChange={(event) => setClassificationEditor({ ...classificationEditor, group_name: event.target.value })}><option>Non Oilfield</option><option>Oilfield</option><option>Other / Specialty</option><option>Future / Custom</option><option>System / Legacy</option></select></label>
+              </div>
+              <label><span>Name *</span><input value={classificationEditor.name} onChange={(event) => setClassificationEditor({ ...classificationEditor, name: event.target.value })} placeholder="Produced Water" /></label>
+              <label><span>Description</span><textarea rows={2} value={classificationEditor.description} onChange={(event) => setClassificationEditor({ ...classificationEditor, description: event.target.value })} placeholder="Optional internal description" /></label>
+              <button className="primary" type="submit" disabled={saving}><Save size={17} /> {editingClassificationCode ? 'Save changes' : 'Add classification'}</button>
+            </form>
+            <section className="mallard-v3-panel">
+              <div className="mallard-v3-heading"><div><span className="eyebrow">Codes</span><h2>All classifications</h2></div><span className="count">{classifications.length}</span></div>
+              <div className="manager-list">{classifications.map((classification) => <div className={`manager-row ${classification.active ? '' : 'disabled'}`} key={classification.code}><div className={`manager-code ${toneForCode(classification.code)}`}>{classification.code}</div><div className="manager-main"><strong>{classification.name}</strong><span>{classification.group_name}{classification.description ? ` · ${classification.description}` : ''}</span><small>Next: {nextCodeByClassification.get(classification.code) || 'Disabled / unavailable'}</small></div><div className="manager-actions"><button className="secondary" type="button" onClick={() => editClassification(classification)}>Edit</button><button className="secondary" type="button" onClick={() => void toggleClassification(classification)}>{classification.active ? 'Disable' : 'Enable'}</button></div></div>)}</div>
+            </section>
+          </main>
+        )}
+
+        {view === 'sites' && (
+          <main className="mallard-v3-main narrow">
+            <button className="back" type="button" onClick={() => setView('dashboard')}><ChevronLeft size={18} /> Home</button>
+            <div className="mallard-v3-page-heading"><div><span className="eyebrow">Reusable records</span><h2>Site Manager</h2><p>Save a site once, then reuse its customer, legal location, GPS, directions and contact details on future samples.</p></div></div>
+            <form className="mallard-v3-panel mallard-manager-form" onSubmit={saveSite}>
+              <div className="mallard-v3-heading"><div><span className="eyebrow">{siteEditor.id ? 'Edit site' : 'New site'}</span><h2>{siteEditor.id ? siteEditor.site_name : 'Add reusable site'}</h2></div>{siteEditor.id && <button className="link" type="button" onClick={() => setSiteEditor({ id: '', customer: '', site_name: '', lsd: '', uwi: '', latitude: '', longitude: '', access_directions: '', contact_name: '', contact_phone: '', contact_email: '', notes: '' })}>Cancel</button>}</div>
+              <div className="grid two"><label><span>Customer</span><input value={siteEditor.customer} onChange={(event) => setSiteEditor({ ...siteEditor, customer: event.target.value })} /></label><label><span>Site name *</span><input required value={siteEditor.site_name} onChange={(event) => setSiteEditor({ ...siteEditor, site_name: event.target.value })} /></label></div>
+              <div className="grid two"><label><span>LSD</span><input value={siteEditor.lsd} onChange={(event) => setSiteEditor({ ...siteEditor, lsd: event.target.value })} placeholder="14-15-31-26W4" /></label><label><span>UWI</span><input value={siteEditor.uwi} onChange={(event) => setSiteEditor({ ...siteEditor, uwi: event.target.value })} /></label></div>
+              <div className="grid two"><label><span>Latitude</span><input inputMode="decimal" value={siteEditor.latitude} onChange={(event) => setSiteEditor({ ...siteEditor, latitude: event.target.value })} /></label><label><span>Longitude</span><input inputMode="decimal" value={siteEditor.longitude} onChange={(event) => setSiteEditor({ ...siteEditor, longitude: event.target.value })} /></label></div>
+              <label><span>Access directions</span><textarea rows={2} value={siteEditor.access_directions} onChange={(event) => setSiteEditor({ ...siteEditor, access_directions: event.target.value })} /></label>
+              <div className="grid two"><label><span>Contact name</span><input value={siteEditor.contact_name} onChange={(event) => setSiteEditor({ ...siteEditor, contact_name: event.target.value })} /></label><label><span>Contact phone</span><input value={siteEditor.contact_phone} onChange={(event) => setSiteEditor({ ...siteEditor, contact_phone: event.target.value })} /></label></div>
+              <label><span>Contact email</span><input type="email" value={siteEditor.contact_email} onChange={(event) => setSiteEditor({ ...siteEditor, contact_email: event.target.value })} /></label>
+              <label><span>Site notes</span><textarea rows={2} value={siteEditor.notes} onChange={(event) => setSiteEditor({ ...siteEditor, notes: event.target.value })} /></label>
+              <button className="primary" type="submit" disabled={saving}><Save size={17} /> {siteEditor.id ? 'Save site' : 'Add site'}</button>
+            </form>
+            <section className="mallard-v3-panel">
+              <div className="mallard-v3-heading"><div><span className="eyebrow">Saved sites</span><h2>Site database</h2></div><span className="count">{sites.length}</span></div>
+              <div className="manager-list">{sites.map((site) => <div className={`manager-row site-row ${site.active ? '' : 'disabled'}`} key={site.id}><div className="manager-main"><strong>{site.site_name}</strong><span>{[site.customer, site.lsd, site.uwi].filter(Boolean).join(' · ') || 'No legal location entered'}</span><small>{samples.filter((sample) => sample.site_id === site.id).length} active sample(s){site.contact_name ? ` · ${site.contact_name}` : ''}</small></div><div className="manager-actions"><button className="secondary" type="button" onClick={() => editSite(site)}>Edit</button><button className="secondary" type="button" onClick={() => void toggleSite(site)}>{site.active ? 'Disable' : 'Enable'}</button></div></div>)}</div>
+            </section>
           </main>
         )}
 
         {view === 'detail' && selected && (
           <main className="mallard-v3-main narrow detail">
             <button className="back" type="button" onClick={() => setView('samples')}><ChevronLeft size={18} /> Samples</button>
-            <section className={`mallard-v3-sample-hero ${categoryInfo[selected.category].tone}`}>
-              <div><span className="eyebrow">Permanent bottle ID</span><div className="big-number">{selected.sample_number}</div><div className="meta"><span>{categoryInfo[selected.category].label}</span><span>{selected.sample_matrix || 'Unknown matrix'}</span></div></div>
+            <section className={`mallard-v3-sample-hero ${toneForCode(selected.classification_code)}`}>
+              <div><span className="eyebrow">Permanent bottle ID</span><div className="big-number">{selected.sample_code}</div><div className="meta"><span>{selected.classification_code} · {classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</span><span>{selected.sample_matrix || 'Unknown matrix'}</span></div></div>
               <div className="actions">{selected.priority && <span className="priority">Priority</span>}<span className={`status status-${selected.status}`}>{statusLabels[selected.status]}</span><button className="secondary light" type="button" onClick={() => requestPrint(selected)}><Printer size={18} /> Label</button></div>
             </section>
             <div className="mallard-v3-record-actions"><button type="button" className="secondary" onClick={() => cloneSample(selected)}><Plus size={18} /> Create another like this</button>{selected.disposal_destination && <span className="dump-chip"><MapPin size={15} /> {selected.disposal_destination}</span>}</div>
@@ -1156,6 +1235,7 @@ export default function MallardSampleTrackerV3() {
             <section className="mallard-v3-panel">
               <div className="mallard-v3-heading"><div><span className="eyebrow">Field collection</span><h2>Collection record</h2></div><button className="secondary" type="button" disabled={saving} onClick={() => void saveFieldInfo()}><Save size={17} /> Save</button></div>
               <div className="grid two"><label><span>Collection date</span><input type="date" value={toDateValue(selected.collected_at)} onChange={(event) => setSelected({ ...selected, collected_at: dateToIso(event.target.value) || selected.collected_at })} /></label><label><span>Collected by</span><input value={selected.collector_name || ''} onChange={(event) => setSelected({ ...selected, collector_name: event.target.value })} /></label></div>
+              <label><span>Reusable site</span><select value={selected.site_id || ''} onChange={(event) => { const site = sites.find((item) => item.id === event.target.value); setSelected({ ...selected, site_id: event.target.value || null, location: site ? (site.lsd || site.uwi || site.site_name) : selected.location, customer_site: site ? [site.customer, site.site_name].filter(Boolean).join(' / ') : selected.customer_site }) }}><option value="">No linked site</option>{sites.filter((site) => site.active || site.id === selected.site_id).map((site) => <option value={site.id} key={site.id}>{[site.customer, site.site_name, site.lsd || site.uwi].filter(Boolean).join(' · ')}</option>)}</select></label>
               <label><span>Location</span><input value={selected.location} onChange={(event) => setSelected({ ...selected, location: event.target.value })} /></label>
               <label><span>Customer / site</span><input value={selected.customer_site || ''} onChange={(event) => setSelected({ ...selected, customer_site: event.target.value })} /></label>
               <div className="grid two"><label><span>Sample matrix</span><select value={selected.sample_matrix || 'Unknown'} onChange={(event) => setSelected({ ...selected, sample_matrix: event.target.value })}>{matrixOptions.map((item) => <option key={item} value={item}>{item}</option>)}</select></label><label className="check"><input type="checkbox" checked={selected.priority} onChange={(event) => setSelected({ ...selected, priority: event.target.checked })} /><span><strong>Priority</strong><small>Highlight this sample</small></span></label></div>
@@ -1164,12 +1244,25 @@ export default function MallardSampleTrackerV3() {
               <label><span>Field notes</span><textarea rows={2} value={selected.field_notes || ''} onChange={(event) => setSelected({ ...selected, field_notes: event.target.value })} /></label>
             </section>
 
+            {selectedSite && <section className="mallard-v3-panel site-record-panel">
+              <div className="mallard-v3-heading"><div><span className="eyebrow">Reusable site</span><h2>{selectedSite.site_name}</h2></div><button className="link" type="button" onClick={() => { editSite(selectedSite); setView('sites') }}>Edit site</button></div>
+              <div className="site-record-grid">
+                <div><span>Customer</span><strong>{selectedSite.customer || 'Not entered'}</strong></div>
+                <div><span>LSD</span><strong>{selectedSite.lsd || 'Not entered'}</strong></div>
+                <div><span>UWI</span><strong>{selectedSite.uwi || 'Not entered'}</strong></div>
+                <div><span>GPS</span><strong>{selectedSite.latitude != null && selectedSite.longitude != null ? `${selectedSite.latitude}, ${selectedSite.longitude}` : 'Not entered'}</strong></div>
+              </div>
+              {selectedSite.access_directions && <p className="site-note"><strong>Access:</strong> {selectedSite.access_directions}</p>}
+              {(selectedSite.contact_name || selectedSite.contact_phone || selectedSite.contact_email) && <p className="site-note"><strong>Contact:</strong> {[selectedSite.contact_name, selectedSite.contact_phone, selectedSite.contact_email].filter(Boolean).join(' · ')}</p>}
+              <div className="site-history"><strong>Other active samples at this site</strong>{selectedSiteHistory.length === 0 ? <span>None yet</span> : selectedSiteHistory.slice(0, 6).map((sample) => <button type="button" key={sample.id} onClick={() => void openSample(sample.id)}><b>{sample.sample_code}</b><span>{formatDate(sample.collected_at)} · {classificationByCode.get(sample.classification_code)?.name || 'Sample'}</span></button>)}</div>
+            </section>}
+
             <section className="mallard-v3-panel">
               <div className="mallard-v3-heading"><div><span className="eyebrow">Mallard receiving</span><h2>Lab submission</h2></div><button className="secondary" type="button" disabled={saving} onClick={() => void saveLabInfo()}><Save size={17} /> Save</button></div>
               <div className="grid two"><label><span>Received date</span><input type="date" value={toDateValue(selected.received_at)} onChange={(event) => setSelected({ ...selected, received_at: dateToIso(event.target.value) })} /></label><label><span>Received by</span><input value={selected.received_by || ''} onChange={(event) => setSelected({ ...selected, received_by: event.target.value })} /></label></div>
               <div className="grid two"><label><span>Laboratory</span><input value={selected.lab_name || ''} onChange={(event) => setSelected({ ...selected, lab_name: event.target.value })} placeholder="Lab name" /></label><label><span>Lab submission #</span><input value={selected.lab_submission_number || ''} onChange={(event) => setSelected({ ...selected, lab_submission_number: event.target.value })} /></label></div>
               <div className="grid two"><label><span>Submitted date</span><input type="date" value={toDateValue(selected.submitted_at)} onChange={(event) => setSelected({ ...selected, submitted_at: dateToIso(event.target.value) })} /></label><label><span>Results received date</span><input type="date" value={toDateValue(selected.results_received_at)} onChange={(event) => setSelected({ ...selected, results_received_at: dateToIso(event.target.value) })} /></label></div>
-              <label><span>Final determination</span><textarea rows={2} value={selected.final_determination || ''} onChange={(event) => setSelected({ ...selected, final_determination: event.target.value })} /></label>
+              <label><span>Confirmed material</span><textarea rows={2} value={selected.confirmed_material || ''} onChange={(event) => setSelected({ ...selected, confirmed_material: event.target.value })} placeholder="What the lab or final review confirmed" /></label>
               <label><span>Lab / receiving notes</span><textarea rows={2} value={selected.lab_notes || ''} onChange={(event) => setSelected({ ...selected, lab_notes: event.target.value })} /></label>
             </section>
 
@@ -1201,22 +1294,22 @@ export default function MallardSampleTrackerV3() {
               {events.length === 0 ? <div className="empty small">No history yet.</div> : <div className="timeline">{events.map((event) => <div className="timeline-row" key={event.id}><span className="dot" /><div><strong>{event.event_type === 'status_change' && event.to_status ? `${event.from_status ? statusLabels[event.from_status as SampleStatus] : 'Status'} → ${statusLabels[event.to_status as SampleStatus]}` : eventLabels[event.event_type] || event.event_type.replaceAll('_', ' ')}</strong><span>{formatDate(event.created_at)}{event.actor_name ? ` · ${event.actor_name}` : ''}</span>{event.note && <p>{event.note}</p>}</div></div>)}</div>}
             </section>
 
-            <div className="danger-zone"><button className="archive" type="button" onClick={() => void archiveSample()}><Archive size={18} /> Archive sample</button><button className="delete" type="button" disabled={saving} onClick={() => void deleteSample()}><Trash2 size={18} /> Delete sample {selected.sample_number}</button></div>
+            <div className="danger-zone"><button className="archive" type="button" onClick={() => void archiveSample()}><Archive size={18} /> Archive sample</button><button className="delete" type="button" disabled={saving} onClick={() => void deleteSample()}><Trash2 size={18} /> Delete sample {selected.sample_code}</button></div>
           </main>
         )}
 
         <nav className="mallard-v3-bottom-nav" aria-label="Mallard navigation">
           <button className={view === 'dashboard' ? 'active' : ''} type="button" onClick={() => setView('dashboard')}><Beaker size={21} /><span>Home</span></button>
           <button className={view === 'samples' || view === 'detail' ? 'active' : ''} type="button" onClick={() => setView('samples')}><ClipboardList size={21} /><span>Samples</span></button>
-          <button className={view === 'new' ? 'active create' : 'create'} type="button" onClick={() => beginNewSample('oilfield')}><Plus size={24} /><span>New</span></button>
+          <button className={view === 'new' ? 'active create' : 'create'} type="button" onClick={() => beginNewSample(201)}><Plus size={24} /><span>New</span></button>
         </nav>
       </div>
 
-      {printSample && <div className="mallard-v3-print-label" aria-hidden="true"><div className="brand">MALLARD ENVIRONMENTAL</div><div className="number">{printSample.sample_number}</div><div className="category">{categoryInfo[printSample.category].label.toUpperCase()}</div><div>{formatDate(printSample.collected_at)}</div><div>{printSample.location}</div><div>Suspected: {printSample.suspected_contents}</div>{printSample.disposal_destination && <div>Dump: {printSample.disposal_destination}</div>}</div>}
+      {printSample && <div className="mallard-v3-print-label" aria-hidden="true"><div className="print-copy"><div className="brand">MALLARD ENVIRONMENTAL</div><div className="number">{printSample.sample_code}</div><div className="category">{printSample.classification_code} · {(classificationByCode.get(printSample.classification_code)?.name || categoryInfo[printSample.category].label).toUpperCase()}</div><div>{formatDate(printSample.collected_at)}</div><div>{printSample.location}</div><div>Suspected: {printSample.suspected_contents}</div>{printSample.confirmed_material && <div>Confirmed: {printSample.confirmed_material}</div>}</div><div className="print-qr"><QRCodeSVG value={`${window.location.origin}/mallard?sample=${printSample.id}`} size={118} level="M" /><small>Scan to open exact sample</small></div></div>}
     </>
   )
 }
 
 function SampleRow({ sample, onOpen }: { sample: MallardSample; onOpen: () => void }) {
-  return <button className={`mallard-v3-sample-row ${sample.priority ? 'priority' : ''}`} type="button" onClick={onOpen}><div className={`sample-id ${categoryInfo[sample.category].tone}`}>{sample.sample_number}</div><div className="sample-main"><div className="sample-top"><strong>{sample.customer_site || sample.location}</strong><span className={`status mini status-${sample.status}`}>{statusLabels[sample.status]}</span></div><p>{sample.customer_site ? sample.location : sample.suspected_contents}</p><div className="sample-meta"><span><CalendarDays size={14} /> {formatDate(sample.collected_at)}</span>{sample.collector_name && <span><UserRound size={14} /> {sample.collector_name}</span>}{sample.disposal_destination && <span><MapPin size={14} /> {sample.disposal_destination}</span>}</div></div></button>
+  return <button className={`mallard-v3-sample-row ${sample.priority ? 'priority' : ''}`} type="button" onClick={onOpen}><div className={`sample-id ${toneForCode(sample.classification_code)}`}>{sample.sample_code}</div><div className="sample-main"><div className="sample-top"><strong>{sample.customer_site || sample.location}</strong><span className={`status mini status-${sample.status}`}>{statusLabels[sample.status]}</span></div><p>{sample.customer_site ? sample.location : sample.suspected_contents}</p><div className="sample-meta"><span><CalendarDays size={14} /> {formatDate(sample.collected_at)}</span>{sample.collector_name && <span><UserRound size={14} /> {sample.collector_name}</span>}{sample.disposal_destination && <span><MapPin size={14} /> {sample.disposal_destination}</span>}</div></div></button>
 }

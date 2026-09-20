@@ -1,9 +1,10 @@
 {
-  "version": "0.8.15",
-  "title": "Automatic Version Correction",
+  "version": "0.8.16",
+  "title": "Production Security Hardening",
   "notes": [
-    "Synchronized Northborn package, lockfile and release versions.",
-    "Applied the mandatory version bump rule automatically after detecting inconsistent or unversioned changes.",
-    "No user data or operational records were changed by this correction."
+    "Removed the public admin/admin functional test login and production test-role switching.",
+    "Disabled the functional test account bootstrap endpoint and suspended seeded test workspace access.",
+    "Added recoverable workspace access errors so connection or role lookup failures are not mistaken for guest accounts.",
+    "Reduced unnecessary database function privileges while preserving invite onboarding and Mallard no-login workflows."
   ]
 }

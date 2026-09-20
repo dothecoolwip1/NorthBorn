@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { supabase } from './lib/supabase'
-import { signInFunctionalTestAdmin } from './functional-test-auth'
 import './auth-enhancements.css'
 
 const PRODUCTION_URL = 'https://northborn.vercel.app'
@@ -60,7 +59,6 @@ function enhanceAuthCard() {
       const email = emailInput?.value.trim() || ''
       const password = passwordInput?.value || ''
       const creating = Boolean(submitButton?.textContent?.toLowerCase().includes('create account'))
-      const normalized = email.toLowerCase()
 
       if (!email || !password) return
 
@@ -76,14 +74,8 @@ function enhanceAuthCard() {
       showAuthMessage(card, '')
 
       try {
-        if (!creating && normalized === 'admin') {
-          await signInFunctionalTestAdmin(email, password)
-          window.location.replace(getAuthRedirectUrl())
-          return
-        }
-
         if (!email.includes('@')) {
-          showAuthMessage(card, 'Use admin / admin for the test account, or enter a real email address.')
+          showAuthMessage(card, 'Enter a valid email address.')
           return
         }
 

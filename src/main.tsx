@@ -30,7 +30,6 @@ import SafetyRoutePage from './SafetyRoutePage'
 import TemplateManagerPage from './TemplateManagerPage'
 import MallardRoute from './MallardRoute'
 import GlobalAccountMenu from './GlobalAccountMenu'
-import TestRoleSwitcher from './TestRoleSwitcher'
 import ReleaseNotes from './ReleaseNotes'
 import LogoutPage from './LogoutPage'
 import AppErrorBoundary from './AppErrorBoundary'
@@ -46,7 +45,7 @@ import './qa-final-polish.css'
 const RETIRED_TEST_KEYS = ['northborn_test_mode', 'northborn_test_persona']
 for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)
 
-type RouteRole = 'loading' | 'guest' | 'unconnected' | 'manager' | 'operator' | 'client'
+type RouteRole = 'loading' | 'guest' | 'unconnected' | 'manager' | 'operator' | 'client' | 'error'
 const db = supabase as any
 
 function isMallardPath(pathname: string) {
@@ -62,6 +61,10 @@ function WorkspaceNotFound({ homeLabel = 'Back to dashboard' }:{ homeLabel?:stri
   return <div className="center-screen"><div className="auth-card account-choice-card"><div className="auth-logo">N</div><h1>Page not found</h1><p>This Northborn page is unavailable or the link is out of date.</p><div className="account-choice-actions"><a className="primary account-choice-link" href={import.meta.env.BASE_URL}>{homeLabel}</a><button className="secondary" type="button" onClick={()=>window.history.back()}>Go back</button></div></div></div>
 }
 
+function WorkspaceLoadError() {
+  return <div className="center-screen"><div className="auth-card account-choice-card"><div className="auth-logo">N</div><h1>Workspace unavailable</h1><p>Northborn could not verify your workspace access. Your account has not been changed. Check your connection and try again.</p><div className="account-choice-actions"><button className="primary" type="button" onClick={()=>window.location.reload()}>Try again</button><a className="secondary account-choice-link" href="/logout">Sign out</a></div></div></div>
+}
+
 function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole }) {
   if (isMallardPath(normalizedPath)) return <MallardRoute />
   if (normalizedPath === '/logout') return <LogoutPage />
@@ -69,6 +72,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole }:{ normalizedPa
   if (normalizedPath === '/join' || (hasInvite && normalizedPath !== '/client-join')) return <JoinOrganizationPage />
 
   if (routeRole === 'loading') return <div className="center-screen">Loading your Northborn workspace…</div>
+  if (routeRole === 'error') return <WorkspaceLoadError />
 
   if (routeRole === 'guest') {
     if (normalizedPath === '/') return <MarketingHome />
@@ -127,6 +131,7 @@ function NorthbornRouter() {
   const hasInvite = params.has('invite')
   const [session, setSession] = React.useState<Session | null>(null)
   const [routeRole, setRouteRole] = React.useState<RouteRole>('loading')
+  const [authFailed, setAuthFailed] = React.useState(false)
 
   React.useEffect(() => {
     if (isMallardPath(normalizedPath)) return
@@ -135,8 +140,25 @@ function NorthbornRouter() {
 
   React.useEffect(() => {
     let active = true
-    void supabase.auth.getSession().then(({ data }) => { if (active) setSession(data.session) })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => { if (active) setSession(next) })
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return
+      if (error) {
+        setAuthFailed(true)
+        setRouteRole('error')
+        return
+      }
+      setAuthFailed(false)
+      setSession(data.session)
+    }).catch(() => {
+      if (!active) return
+      setAuthFailed(true)
+      setRouteRole('error')
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
+      if (!active) return
+      setAuthFailed(false)
+      setSession(next)
+    })
     return () => { active = false; listener.subscription.unsubscribe() }
   }, [])
 
@@ -144,41 +166,61 @@ function NorthbornRouter() {
     if (isMallardPath(normalizedPath)) return
     let active = true
     const resolveRole = async () => {
+      if (authFailed) {
+        if (active) setRouteRole('error')
+        return
+      }
       if (!session?.user.id) {
         if (active) setRouteRole('guest')
         return
       }
 
       setRouteRole('loading')
-      const membership = await db.from('organization_members')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .eq('status', 'active')
-        .limit(1)
-        .maybeSingle()
+      try {
+        const membership = await db.from('organization_members')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .limit(1)
+          .maybeSingle()
 
-      if (!active) return
-      if (!membership.error && membership.data?.id) {
-        const roles = await db.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id)
         if (!active) return
-        const roleKey = roles.data?.[0]?.role?.key || ''
-        setRouteRole(roleKey === 'operator' ? 'operator' : 'manager')
-        return
-      }
+        if (membership.error) {
+          setRouteRole('error')
+          return
+        }
+        if (membership.data?.id) {
+          const roles = await db.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id)
+          if (!active) return
+          if (roles.error) {
+            setRouteRole('error')
+            return
+          }
+          const roleKey = roles.data?.[0]?.role?.key || ''
+          setRouteRole(roleKey === 'operator' ? 'operator' : 'manager')
+          return
+        }
 
-      const portal = await db.rpc('get_my_customer_portal_context')
-      if (!active) return
-      if (!portal.error && portal.data?.length) {
-        setRouteRole('client')
-        return
-      }
+        const portal = await db.rpc('get_my_customer_portal_context')
+        if (!active) return
+        if (portal.error) {
+          setRouteRole('error')
+          return
+        }
+        if (portal.data?.length) {
+          setRouteRole('client')
+          return
+        }
 
-      setRouteRole('unconnected')
+        setRouteRole('unconnected')
+      } catch {
+        if (active) setRouteRole('error')
+      }
     }
 
     void resolveRole()
     return () => { active = false }
-  }, [normalizedPath, session?.user.id])
+  }, [normalizedPath, session?.user.id, authFailed])
 
   return <RoutedWorkspace normalizedPath={normalizedPath} hasInvite={hasInvite} routeRole={routeRole} />
 }
@@ -199,7 +241,7 @@ function NorthbornOnlyChrome() {
   }, [])
 
   if (isMallardPath(location.pathname)) return null
-  return <><GlobalAccountMenu /><TestRoleSwitcher /><ReleaseNotes /></>
+  return <><GlobalAccountMenu /><ReleaseNotes /></>
 }
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '')

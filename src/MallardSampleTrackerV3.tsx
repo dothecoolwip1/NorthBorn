@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import {
   Archive,
   Beaker,
+  Building2,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
@@ -11,6 +12,7 @@ import {
   Download,
   ExternalLink,
   FileText,
+  Factory,
   FlaskConical,
   MapPin,
   PackageCheck,
@@ -27,6 +29,7 @@ import {
   UserRound,
   WifiOff,
   X,
+  Boxes,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { parseLabDocument } from './mallardDocumentParser'
@@ -165,6 +168,15 @@ type SavedDraft = {
   id: string
   saved_at: string
   form: SampleForm
+}
+
+type MallardNavState = {
+  mallardTracker: true
+  view: ViewMode
+  pickerGroup: string | null
+  pickerSection: string | null
+  pickerMode: 'new' | 'change'
+  sampleId: string | null
 }
 
 const db = supabase as any
@@ -312,6 +324,7 @@ export default function MallardSampleTrackerV3() {
   const [attachmentProgressValue, setAttachmentProgressValue] = React.useState(0)
   const attachmentInputRef = React.useRef<HTMLInputElement>(null)
   const deepLinkOpenedRef = React.useRef(false)
+  const historyReadyRef = React.useRef(false)
 
   const classificationByCode = React.useMemo(() => new Map(classifications.map((item) => [item.code, item])), [classifications])
   const nextCodeByClassification = React.useMemo(() => new Map(nextClassificationNumbers.map((item) => [item.classification_code, item.next_sample_code])), [nextClassificationNumbers])
@@ -382,12 +395,61 @@ export default function MallardSampleTrackerV3() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(next))
   }
 
-  const openSamplePicker = (group: string | null = null, mode: 'new' | 'change' = 'new') => {
-    setPickerMode(mode)
-    setPickerGroup(group)
-    setPickerSection(null)
-    setView('picker')
+  const makeNavState = (
+    nextView: ViewMode,
+    options: {
+      group?: string | null
+      section?: string | null
+      mode?: 'new' | 'change'
+      sampleId?: string | null
+    } = {},
+  ): MallardNavState => ({
+    mallardTracker: true,
+    view: nextView,
+    pickerGroup: options.group ?? null,
+    pickerSection: options.section ?? null,
+    pickerMode: options.mode ?? 'new',
+    sampleId: options.sampleId ?? null,
+  })
+
+  const pushNavState = (state: MallardNavState) => {
+    if (!historyReadyRef.current) return
+    window.history.pushState(state, '', window.location.href)
+  }
+
+  const replaceNavState = (state: MallardNavState) => {
+    window.history.replaceState(state, '', window.location.href)
+  }
+
+  const navigateView = (
+    nextView: ViewMode,
+    options: {
+      group?: string | null
+      section?: string | null
+      mode?: 'new' | 'change'
+      sampleId?: string | null
+      replace?: boolean
+    } = {},
+  ) => {
+    setView(nextView)
+    if (nextView === 'picker') {
+      setPickerMode(options.mode ?? 'new')
+      setPickerGroup(options.group ?? null)
+      setPickerSection(options.section ?? null)
+    }
+    const state = makeNavState(nextView, options)
+    if (options.replace) replaceNavState(state)
+    else pushNavState(state)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const goBack = () => {
+    if (window.history.length > 1) window.history.back()
+    else navigateView('dashboard', { replace: true })
+  }
+
+  const openSamplePicker = (group: string | null = null, mode: 'new' | 'change' = 'new') => {
+    navigateView('picker', { group, section: null, mode })
   }
 
   const choosePickerClassification = (classification: Classification) => {
@@ -399,17 +461,16 @@ export default function MallardSampleTrackerV3() {
     }
     setPickerGroup(null)
     setPickerSection(null)
-    setView('new')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    navigateView('new')
   }
 
   const changeCurrentClassification = () => {
     const classification = classificationByCode.get(newForm.classification_code)
-    setPickerMode('change')
-    setPickerGroup(classification?.group_name || null)
-    setPickerSection(classification?.section_name || null)
-    setView('picker')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    navigateView('picker', {
+      group: classification?.group_name || null,
+      section: classification?.section_name || null,
+      mode: 'change',
+    })
   }
 
   const cloneSample = (sample: MallardSample) => {
@@ -429,8 +490,7 @@ export default function MallardSampleTrackerV3() {
       disposal_date: sample.disposed_at ? toDateValue(sample.disposed_at) : '',
     })
     setActiveDraftId(null)
-    setView('new')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    navigateView('new')
   }
 
   const saveDraft = () => {
@@ -444,7 +504,7 @@ export default function MallardSampleTrackerV3() {
   const resumeDraft = (draft: SavedDraft) => {
     setNewForm({ ...blankForm(), ...draft.form, classification_code: draft.form.classification_code || 201, site_id: draft.form.site_id || '' })
     setActiveDraftId(draft.id)
-    setView('new')
+    navigateView('new')
   }
 
   const discardDraft = (id: string) => {
@@ -500,11 +560,11 @@ export default function MallardSampleTrackerV3() {
     if (activeDraftId) discardDraft(activeDraftId)
     setNewForm(blankForm(newForm.classification_code))
     await loadSamples()
-    await openSample(data.id)
+    await openSample(data.id, 'none')
     setMessage({ type: 'success', text: `Sample ${data.sample_code} created. Label the bottle with this code.` })
   }
 
-  const openSample = async (id: string) => {
+  const openSample = async (id: string, historyMode: 'push' | 'replace' | 'none' = 'push') => {
     setLoading(true)
     const [sampleResponse, resultResponse, attachmentResponse, eventResponse] = await Promise.all([
       db.from('mallard_samples').select('*').eq('id', id).single(),
@@ -536,15 +596,47 @@ export default function MallardSampleTrackerV3() {
     setEvents(eventResponse.data || [])
     setView('detail')
     setLoading(false)
+    if (historyMode === 'push') pushNavState(makeNavState('detail', { sampleId: id }))
+    if (historyMode === 'replace') replaceNavState(makeNavState('detail', { sampleId: id }))
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  React.useEffect(() => {
+    const existing = window.history.state as MallardNavState | null
+    if (!existing?.mallardTracker) {
+      replaceNavState(makeNavState('dashboard'))
+    } else {
+      setView(existing.view)
+      setPickerGroup(existing.pickerGroup)
+      setPickerSection(existing.pickerSection)
+      setPickerMode(existing.pickerMode || 'new')
+    }
+    historyReadyRef.current = true
+
+    const onPopState = (event: PopStateEvent) => {
+      const state = event.state as MallardNavState | null
+      if (!state?.mallardTracker) return
+      setPickerGroup(state.pickerGroup)
+      setPickerSection(state.pickerSection)
+      setPickerMode(state.pickerMode || 'new')
+      if (state.view === 'detail' && state.sampleId) {
+        void openSample(state.sampleId, 'none')
+      } else {
+        setView(state.view)
+        window.scrollTo({ top: 0, behavior: 'auto' })
+      }
+    }
+
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   React.useEffect(() => {
     if (deepLinkOpenedRef.current) return
     const sampleId = new URLSearchParams(window.location.search).get('sample')
     if (!sampleId) return
     deepLinkOpenedRef.current = true
-    void openSample(sampleId)
+    void openSample(sampleId, 'replace')
   }, [])
 
   const chooseSiteForForm = (siteId: string) => {
@@ -696,7 +788,7 @@ export default function MallardSampleTrackerV3() {
     }
     if (!data) {
       setMessage({ type: 'error', text: 'This sample changed on another device. I refreshed the latest version.' })
-      await openSample(selected.id)
+      await openSample(selected.id, 'none')
       return false
     }
     setSelected(data)
@@ -793,7 +885,7 @@ export default function MallardSampleTrackerV3() {
         if (response.error) throw response.error
       }
       setMessage({ type: 'success', text: 'Test results saved.' })
-      await openSample(selected.id)
+      await openSample(selected.id, 'none')
     } catch (error: any) {
       setMessage({ type: 'error', text: `Could not save test results: ${error.message || 'Unknown error'}` })
     } finally {
@@ -896,7 +988,7 @@ export default function MallardSampleTrackerV3() {
         }
       }
 
-      await openSample(selected.id)
+      await openSample(selected.id, 'none')
       setMessage({
         type: importedTotal ? 'success' : 'info',
         text: importedTotal
@@ -945,7 +1037,7 @@ export default function MallardSampleTrackerV3() {
       setMessage({ type: 'error', text: `File was removed but its attachment record could not be cleared: ${metadataDelete.error.message}` })
       return
     }
-    await openSample(selected.id)
+    await openSample(selected.id, 'none')
     setMessage({ type: 'success', text: 'Test attachment deleted. Imported test rows were kept.' })
   }
 
@@ -963,7 +1055,7 @@ export default function MallardSampleTrackerV3() {
       return
     }
     setSelected(null)
-    setView('samples')
+    navigateView('samples', { replace: true })
     await loadSamples()
     setMessage({ type: 'success', text: 'Sample archived.' })
   }
@@ -990,7 +1082,7 @@ export default function MallardSampleTrackerV3() {
       return
     }
     setSelected(null)
-    setView('samples')
+    navigateView('samples', { replace: true })
     await loadSamples()
     setMessage({ type: 'success', text: `Sample ${selected.sample_code} permanently deleted. Code ${selected.sample_code} is available for reuse, with deletion history retained.` })
   }

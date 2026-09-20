@@ -261,6 +261,7 @@ function escapeCsv(value: unknown) {
 export default function MallardSampleTrackerV3() {
   const [view, setView] = React.useState<ViewMode>('dashboard')
   const [samples, setSamples] = React.useState<MallardSample[]>([])
+  const [allSamples, setAllSamples] = React.useState<MallardSample[]>([])
   const [selected, setSelected] = React.useState<MallardSample | null>(null)
   const [testResults, setTestResults] = React.useState<TestResult[]>([])
   const [attachments, setAttachments] = React.useState<TestAttachment[]>([])
@@ -298,12 +299,12 @@ export default function MallardSampleTrackerV3() {
   const nextCodeByClassification = React.useMemo(() => new Map(nextClassificationNumbers.map((item) => [item.classification_code, item.next_sample_code])), [nextClassificationNumbers])
   const activeClassifications = React.useMemo(() => classifications.filter((item) => item.active && !item.name.startsWith('Legacy /')), [classifications])
   const selectedSite = selected?.site_id ? sites.find((site) => site.id === selected.site_id) || null : null
-  const selectedSiteHistory = selected?.site_id ? samples.filter((sample) => sample.site_id === selected.site_id && sample.id !== selected.id) : []
+  const selectedSiteHistory = selected?.site_id ? allSamples.filter((sample) => sample.site_id === selected.site_id && sample.id !== selected.id) : []
 
   const loadSamples = React.useCallback(async () => {
     setLoading(true)
     const [sampleResponse, classificationResponse, counterResponse, siteResponse] = await Promise.all([
-      db.from('mallard_samples').select('*').eq('archived', false).order('collected_at', { ascending: false }),
+      db.from('mallard_samples').select('*').order('collected_at', { ascending: false }),
       db.from('mallard_classifications').select('*').order('sort_order', { ascending: true }).order('code', { ascending: true }),
       db.rpc('mallard_get_classification_numbers'),
       db.from('mallard_sites').select('*').order('customer', { ascending: true, nullsFirst: false }).order('site_name', { ascending: true }),
@@ -312,7 +313,9 @@ export default function MallardSampleTrackerV3() {
     if (sampleResponse.error) {
       setMessage({ type: 'error', text: `Could not load samples: ${sampleResponse.error.message}` })
     } else {
-      setSamples(sampleResponse.data || [])
+      const loadedSamples = (sampleResponse.data || []) as MallardSample[]
+      setAllSamples(loadedSamples)
+      setSamples(loadedSamples.filter((sample) => !sample.archived))
     }
 
     if (classificationResponse.error) {
@@ -1204,7 +1207,7 @@ export default function MallardSampleTrackerV3() {
             </form>
             <section className="mallard-v3-panel">
               <div className="mallard-v3-heading"><div><span className="eyebrow">Saved sites</span><h2>Site database</h2></div><span className="count">{sites.length}</span></div>
-              <div className="manager-list">{sites.map((site) => <div className={`manager-row site-row ${site.active ? '' : 'disabled'}`} key={site.id}><div className="manager-main"><strong>{site.site_name}</strong><span>{[site.customer, site.lsd, site.uwi].filter(Boolean).join(' · ') || 'No legal location entered'}</span><small>{samples.filter((sample) => sample.site_id === site.id).length} active sample(s){site.contact_name ? ` · ${site.contact_name}` : ''}</small></div><div className="manager-actions"><button className="secondary" type="button" onClick={() => editSite(site)}>Edit</button><button className="secondary" type="button" onClick={() => void toggleSite(site)}>{site.active ? 'Disable' : 'Enable'}</button></div></div>)}</div>
+              <div className="manager-list">{sites.map((site) => <div className={`manager-row site-row ${site.active ? '' : 'disabled'}`} key={site.id}><div className="manager-main"><strong>{site.site_name}</strong><span>{[site.customer, site.lsd, site.uwi].filter(Boolean).join(' · ') || 'No legal location entered'}</span><small>{allSamples.filter((sample) => sample.site_id === site.id).length} historical sample(s){site.contact_name ? ` · ${site.contact_name}` : ''}</small></div><div className="manager-actions"><button className="secondary" type="button" onClick={() => editSite(site)}>Edit</button><button className="secondary" type="button" onClick={() => void toggleSite(site)}>{site.active ? 'Disable' : 'Enable'}</button></div></div>)}</div>
             </section>
           </main>
         )}

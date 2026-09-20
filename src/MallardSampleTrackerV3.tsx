@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import {
   Archive,
   Beaker,
+  Building2,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
@@ -11,6 +12,7 @@ import {
   Download,
   ExternalLink,
   FileText,
+  Factory,
   FlaskConical,
   MapPin,
   PackageCheck,
@@ -27,6 +29,7 @@ import {
   UserRound,
   WifiOff,
   X,
+  Boxes,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { parseLabDocument } from './mallardDocumentParser'
@@ -167,6 +170,15 @@ type SavedDraft = {
   form: SampleForm
 }
 
+type MallardNavState = {
+  mallardTracker: true
+  view: ViewMode
+  pickerGroup: string | null
+  pickerSection: string | null
+  pickerMode: 'new' | 'change'
+  sampleId: string | null
+}
+
 const db = supabase as any
 const DRAFT_KEY = 'mallard_sample_drafts_v3'
 const ACTOR_KEY = 'mallard_last_actor_v1'
@@ -198,6 +210,13 @@ function rangeForGroup(group: string) {
   if (group === 'Non Oilfield') return '100–199'
   if (group === 'Other / Specialty') return '300–399'
   return 'Custom'
+}
+
+function descriptionForGroup(group: string) {
+  if (group === 'Oilfield') return 'Wells, tanks, completions and production fluids'
+  if (group === 'Non Oilfield') return 'Sumps, septic, commercial waste and hydrovac material'
+  if (group === 'Other / Specialty') return 'Fuels, refined oils and specialty materials'
+  return 'Custom sample classifications'
 }
 
 const statusOrder: SampleStatus[] = ['collected', 'with_driver', 'received', 'submitted', 'testing', 'results_received', 'complete']
@@ -312,6 +331,7 @@ export default function MallardSampleTrackerV3() {
   const [attachmentProgressValue, setAttachmentProgressValue] = React.useState(0)
   const attachmentInputRef = React.useRef<HTMLInputElement>(null)
   const deepLinkOpenedRef = React.useRef(false)
+  const historyReadyRef = React.useRef(false)
 
   const classificationByCode = React.useMemo(() => new Map(classifications.map((item) => [item.code, item])), [classifications])
   const nextCodeByClassification = React.useMemo(() => new Map(nextClassificationNumbers.map((item) => [item.classification_code, item.next_sample_code])), [nextClassificationNumbers])
@@ -382,12 +402,70 @@ export default function MallardSampleTrackerV3() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(next))
   }
 
-  const openSamplePicker = (group: string | null = null, mode: 'new' | 'change' = 'new') => {
-    setPickerMode(mode)
-    setPickerGroup(group)
-    setPickerSection(null)
-    setView('picker')
+  const makeNavState = (
+    nextView: ViewMode,
+    options: {
+      group?: string | null
+      section?: string | null
+      mode?: 'new' | 'change'
+      sampleId?: string | null
+    } = {},
+  ): MallardNavState => ({
+    mallardTracker: true,
+    view: nextView,
+    pickerGroup: options.group ?? null,
+    pickerSection: options.section ?? null,
+    pickerMode: options.mode ?? 'new',
+    sampleId: options.sampleId ?? null,
+  })
+
+  const pushNavState = (state: MallardNavState) => {
+    if (!historyReadyRef.current) return
+    const current = window.history.state as MallardNavState | null
+    if (
+      current?.mallardTracker &&
+      current.view === state.view &&
+      current.pickerGroup === state.pickerGroup &&
+      current.pickerSection === state.pickerSection &&
+      current.pickerMode === state.pickerMode &&
+      current.sampleId === state.sampleId
+    ) return
+    window.history.pushState(state, '', window.location.href)
+  }
+
+  const replaceNavState = (state: MallardNavState) => {
+    window.history.replaceState(state, '', window.location.href)
+  }
+
+  const navigateView = (
+    nextView: ViewMode,
+    options: {
+      group?: string | null
+      section?: string | null
+      mode?: 'new' | 'change'
+      sampleId?: string | null
+      replace?: boolean
+    } = {},
+  ) => {
+    setView(nextView)
+    if (nextView === 'picker') {
+      setPickerMode(options.mode ?? 'new')
+      setPickerGroup(options.group ?? null)
+      setPickerSection(options.section ?? null)
+    }
+    const state = makeNavState(nextView, options)
+    if (options.replace) replaceNavState(state)
+    else pushNavState(state)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const goBack = () => {
+    if (window.history.length > 1) window.history.back()
+    else navigateView('dashboard', { replace: true })
+  }
+
+  const openSamplePicker = (group: string | null = null, mode: 'new' | 'change' = 'new') => {
+    navigateView('picker', { group, section: null, mode })
   }
 
   const choosePickerClassification = (classification: Classification) => {
@@ -399,17 +477,16 @@ export default function MallardSampleTrackerV3() {
     }
     setPickerGroup(null)
     setPickerSection(null)
-    setView('new')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    navigateView('new')
   }
 
   const changeCurrentClassification = () => {
     const classification = classificationByCode.get(newForm.classification_code)
-    setPickerMode('change')
-    setPickerGroup(classification?.group_name || null)
-    setPickerSection(classification?.section_name || null)
-    setView('picker')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    navigateView('picker', {
+      group: classification?.group_name || null,
+      section: classification?.section_name || null,
+      mode: 'change',
+    })
   }
 
   const cloneSample = (sample: MallardSample) => {
@@ -429,8 +506,7 @@ export default function MallardSampleTrackerV3() {
       disposal_date: sample.disposed_at ? toDateValue(sample.disposed_at) : '',
     })
     setActiveDraftId(null)
-    setView('new')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    navigateView('new')
   }
 
   const saveDraft = () => {
@@ -444,7 +520,7 @@ export default function MallardSampleTrackerV3() {
   const resumeDraft = (draft: SavedDraft) => {
     setNewForm({ ...blankForm(), ...draft.form, classification_code: draft.form.classification_code || 201, site_id: draft.form.site_id || '' })
     setActiveDraftId(draft.id)
-    setView('new')
+    navigateView('new')
   }
 
   const discardDraft = (id: string) => {
@@ -504,7 +580,7 @@ export default function MallardSampleTrackerV3() {
     setMessage({ type: 'success', text: `Sample ${data.sample_code} created. Label the bottle with this code.` })
   }
 
-  const openSample = async (id: string) => {
+  const openSample = async (id: string, historyMode: 'push' | 'replace' | 'none' = 'push') => {
     setLoading(true)
     const [sampleResponse, resultResponse, attachmentResponse, eventResponse] = await Promise.all([
       db.from('mallard_samples').select('*').eq('id', id).single(),
@@ -536,15 +612,48 @@ export default function MallardSampleTrackerV3() {
     setEvents(eventResponse.data || [])
     setView('detail')
     setLoading(false)
+    if (historyMode === 'push') pushNavState(makeNavState('detail', { sampleId: id }))
+    if (historyMode === 'replace') replaceNavState(makeNavState('detail', { sampleId: id }))
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  React.useEffect(() => {
+    const existing = window.history.state as MallardNavState | null
+    if (!existing?.mallardTracker) {
+      replaceNavState(makeNavState('dashboard'))
+    } else {
+      setPickerGroup(existing.pickerGroup)
+      setPickerSection(existing.pickerSection)
+      setPickerMode(existing.pickerMode || 'new')
+      if (existing.view === 'detail' && existing.sampleId) void openSample(existing.sampleId, 'none')
+      else setView(existing.view)
+    }
+    historyReadyRef.current = true
+
+    const onPopState = (event: PopStateEvent) => {
+      const state = event.state as MallardNavState | null
+      if (!state?.mallardTracker) return
+      setPickerGroup(state.pickerGroup)
+      setPickerSection(state.pickerSection)
+      setPickerMode(state.pickerMode || 'new')
+      if (state.view === 'detail' && state.sampleId) {
+        void openSample(state.sampleId, 'none')
+      } else {
+        setView(state.view)
+        window.scrollTo({ top: 0, behavior: 'auto' })
+      }
+    }
+
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   React.useEffect(() => {
     if (deepLinkOpenedRef.current) return
     const sampleId = new URLSearchParams(window.location.search).get('sample')
     if (!sampleId) return
     deepLinkOpenedRef.current = true
-    void openSample(sampleId)
+    void openSample(sampleId, 'replace')
   }, [])
 
   const chooseSiteForForm = (siteId: string) => {
@@ -696,12 +805,12 @@ export default function MallardSampleTrackerV3() {
     }
     if (!data) {
       setMessage({ type: 'error', text: 'This sample changed on another device. I refreshed the latest version.' })
-      await openSample(selected.id)
+      await openSample(selected.id, 'none')
       return false
     }
     setSelected(data)
     await loadSamples()
-    await openSample(data.id)
+    await openSample(data.id, 'none')
     setMessage({ type: 'success', text: successText })
     return true
   }
@@ -793,7 +902,7 @@ export default function MallardSampleTrackerV3() {
         if (response.error) throw response.error
       }
       setMessage({ type: 'success', text: 'Test results saved.' })
-      await openSample(selected.id)
+      await openSample(selected.id, 'none')
     } catch (error: any) {
       setMessage({ type: 'error', text: `Could not save test results: ${error.message || 'Unknown error'}` })
     } finally {
@@ -896,7 +1005,7 @@ export default function MallardSampleTrackerV3() {
         }
       }
 
-      await openSample(selected.id)
+      await openSample(selected.id, 'none')
       setMessage({
         type: importedTotal ? 'success' : 'info',
         text: importedTotal
@@ -945,7 +1054,7 @@ export default function MallardSampleTrackerV3() {
       setMessage({ type: 'error', text: `File was removed but its attachment record could not be cleared: ${metadataDelete.error.message}` })
       return
     }
-    await openSample(selected.id)
+    await openSample(selected.id, 'none')
     setMessage({ type: 'success', text: 'Test attachment deleted. Imported test rows were kept.' })
   }
 
@@ -963,7 +1072,7 @@ export default function MallardSampleTrackerV3() {
       return
     }
     setSelected(null)
-    setView('samples')
+    navigateView('samples', { replace: true })
     await loadSamples()
     setMessage({ type: 'success', text: 'Sample archived.' })
   }
@@ -990,7 +1099,7 @@ export default function MallardSampleTrackerV3() {
       return
     }
     setSelected(null)
-    setView('samples')
+    navigateView('samples', { replace: true })
     await loadSamples()
     setMessage({ type: 'success', text: `Sample ${selected.sample_code} permanently deleted. Code ${selected.sample_code} is available for reuse, with deletion history retained.` })
   }
@@ -1087,7 +1196,7 @@ export default function MallardSampleTrackerV3() {
 
   return (
     <>
-      <div className="mallard-v3-app">
+      <div className={`mallard-v3-app ${view === 'picker' ? 'picker-active' : ''}`}>
         <header className="mallard-v3-header">
           <div className="mallard-v3-brand">
             <img src="/icons/mallard-icon.svg" alt="" />
@@ -1109,8 +1218,8 @@ export default function MallardSampleTrackerV3() {
                 <h2>Start a new sample</h2>
                 <p>Choose the main category first. Mallard will narrow it down to the section and exact sample type.</p>
                 <div className="mallard-v3-admin-links">
-                  <button className="secondary" type="button" onClick={() => setView('classifications')}>Classification Manager</button>
-                  <button className="secondary" type="button" onClick={() => setView('sites')}>Site Manager</button>
+                  <button className="secondary" type="button" onClick={() => navigateView('classifications')}>Classification Manager</button>
+                  <button className="secondary" type="button" onClick={() => navigateView('sites')}>Site Manager</button>
                 </div>
               </div>
               <div className="sample-picker-grid category-step">
@@ -1128,14 +1237,14 @@ export default function MallardSampleTrackerV3() {
             </section>
 
             <section className="mallard-v3-quick-search">
-              <Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') setView('samples') }} placeholder="Search code, site, material or dump location" /><button type="button" onClick={() => setView('samples')}>Search</button>
+              <Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') navigateView('samples') }} placeholder="Search code, site, material or dump location" /><button type="button" onClick={() => navigateView('samples')}>Search</button>
             </section>
 
             <section className="mallard-v3-stats">
-              <button type="button" onClick={() => { setStatusFilter('all'); setView('samples') }}><span>Active</span><strong>{stats.total}</strong></button>
-              <button type="button" onClick={() => { setStatusFilter('collected'); setView('samples') }}><span>To deliver</span><strong>{stats.toDeliver}</strong></button>
-              <button type="button" onClick={() => { setDisposalFilter('undumped'); setView('samples') }}><span>No dump site</span><strong>{stats.awaitingDisposal}</strong></button>
-              <button type="button" onClick={() => { setStatusFilter('complete'); setView('samples') }}><span>Complete</span><strong>{stats.complete}</strong></button>
+              <button type="button" onClick={() => { setStatusFilter('all'); navigateView('samples') }}><span>Active</span><strong>{stats.total}</strong></button>
+              <button type="button" onClick={() => { setStatusFilter('collected'); navigateView('samples') }}><span>To deliver</span><strong>{stats.toDeliver}</strong></button>
+              <button type="button" onClick={() => { setDisposalFilter('undumped'); navigateView('samples') }}><span>No dump site</span><strong>{stats.awaitingDisposal}</strong></button>
+              <button type="button" onClick={() => { setStatusFilter('complete'); navigateView('samples') }}><span>Complete</span><strong>{stats.complete}</strong></button>
             </section>
 
             {drafts.length > 0 && (
@@ -1148,7 +1257,7 @@ export default function MallardSampleTrackerV3() {
             )}
 
             <section className="mallard-v3-panel">
-              <div className="mallard-v3-heading"><div><span className="eyebrow">Database</span><h2>Recent samples</h2></div><button className="link" type="button" onClick={() => setView('samples')}>View all</button></div>
+              <div className="mallard-v3-heading"><div><span className="eyebrow">Database</span><h2>Recent samples</h2></div><button className="link" type="button" onClick={() => navigateView('samples')}>View all</button></div>
               {loading ? <div className="empty">Loading samples...</div> : samples.length === 0 ? <div className="empty">No samples yet.</div> : <div className="mallard-v3-sample-list">{samples.slice(0, 6).map((sample) => <SampleRow key={sample.id} sample={sample} onOpen={() => void openSample(sample.id)} />)}</div>}
             </section>
           </main>
@@ -1172,29 +1281,39 @@ export default function MallardSampleTrackerV3() {
         )}
 
         {view === 'picker' && (
-          <main className="mallard-v3-main narrow sample-picker-page">
-            <button className="back" type="button" onClick={() => {
-              if (pickerSection) setPickerSection(null)
-              else if (pickerGroup) setPickerGroup(null)
-              else setView(pickerMode === 'change' ? 'new' : 'dashboard')
-            }}><ChevronLeft size={18} /> {pickerSection ? 'Sections' : pickerGroup ? 'Categories' : 'Back'}</button>
-
-            <div className="sample-picker-progress" aria-label="Sample classification progress">
-              <span className={pickerGroup ? 'done' : 'active'}>1 <b>Category</b></span>
-              <ChevronRight size={15} />
-              <span className={pickerGroup && !pickerSection ? 'active' : pickerSection ? 'done' : ''}>2 <b>Section</b></span>
-              <ChevronRight size={15} />
-              <span className={pickerSection ? 'active' : ''}>3 <b>Sample</b></span>
+          <main className="mallard-v3-main narrow sample-flow-page">
+            <div className="sample-flow-topbar">
+              <button className="sample-flow-back" type="button" onClick={goBack} aria-label="Go back"><ChevronLeft size={22} /></button>
+              <div className="sample-flow-progress" aria-label={`Step ${!pickerGroup ? 1 : !pickerSection ? 2 : 3} of 3`}>
+                <span>Step {!pickerGroup ? 1 : !pickerSection ? 2 : 3} of 3</span>
+                <div><i style={{ width: `${(!pickerGroup ? 1 : !pickerSection ? 2 : 3) * 33.333}%` }} /></div>
+              </div>
+              <div className="sample-flow-top-spacer" />
             </div>
 
             {!pickerGroup && (
               <>
-                <div className="mallard-v3-page-heading picker-heading"><div><span className="eyebrow">Step 1 of 3</span><h2>What kind of work is this?</h2><p>Start broad. You will choose the exact material in the next two steps.</p></div></div>
-                <div className="sample-picker-grid">
+                <section className="sample-flow-intro">
+                  <span className="eyebrow">New sample</span>
+                  <h2>Choose a category</h2>
+                  <p>Start with where the material came from.</p>
+                </section>
+                <div className="sample-flow-options">
                   {pickerGroups.map((group) => {
                     const typeCount = activeClassifications.filter((item) => item.group_name === group).length
                     const sectionCount = new Set(activeClassifications.filter((item) => item.group_name === group).map((item) => item.section_name)).size
-                    return <button key={group} type="button" className={`sample-picker-card category-card ${toneForGroup(group)}`} onClick={() => { setPickerGroup(group); setPickerSection(null) }}><div><span className="picker-range">{rangeForGroup(group)}</span><strong>{group}</strong><small>{sectionCount} section{sectionCount === 1 ? '' : 's'} · {typeCount} sample type{typeCount === 1 ? '' : 's'}</small></div><ChevronRight size={24} /></button>
+                    const Icon = group === 'Oilfield' ? Factory : group === 'Non Oilfield' ? Building2 : Boxes
+                    return (
+                      <button key={group} type="button" className={`sample-flow-option category ${toneForGroup(group)}`} onClick={() => navigateView('picker', { group, section: null, mode: pickerMode })}>
+                        <span className="sample-flow-icon"><Icon size={25} /></span>
+                        <span className="sample-flow-copy">
+                          <span className="sample-flow-label"><strong>{group}</strong><em>{rangeForGroup(group)}</em></span>
+                          <span className="sample-flow-description">{descriptionForGroup(group)}</span>
+                          <small>{sectionCount} section{sectionCount === 1 ? '' : 's'} · {typeCount} sample type{typeCount === 1 ? '' : 's'}</small>
+                        </span>
+                        <ChevronRight className="sample-flow-chevron" size={22} />
+                      </button>
+                    )
                   })}
                 </div>
               </>
@@ -1202,11 +1321,24 @@ export default function MallardSampleTrackerV3() {
 
             {pickerGroup && !pickerSection && (
               <>
-                <div className="mallard-v3-page-heading picker-heading"><div><span className="eyebrow">Step 2 of 3 · {pickerGroup}</span><h2>Choose a section</h2><p>Only sections used by {pickerGroup} samples are shown.</p></div></div>
-                <div className="sample-picker-grid">
+                <section className="sample-flow-intro">
+                  <span className="sample-flow-breadcrumb">{pickerGroup}</span>
+                  <h2>Choose a section</h2>
+                  <p>Pick the area that best matches the material you collected.</p>
+                </section>
+                <div className="sample-flow-options sections">
                   {pickerSections.map((section) => {
                     const types = activeClassifications.filter((item) => item.group_name === pickerGroup && item.section_name === section)
-                    return <button key={section} type="button" className={`sample-picker-card section-card ${toneForGroup(pickerGroup)}`} onClick={() => setPickerSection(section)}><div><span className="picker-range">{pickerGroup}</span><strong>{section}</strong><small>{types.length} sample type{types.length === 1 ? '' : 's'}</small></div><ChevronRight size={24} /></button>
+                    return (
+                      <button key={section} type="button" className={`sample-flow-option section ${toneForGroup(pickerGroup)}`} onClick={() => navigateView('picker', { group: pickerGroup, section, mode: pickerMode })}>
+                        <span className="sample-flow-copy">
+                          <strong>{section}</strong>
+                          <span className="sample-flow-description">{types.map((item) => item.name).slice(0, 3).join(' · ')}</span>
+                          <small>{types.length} sample type{types.length === 1 ? '' : 's'}</small>
+                        </span>
+                        <ChevronRight className="sample-flow-chevron" size={22} />
+                      </button>
+                    )
                   })}
                 </div>
               </>
@@ -1214,13 +1346,20 @@ export default function MallardSampleTrackerV3() {
 
             {pickerGroup && pickerSection && (
               <>
-                <div className="mallard-v3-page-heading picker-heading"><div><span className="eyebrow">Step 3 of 3 · {pickerGroup} · {pickerSection}</span><h2>What is the sample?</h2><p>Choose the exact classification. The next bottle number is shown on each option.</p></div></div>
-                <div className="sample-picker-grid type-step">
+                <section className="sample-flow-intro">
+                  <span className="sample-flow-breadcrumb">{pickerGroup} <ChevronRight size={13} /> {pickerSection}</span>
+                  <h2>Select the sample type</h2>
+                  <p>The next available bottle ID is shown below.</p>
+                </section>
+                <div className="sample-flow-options types">
                   {pickerTypes.map((classification) => (
-                    <button key={classification.code} type="button" className={`sample-picker-card type-card ${toneForCode(classification.code)}`} onClick={() => choosePickerClassification(classification)}>
-                      <div className="type-code">{classification.code}</div>
-                      <div className="type-copy"><strong>{classification.name}</strong><small>Next bottle: <b>{nextCodeByClassification.get(classification.code) || `${classification.code}-????`}</b></small></div>
-                      <ChevronRight size={22} />
+                    <button key={classification.code} type="button" className={`sample-flow-option sample-type ${toneForCode(classification.code)}`} onClick={() => choosePickerClassification(classification)}>
+                      <span className="sample-flow-code">{classification.code}</span>
+                      <span className="sample-flow-copy">
+                        <strong>{classification.name}</strong>
+                        <small>Next bottle <b>{nextCodeByClassification.get(classification.code) || `${classification.code}-????`}</b></small>
+                      </span>
+                      <ChevronRight className="sample-flow-chevron" size={22} />
                     </button>
                   ))}
                 </div>
@@ -1232,7 +1371,7 @@ export default function MallardSampleTrackerV3() {
 
         {view === 'new' && (
           <main className="mallard-v3-main narrow">
-            <button className="back" type="button" onClick={() => setView('dashboard')}><ChevronLeft size={18} /> Back</button>
+            <button className="back" type="button" onClick={goBack}><ChevronLeft size={18} /> Back</button>
             <div className="mallard-v3-page-heading">
               <div>
                 <span className="eyebrow">New sample</span>
@@ -1250,7 +1389,7 @@ export default function MallardSampleTrackerV3() {
               </section>
 
               <section className="mallard-v3-panel">
-                <div className="mallard-v3-heading"><div><span className="eyebrow">Site</span><h2>Where was it collected?</h2></div><button className="link" type="button" onClick={() => setView('sites')}>Manage sites</button></div>
+                <div className="mallard-v3-heading"><div><span className="eyebrow">Site</span><h2>Where was it collected?</h2></div><button className="link" type="button" onClick={() => navigateView('sites')}>Manage sites</button></div>
                 <label><span>Reusable site</span>
                   <select value={newForm.site_id} onChange={(event) => chooseSiteForForm(event.target.value)}>
                     <option value="">Enter location manually</option>
@@ -1286,7 +1425,7 @@ export default function MallardSampleTrackerV3() {
 
         {view === 'classifications' && (
           <main className="mallard-v3-main narrow">
-            <button className="back" type="button" onClick={() => setView('dashboard')}><ChevronLeft size={18} /> Home</button>
+            <button className="back" type="button" onClick={goBack}><ChevronLeft size={18} /> Home</button>
             <div className="mallard-v3-page-heading"><div><span className="eyebrow">Admin</span><h2>Classification Manager</h2><p>Codes are permanent. Rename or disable them, but a code can never be reused for a different meaning.</p></div></div>
             <form className="mallard-v3-panel mallard-manager-form" onSubmit={saveClassification}>
               <div className="mallard-v3-heading"><div><span className="eyebrow">{editingClassificationCode ? 'Edit classification' : 'New classification'}</span><h2>{editingClassificationCode ? `Code ${editingClassificationCode}` : 'Add sample type'}</h2></div>{editingClassificationCode && <button className="link" type="button" onClick={() => { setEditingClassificationCode(null); setClassificationEditor({ code: '', name: '', group_name: 'Oilfield', section_name: 'General', description: '' }) }}>Cancel</button>}</div>
@@ -1309,7 +1448,7 @@ export default function MallardSampleTrackerV3() {
 
         {view === 'sites' && (
           <main className="mallard-v3-main narrow">
-            <button className="back" type="button" onClick={() => setView('dashboard')}><ChevronLeft size={18} /> Home</button>
+            <button className="back" type="button" onClick={goBack}><ChevronLeft size={18} /> Home</button>
             <div className="mallard-v3-page-heading"><div><span className="eyebrow">Reusable records</span><h2>Site Manager</h2><p>Save a site once, then reuse its customer, legal location, GPS, directions and contact details on future samples.</p></div></div>
             <form className="mallard-v3-panel mallard-manager-form" onSubmit={saveSite}>
               <div className="mallard-v3-heading"><div><span className="eyebrow">{siteEditor.id ? 'Edit site' : 'New site'}</span><h2>{siteEditor.id ? siteEditor.site_name : 'Add reusable site'}</h2></div>{siteEditor.id && <button className="link" type="button" onClick={() => setSiteEditor({ id: '', customer: '', site_name: '', lsd: '', uwi: '', latitude: '', longitude: '', access_directions: '', contact_name: '', contact_phone: '', contact_email: '', notes: '' })}>Cancel</button>}</div>
@@ -1331,7 +1470,7 @@ export default function MallardSampleTrackerV3() {
 
         {view === 'detail' && selected && (
           <main className="mallard-v3-main narrow detail">
-            <button className="back" type="button" onClick={() => setView('samples')}><ChevronLeft size={18} /> Samples</button>
+            <button className="back" type="button" onClick={goBack}><ChevronLeft size={18} /> Samples</button>
             <section className={`mallard-v3-sample-hero ${toneForCode(selected.classification_code)}`}>
               <div><span className="eyebrow">Permanent bottle ID</span><div className="big-number">{selected.sample_code}</div><div className="meta"><span>{selected.classification_code} · {classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</span><span>{classificationByCode.get(selected.classification_code)?.section_name || 'General'}</span><span>{selected.sample_matrix || 'Unknown matrix'}</span></div></div>
               <div className="actions">{selected.priority && <span className="priority">Priority</span>}<span className={`status status-${selected.status}`}>{statusLabels[selected.status]}</span><button className="secondary light" type="button" onClick={() => requestPrint(selected)}><Printer size={18} /> Label</button></div>
@@ -1365,7 +1504,7 @@ export default function MallardSampleTrackerV3() {
             </section>
 
             {selectedSite && <section className="mallard-v3-panel site-record-panel">
-              <div className="mallard-v3-heading"><div><span className="eyebrow">Reusable site</span><h2>{selectedSite.site_name}</h2></div><button className="link" type="button" onClick={() => { editSite(selectedSite); setView('sites') }}>Edit site</button></div>
+              <div className="mallard-v3-heading"><div><span className="eyebrow">Reusable site</span><h2>{selectedSite.site_name}</h2></div><button className="link" type="button" onClick={() => { editSite(selectedSite); navigateView('sites') }}>Edit site</button></div>
               <div className="site-record-grid">
                 <div><span>Customer</span><strong>{selectedSite.customer || 'Not entered'}</strong></div>
                 <div><span>LSD</span><strong>{selectedSite.lsd || 'Not entered'}</strong></div>
@@ -1418,11 +1557,11 @@ export default function MallardSampleTrackerV3() {
           </main>
         )}
 
-        <nav className="mallard-v3-bottom-nav" aria-label="Mallard navigation">
-          <button className={view === 'dashboard' ? 'active' : ''} type="button" onClick={() => setView('dashboard')}><Beaker size={21} /><span>Home</span></button>
-          <button className={view === 'samples' || view === 'detail' ? 'active' : ''} type="button" onClick={() => setView('samples')}><ClipboardList size={21} /><span>Samples</span></button>
-          <button className={view === 'new' || view === 'picker' ? 'active create' : 'create'} type="button" onClick={() => openSamplePicker(null, 'new')}><Plus size={24} /><span>New</span></button>
-        </nav>
+        {view !== 'picker' && <nav className="mallard-v3-bottom-nav" aria-label="Mallard navigation">
+          <button className={view === 'dashboard' ? 'active' : ''} type="button" onClick={() => navigateView('dashboard')}><Beaker size={21} /><span>Home</span></button>
+          <button className={view === 'samples' || view === 'detail' ? 'active' : ''} type="button" onClick={() => navigateView('samples')}><ClipboardList size={21} /><span>Samples</span></button>
+          <button className={view === 'new' ? 'active create' : 'create'} type="button" onClick={() => openSamplePicker(null, 'new')}><Plus size={24} /><span>New</span></button>
+        </nav>}
       </div>
 
       {printSample && <div className="mallard-v3-print-label" aria-hidden="true"><div className="print-copy"><div className="brand">MALLARD ENVIRONMENTAL</div><div className="number">{printSample.sample_code}</div><div className="category">{printSample.classification_code} · {(classificationByCode.get(printSample.classification_code)?.name || categoryInfo[printSample.category].label).toUpperCase()}</div><div>{formatDate(printSample.collected_at)}</div><div>{printSample.location}</div><div>Suspected: {printSample.suspected_contents}</div>{printSample.confirmed_material && <div>Confirmed: {printSample.confirmed_material}</div>}</div><div className="print-qr"><QRCodeSVG value={`${window.location.origin}/mallard?sample=${printSample.id}`} size={118} level="M" /><small>Scan to open exact sample</small></div></div>}

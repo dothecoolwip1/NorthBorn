@@ -1,5 +1,4 @@
 import React from 'react'
-import { QRCodeSVG } from 'qrcode.react'
 import {
   Archive,
   Beaker,
@@ -18,7 +17,6 @@ import {
   MapPin,
   PackageCheck,
   Plus,
-  Printer,
   RefreshCw,
   Save,
   Search,
@@ -312,6 +310,11 @@ function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat('en-CA', { dateStyle: 'medium' }).format(new Date(value))
 }
 
+function formatBottleDate(value: string | null | undefined) {
+  if (!value) return 'DATE'
+  return new Intl.DateTimeFormat('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value)).toUpperCase()
+}
+
 function blankForm(classificationCode = 201): SampleForm {
   return {
     classification_code: classificationCode,
@@ -421,7 +424,6 @@ export default function MallardSampleTrackerV3() {
   const [saving, setSaving] = React.useState(false)
   const [message, setMessage] = React.useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
   const [online, setOnline] = React.useState(() => navigator.onLine)
-  const [printSample, setPrintSample] = React.useState<MallardSample | null>(null)
   const [attachmentBusy, setAttachmentBusy] = React.useState(false)
   const [attachmentProgress, setAttachmentProgress] = React.useState('')
   const [attachmentProgressValue, setAttachmentProgressValue] = React.useState(0)
@@ -684,7 +686,7 @@ export default function MallardSampleTrackerV3() {
     setNewForm(blankForm(newForm.classification_code))
     await loadSamples()
     await openSample(data.id)
-    setMessage({ type: 'success', text: `Sample ${data.sample_code} created. Label the bottle with this code.` })
+    setMessage({ type: 'success', text: `Sample ${data.sample_code} created. Write this sample ID on the bottle now.` })
   }
 
   const openSample = async (id: string, historyMode: 'push' | 'replace' | 'none' = 'push') => {
@@ -1471,11 +1473,6 @@ export default function MallardSampleTrackerV3() {
     URL.revokeObjectURL(url)
   }
 
-  const requestPrint = (sample: MallardSample) => {
-    setPrintSample(sample)
-    window.setTimeout(() => window.print(), 80)
-  }
-
   const filteredSamples = React.useMemo(() => {
     const normalized = query.trim().toLowerCase()
     return samples.filter((sample) => {
@@ -1834,8 +1831,28 @@ export default function MallardSampleTrackerV3() {
             <button className="back" type="button" onClick={goBack}><ChevronLeft size={18} /> Samples</button>
             <section className={`mallard-v3-sample-hero ${toneForCode(selected.classification_code)}`}>
               <div><span className="eyebrow">Permanent bottle ID</span><div className="big-number">{selected.sample_code}</div><div className="meta"><span>{selected.classification_code} · {classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</span><span>{classificationByCode.get(selected.classification_code)?.section_name || 'General'}</span><span>{selected.sample_matrix || 'Unknown matrix'}</span></div></div>
-              <div className="actions">{selected.priority && <span className="priority">Priority</span>}<span className={`status status-${selected.status}`}>{statusLabels[selected.status]}</span><button className="secondary light" type="button" onClick={() => requestPrint(selected)}><Printer size={18} /> Label</button></div>
+              <div className="actions">{selected.priority && <span className="priority">Priority</span>}<span className={`status status-${selected.status}`}>{statusLabels[selected.status]}</span></div>
             </section>
+
+            <section className="mallard-v3-panel bottle-writing-card">
+              <div className="mallard-v3-heading">
+                <div><span className="eyebrow">Operator bottle marking</span><h2>Write this on the bottle</h2></div>
+              </div>
+              <p className="bottle-writing-guidance">Use permanent marker. Put the Mallard sample ID on first and copy the example below.</p>
+              <div className="bottle-writing-example" aria-label="Example of what to handwrite on the sample bottle">
+                <span className="bottle-writing-brand">MALLARD</span>
+                <strong>{selected.sample_code}</strong>
+                <span>{formatBottleDate(selected.collected_at)}</span>
+                <span>{classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</span>
+                <span>{selected.location}</span>
+                {selected.collector_name && <span>{selected.collector_name}</span>}
+              </div>
+              <div className="bottle-writing-minimum">
+                <span>If space is tight, at minimum write:</span>
+                <strong>{selected.sample_code} · {formatBottleDate(selected.collected_at)} · {classificationByCode.get(selected.classification_code)?.name || categoryInfo[selected.category].label}</strong>
+              </div>
+            </section>
+
             <div className="mallard-v3-record-actions"><button type="button" className="secondary" onClick={() => cloneSample(selected)}><Plus size={18} /> Create another like this</button>{selected.disposal_destination && <span className="dump-chip"><MapPin size={15} /> {selected.disposal_destination}</span>}</div>
 
             <section className="mallard-v3-panel disposal">
@@ -1946,7 +1963,6 @@ export default function MallardSampleTrackerV3() {
         </nav>}
       </div>
 
-      {printSample && <div className="mallard-v3-print-label" aria-hidden="true"><div className="print-copy"><div className="brand">MALLARD ENVIRONMENTAL</div><div className="number">{printSample.sample_code}</div><div className="category">{printSample.classification_code} · {(classificationByCode.get(printSample.classification_code)?.name || categoryInfo[printSample.category].label).toUpperCase()}</div><div>{formatDate(printSample.collected_at)}</div><div>{printSample.location}</div><div>Suspected: {printSample.suspected_contents}</div>{printSample.confirmed_material && <div>Confirmed: {printSample.confirmed_material}</div>}</div><div className="print-qr"><QRCodeSVG value={`${window.location.origin}/mallard?sample=${printSample.id}`} size={118} level="M" /><small>Scan to open exact sample</small></div></div>}
       {reviewAttachment && reviewDocument && <MallardDocumentReview
         attachmentName={reviewAttachment.original_name}
         document={reviewDocument}

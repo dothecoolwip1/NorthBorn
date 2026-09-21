@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.0':[
+    'Rebuilt Dispatch as a field workflow board with crew, unit and stage tracking from unassigned through work completion.',
+    'Added operator acknowledgement, en route, on site and work-start controls with job-specific dispatch and emergency contacts.',
+    'Upgraded Jobs and Calendar with recurring work, duplication, search, week and month views, unscheduled work and durable operational history.',
+  ],
   '0.8.45':[
     'Serialized role-mutating browser QA so concurrent CI and production checks cannot interfere with the shared functional test account.',
     'Kept the full internal-role, direct-route, navigation, sign-out and mobile assertions enabled without weakening access-control coverage.',

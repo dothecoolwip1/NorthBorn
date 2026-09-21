@@ -107,6 +107,18 @@ async function expectPersonaReady(page, persona) {
   expect(body).not.toContain('Workspace unavailable')
 }
 
+async function dismissTransientUi(page) {
+  for (const name of ['Dismiss release notes', 'Dismiss notification']) {
+    const button = page.getByRole('button', { name, exact: true }).last()
+    if (await button.isVisible().catch(() => false)) await button.click()
+  }
+  const menu = page.getByRole('dialog', { name: 'Northborn menu' })
+  if (await menu.isVisible().catch(() => false)) {
+    const close = page.getByRole('button', { name: 'Close menu', exact: true })
+    if (await close.isVisible().catch(() => false)) await close.click()
+  }
+}
+
 async function loginAs(page, persona) {
   await page.goto(absolute('/login'))
   await settle(page)
@@ -116,6 +128,8 @@ async function loginAs(page, persona) {
   await page.waitForURL(url => url.origin === new URL(BASE).origin && url.pathname === '/', { timeout: 30000 })
   await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
   await expectPersonaReady(page, persona)
+  await page.waitForTimeout(900)
+  await dismissTransientUi(page)
 }
 
 async function setManagerInternalRole(page, roleKey) {
@@ -176,6 +190,9 @@ test('manager routes and core actions are healthy', async ({ page }) => {
   await expect(newJob).toBeVisible({ timeout: 15000 })
   await newJob.click()
   await expect(page.locator('.manager-job-modal')).toBeVisible({ timeout: 10000 })
+  await expect(page.getByLabel('Repeat', { exact: true })).toBeVisible()
+  await page.getByLabel('Repeat', { exact: true }).selectOption('weekly')
+  await expect(page.getByLabel('Occurrences', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Cancel', exact: true }).click()
 
   await page.goto(absolute('/tickets'))
@@ -186,6 +203,92 @@ test('manager routes and core actions are healthy', async ({ page }) => {
   await page.locator('.ticket-editor header button').first().click()
 
   failWithIssues(issues)
+})
+
+test('Pack 2 job flows from manager creation through field completion', async ({ page }) => {
+  const stamp = Date.now()
+  const jobNumber = `PACK2-${stamp}`
+  const title = 'Pack 2 workflow QA'
+  const customerName = `Pack 2 QA Customer ${stamp}`
+
+  await loginAs(page, 'manager')
+  await page.goto(absolute('/jobs'))
+  await page.getByRole('button', { name: /new job/i }).click()
+  const modal = page.locator('.manager-job-modal')
+  await expect(modal).toBeVisible()
+
+  await modal.getByRole('button', { name: 'Quick add client', exact: true }).click()
+  await modal.getByPlaceholder('Company name').fill(customerName)
+  await modal.getByRole('button', { name: 'Add client', exact: true }).click()
+  await expect(modal.getByRole('option', { name: customerName })).toBeAttached()
+
+  await modal.getByLabel('Job number', { exact: true }).fill(jobNumber)
+  await modal.getByLabel('Job title', { exact: true }).fill(title)
+  await modal.getByLabel('Lifecycle state', { exact: true }).selectOption('scheduled')
+  await modal.getByRole('button', { name: 'On-site time', exact: true }).click()
+  const picker = page.getByRole('dialog', { name: 'Choose date and time' })
+  await expect(picker).toBeVisible()
+  await picker.getByRole('button', { name: 'Done', exact: true }).click()
+  await modal.getByRole('button', { name: 'Create job', exact: true }).click()
+
+  const jobCard = page.locator('.manager-job-card').filter({ hasText: jobNumber }).first()
+  await expect(jobCard).toBeVisible({ timeout: 20000 })
+  await jobCard.locator('a.manager-job-card-link').click()
+  await expect(page.locator('.dispatch-v2-modal')).toBeVisible({ timeout: 20000 })
+
+  const manage = page.locator('.dispatch-v2-modal')
+  await manage.getByRole('button', { name: /Operator Test/ }).click()
+  await manage.getByRole('button', { name: /TEST-101/ }).click()
+  await manage.getByRole('button', { name: 'Assign selected', exact: true }).click()
+  await expect(manage).toContainText('Ready', { timeout: 20000 })
+
+  const primaryOperatorSelect = manage.getByLabel('Primary operator', { exact: true })
+  const primaryOperatorValue = await primaryOperatorSelect.locator('option').filter({ hasText: 'Operator Test' }).first().getAttribute('value')
+  if (!primaryOperatorValue) throw new Error('Pack 2 QA could not resolve the assigned operator option.')
+  await primaryOperatorSelect.selectOption(primaryOperatorValue)
+  await manage.getByLabel('Dispatch contact name', { exact: true }).fill('Pack 2 Dispatch')
+  await manage.getByLabel('Dispatch contact phone', { exact: true }).fill('403-555-0202')
+  await manage.getByLabel('Emergency contact name', { exact: true }).fill('Pack 2 Emergency')
+  await manage.getByLabel('Emergency contact phone', { exact: true }).fill('403-555-0911')
+  await manage.getByRole('button', { name: 'Save job details', exact: true }).click()
+
+  await manage.getByRole('button', { name: 'Dispatched', exact: true }).click()
+  await expect(manage).toContainText('Dispatched', { timeout: 20000 })
+  await manage.getByRole('button', { name: 'Done', exact: true }).click()
+
+  await page.getByRole('button', { name: 'Open Northborn menu' }).click()
+  await page.getByRole('dialog', { name: 'Northborn menu' }).getByRole('button', { name: 'Sign out', exact: true }).click()
+  await loginAs(page, 'operator')
+  await page.goto(absolute('/jobs'))
+
+  const operatorCard = page.locator('.field-job-button').filter({ hasText: jobNumber }).first()
+  await expect(operatorCard).toBeVisible({ timeout: 20000 })
+  await operatorCard.click()
+  const operatorModal = page.locator('.field-job-modal')
+  await expect(operatorModal).toContainText('403-555-0202')
+  await expect(operatorModal).toContainText('403-555-0911')
+
+  await operatorModal.getByRole('button', { name: 'Acknowledge dispatch', exact: true }).click()
+  await expect(operatorModal.getByRole('button', { name: 'Start driving', exact: true })).toBeVisible({ timeout: 20000 })
+  await operatorModal.getByRole('button', { name: 'Start driving', exact: true }).click()
+  await expect(operatorModal.getByRole('button', { name: 'Mark on site', exact: true })).toBeVisible({ timeout: 20000 })
+  await operatorModal.getByRole('button', { name: 'Mark on site', exact: true }).click()
+  await expect(operatorModal.getByRole('button', { name: 'Start work', exact: true })).toBeVisible({ timeout: 20000 })
+  await operatorModal.getByRole('button', { name: 'Start work', exact: true }).click()
+  await expect(operatorModal).toContainText('Work is underway', { timeout: 20000 })
+
+  await operatorModal.getByRole('button', { name: 'Complete job', exact: true }).click()
+  await operatorModal.getByRole('button', { name: 'Yes, complete job', exact: true }).click()
+  const invoiceModal = page.locator('.operator-invoice-modal')
+  await expect(invoiceModal).toBeVisible({ timeout: 20000 })
+  await invoiceModal.locator('header button').click()
+
+  await page.getByRole('button', { name: 'Open Northborn menu' }).click()
+  await page.getByRole('dialog', { name: 'Northborn menu' }).getByRole('button', { name: 'Sign out', exact: true }).click()
+  await loginAs(page, 'manager')
+  await page.goto(absolute('/jobs?view=completed'))
+  await page.locator('.manager-job-search input').fill(jobNumber)
+  await expect(page.locator('.manager-job-card').filter({ hasText: jobNumber }).first()).toContainText('Completed', { timeout: 20000 })
 })
 
 test('operator routes, role isolation, and job access are healthy', async ({ page }) => {

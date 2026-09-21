@@ -14,12 +14,13 @@ const BILLING_ROLES=new Set(['owner','admin','accounting'])
 const TICKET_REVIEW_ROLES=new Set(['owner','admin','supervisor','dispatcher','accounting'])
 const TIMESHEET_MANAGE_ROLES=new Set(['owner','admin','supervisor','accounting'])
 const OPS_ROLES=new Set(['owner','admin','supervisor','dispatcher','safety','mechanic'])
+const DISPATCH_ROLES=new Set(['owner','admin','supervisor','dispatcher'])
 const FLEET_ROLES=new Set(['owner','admin','supervisor','dispatcher','safety','mechanic'])
 
 type Organization={id:string;name:string}
 type Customer={id:string;name:string}
 type Employee={id:string;first_name:string;last_name:string;position:string|null;status:string}
-type Job={id:string;customer_id:string;job_number:string;title:string;site_name:string|null;site_address:string|null;shop_time:string|null;onsite_time:string|null;scheduled_start:string|null;scheduled_end:string|null;status:string}
+type Job={id:string;customer_id:string;job_number:string;title:string;site_name:string|null;site_address:string|null;shop_time:string|null;onsite_time:string|null;scheduled_start:string|null;scheduled_end:string|null;status:string;dispatch_stage:string}
 type Assignment={id:string;job_id:string;employee_id:string|null;vehicle_id:string|null;role:string|null}
 type Vehicle={id:string;unit_number:string;name:string|null;vehicle_type:string;status:string;odometer_km:number|null;engine_hours:number|string|null}
 type Ticket={id:string;ticket_number:string;job_id:string|null;customer_id:string;work_date:string;work_description:string|null;status:string;invoice_id:string|null;customer_signed_at:string|null;reviewed_at:string|null}
@@ -52,7 +53,8 @@ const num=(value:unknown)=>Number(value||0)
 const currency=(value:number)=>new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD',maximumFractionDigits:0}).format(value)
 const label=(value:string)=>value.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())
 const localDay=(date=new Date())=>{const copy=new Date(date.getTime()-date.getTimezoneOffset()*60000);return copy.toISOString().slice(0,10)}
-const timeLabel=(value:string|null)=>value?new Intl.DateTimeFormat('en-CA',{hour:'numeric',minute:'2-digit'}).format(new Date(value)):'Time not set'
+const timeLabel=(value:string|null,withDate=false)=>value?new Intl.DateTimeFormat('en-CA',withDate?{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}:{hour:'numeric',minute:'2-digit'}).format(new Date(value)):'Time not set'
+const valueDay=(value:string|null)=>value?localDay(new Date(value)):null
 const readError=(error:unknown)=>error instanceof Error?error.message:String((error as {message?:string})?.message||error||'Something went wrong.')
 
 function maintenanceState(assignment:MaintenanceAssignment,program:Program,vehicle:Vehicle){
@@ -96,7 +98,7 @@ export default function ManagerDashboardV2(){
       const [customers,employees,jobs,assignments,vehicles,tickets,invoices,timesheets,programs,maintenanceAssignments,defects,workOrders]=await Promise.all([
         db.from('customers').select('id,name').eq('organization_id',organization.id).neq('status','archived').order('name'),
         db.from('employees').select('id,first_name,last_name,position,status').eq('organization_id',organization.id).neq('status','archived').order('last_name'),
-        wantsOps?db.from('jobs').select('id,customer_id,job_number,title,site_name,site_address,shop_time,onsite_time,scheduled_start,scheduled_end,status').eq('organization_id',organization.id).order('scheduled_start',{ascending:true,nullsFirst:false}).limit(500):noQuery(),
+        wantsOps?db.from('jobs').select('id,customer_id,job_number,title,site_name,site_address,shop_time,onsite_time,scheduled_start,scheduled_end,status,dispatch_stage').eq('organization_id',organization.id).order('scheduled_start',{ascending:true,nullsFirst:false}).limit(500):noQuery(),
         wantsOps?db.from('dispatch_assignments').select('id,job_id,employee_id,vehicle_id,role').eq('organization_id',organization.id):noQuery(),
         wantsFleet?db.from('fleet_vehicles').select('id,unit_number,name,vehicle_type,status,odometer_km,engine_hours').eq('organization_id',organization.id).neq('status','archived').order('unit_number'):noQuery(),
         wantsTicketReview||wantsBilling?db.from('field_tickets').select('id,ticket_number,job_id,customer_id,work_date,work_description,status,invoice_id,customer_signed_at,reviewed_at').eq('organization_id',organization.id).order('work_date',{ascending:false}).limit(500):noQuery(),
@@ -121,10 +123,17 @@ export default function ManagerDashboardV2(){
   const metrics=useMemo(()=>{
     const today=localDay()
     const activeJobs=workspace.jobs.filter(job=>!['completed','cancelled'].includes(job.status))
-    const todayJobs=activeJobs.filter(job=>[job.onsite_time,job.scheduled_start,job.shop_time].some(value=>value?.slice(0,10)===today))
-    const needsDispatch=activeJobs.filter(job=>{
-      const rows=workspace.assignments.filter(row=>row.job_id===job.id)
-      return !rows.some(row=>row.employee_id)||!rows.some(row=>row.vehicle_id)
+    const todayJobs=activeJobs.filter(job=>[job.onsite_time,job.scheduled_start,job.shop_time].some(value=>valueDay(value)===today))
+    const upcomingJobs=activeJobs.filter(job=>{const value=job.onsite_time||job.scheduled_start||job.shop_time;return Boolean(value&&valueDay(value)!==today&&new Date(value).getTime()>Date.now())}).sort((a,b)=>String(a.onsite_time||a.scheduled_start||a.shop_time).localeCompare(String(b.onsite_time||b.scheduled_start||b.shop_time)))
+    const needsDispatch=activeJobs.filter(job=>job.dispatch_stage==='unassigned')
+    const readyToSend=activeJobs.filter(job=>job.dispatch_stage==='ready')
+    const waitingAcknowledgement=activeJobs.filter(job=>job.dispatch_stage==='dispatched')
+    const fieldActive=activeJobs.filter(job=>['acknowledged','en_route','onsite','work_started'].includes(job.dispatch_stage))
+    const unscheduledJobs=activeJobs.filter(job=>!job.onsite_time&&!job.scheduled_start&&!job.shop_time)
+    const now=Date.now()
+    const overdueFieldStart=activeJobs.filter(job=>{
+      const start=job.onsite_time||job.scheduled_start
+      return Boolean(start&&new Date(start).getTime()<now&&!['onsite','work_started','work_completed'].includes(job.dispatch_stage))
     })
     const ticketsWaiting=workspace.tickets.filter(ticket=>ticket.status==='submitted')
     const readyToBill=workspace.tickets.filter(ticket=>ticket.status==='approved'&&!ticket.invoice_id)
@@ -143,7 +152,7 @@ export default function ManagerDashboardV2(){
     })
     const maintenanceDue=maintenanceRows.filter(row=>row.state==='danger')
     const maintenanceSoon=maintenanceRows.filter(row=>row.state==='warn')
-    return {today,activeJobs,todayJobs,needsDispatch,ticketsWaiting,readyToBill,submittedTimesheets,outstandingInvoices,outstandingBalance,overdueInvoices,availableVehicles,openDefects,outOfService,openWorkOrders,maintenanceRows,maintenanceDue,maintenanceSoon}
+    return {today,activeJobs,todayJobs,upcomingJobs,needsDispatch,readyToSend,waitingAcknowledgement,fieldActive,unscheduledJobs,overdueFieldStart,ticketsWaiting,readyToBill,submittedTimesheets,outstandingInvoices,outstandingBalance,overdueInvoices,availableVehicles,openDefects,outOfService,openWorkOrders,maintenanceRows,maintenanceDue,maintenanceSoon}
   },[workspace])
 
   if(loading)return <div className="manager-home-loading">Loading Northborn command centre…</div>
@@ -155,10 +164,14 @@ export default function ManagerDashboardV2(){
   const canTicketReview=TICKET_REVIEW_ROLES.has(workspace.roleKey)
   const canTimesheetReview=TIMESHEET_MANAGE_ROLES.has(workspace.roleKey)
   const canOps=OPS_ROLES.has(workspace.roleKey)
+  const canDispatch=DISPATCH_ROLES.has(workspace.roleKey)
   const canFleet=FLEET_ROLES.has(workspace.roleKey)
   const hour=new Date().getHours(),greeting=hour<12?'Good morning':hour<18?'Good afternoon':'Good evening'
   const attention=[
-    ...(canOps&&metrics.needsDispatch.length?[{key:'dispatch',level:'urgent' as const,icon:Users,title:`${metrics.needsDispatch.length} job${metrics.needsDispatch.length===1?'':'s'} need dispatch`,copy:'Crew or unit assignments are incomplete.',to:'/dispatch'}]:[]),
+    ...(canDispatch&&metrics.needsDispatch.length?[{key:'dispatch',level:'urgent' as const,icon:Users,title:`${metrics.needsDispatch.length} job${metrics.needsDispatch.length===1?'':'s'} need resources`,copy:'Crew or unit assignments are incomplete.',to:'/dispatch'}]:[]),
+    ...(canDispatch&&metrics.readyToSend.length?[{key:'ready',level:'warn' as const,icon:CalendarDays,title:`${metrics.readyToSend.length} job${metrics.readyToSend.length===1?'':'s'} ready to send`,copy:'Crew and units are assigned but Dispatch has not released them yet.',to:'/dispatch'}]:[]),
+    ...(canDispatch&&metrics.waitingAcknowledgement.length?[{key:'ack',level:'warn' as const,icon:Clock3,title:`${metrics.waitingAcknowledgement.length} dispatch${metrics.waitingAcknowledgement.length===1?'':'es'} waiting acknowledgement`,copy:'The field operator has not acknowledged these dispatched jobs yet.',to:'/dispatch'}]:[]),
+    ...(canDispatch&&metrics.overdueFieldStart.length?[{key:'late',level:'urgent' as const,icon:AlertTriangle,title:`${metrics.overdueFieldStart.length} job${metrics.overdueFieldStart.length===1?'':'s'} past on-site time`,copy:'Scheduled on-site time has passed without an on-site or work-started update.',to:'/dispatch'}]:[]),
     ...(canTicketReview&&metrics.ticketsWaiting.length?[{key:'tickets',level:'warn' as const,icon:ClipboardCheck,title:`${metrics.ticketsWaiting.length} ticket${metrics.ticketsWaiting.length===1?'':'s'} waiting review`,copy:'Submitted field work is waiting for office approval.',to:'/tickets'}]:[]),
     ...(canBilling&&metrics.readyToBill.length?[{key:'billing',level:'warn' as const,icon:ReceiptText,title:`${metrics.readyToBill.length} approved ticket${metrics.readyToBill.length===1?'':'s'} ready to bill`,copy:'Convert signed field work into invoice drafts.',to:'/billing'}]:[]),
     ...(canBilling&&metrics.overdueInvoices.length?[{key:'ar',level:'urgent' as const,icon:Banknote,title:`${metrics.overdueInvoices.length} overdue invoice${metrics.overdueInvoices.length===1?'':'s'}`,copy:`${currency(metrics.overdueInvoices.reduce((sum,row)=>sum+num(row.balance_due),0))} currently overdue.`,to:'/invoices'}]:[]),
@@ -172,7 +185,9 @@ export default function ManagerDashboardV2(){
     {error&&<div className="manager-home-message"><AlertTriangle size={16}/>{error}</div>}
 
     <section className="manager-home-kpis">
-      {canOps&&<Kpi to="/dispatch" icon={CalendarDays} label="Jobs today" value={String(metrics.todayJobs.length)} detail={`${metrics.activeJobs.length} active total`} attention={metrics.needsDispatch.length>0}/>} 
+      {canOps&&<Kpi to={canDispatch?"/dispatch":"/calendar"} icon={CalendarDays} label="Jobs today" value={String(metrics.todayJobs.length)} detail={`${metrics.fieldActive.length} active in field`} attention={canDispatch&&(metrics.needsDispatch.length>0||metrics.overdueFieldStart.length>0)}/>} 
+      {canDispatch&&<Kpi to="/dispatch" icon={Users} label="Ready to send" value={String(metrics.readyToSend.length)} detail={`${metrics.waitingAcknowledgement.length} awaiting acknowledgement`} attention={metrics.readyToSend.length>0||metrics.waitingAcknowledgement.length>0}/>} 
+      {canOps&&<Kpi to="/calendar" icon={Clock3} label="Unscheduled work" value={String(metrics.unscheduledJobs.length)} detail={`${metrics.overdueFieldStart.length} past on-site time`} attention={metrics.unscheduledJobs.length>0||metrics.overdueFieldStart.length>0}/>} 
       {canTicketReview&&<Kpi to="/tickets" icon={ClipboardCheck} label="Tickets to review" value={String(metrics.ticketsWaiting.length)} detail={`${metrics.readyToBill.length} approved and unbilled`} attention={metrics.ticketsWaiting.length>0}/>} 
       {canBilling&&<Kpi to="/billing" icon={ReceiptText} label="Ready to bill" value={String(metrics.readyToBill.length)} detail="Approved field tickets" attention={metrics.readyToBill.length>0}/>} 
       {canBilling&&<Kpi to="/invoices" icon={Banknote} label="A/R outstanding" value={currency(metrics.outstandingBalance)} detail={`${metrics.overdueInvoices.length} overdue`} attention={metrics.overdueInvoices.length>0}/>} 
@@ -184,10 +199,11 @@ export default function ManagerDashboardV2(){
     <section className="manager-home-columns">
       <div className="manager-home-panel attention-panel"><PanelHeading eyebrow="NEEDS ATTENTION" title="What should happen next"/><div className="attention-list">{attention.length?attention.map(({key,...item})=><AttentionRow key={key} {...item}/>):<div className="manager-home-clear"><CheckCircle2 size={27}/><div><strong>No urgent workflow gaps</strong><span>Northborn has nothing critical waiting in the areas available to your role.</span></div></div>}</div></div>
 
-      {canOps&&<div className="manager-home-panel"><PanelHeading eyebrow="TODAY" title="Today's work" link="/dispatch"/><div className="today-job-list">{metrics.todayJobs.length?metrics.todayJobs.slice(0,8).map(job=><TodayJob key={job.id} job={job} workspace={workspace}/>):<EmptyBlock icon={CalendarDays} title="No jobs scheduled today" copy="Upcoming jobs will appear here once they have a shop, onsite or scheduled time."/>}</div></div>}
+      {canOps&&<div className="manager-home-panel"><PanelHeading eyebrow="TODAY" title="Today's work" link={canDispatch?"/dispatch":"/calendar"}/><div className="today-job-list">{metrics.todayJobs.length?metrics.todayJobs.slice(0,8).map(job=><TodayJob key={job.id} job={job} workspace={workspace} dispatchAccess={canDispatch}/>):<EmptyBlock icon={CalendarDays} title="No jobs scheduled today" copy="Upcoming jobs will appear here once they have a shop, onsite or scheduled time."/>}</div></div>}
     </section>
 
     <section className="manager-home-columns lower">
+      {canOps&&<div className="manager-home-panel"><PanelHeading eyebrow="UPCOMING" title="Next scheduled work" link="/calendar"/><div className="today-job-list">{metrics.upcomingJobs.length?metrics.upcomingJobs.slice(0,8).map(job=><TodayJob key={job.id} job={job} workspace={workspace} withDate dispatchAccess={canDispatch}/>):<EmptyBlock icon={CalendarDays} title="No upcoming work scheduled" copy="Future scheduled jobs will appear here as soon as a shop or on-site time is set."/>}</div></div>}
       {canBilling&&<div className="manager-home-panel"><PanelHeading eyebrow="BILLING" title="Cash & paperwork" link="/billing"/><div className="manager-home-stat-list"><StatRow label="Approved tickets ready to invoice" value={String(metrics.readyToBill.length)} tone={metrics.readyToBill.length?'warn':'normal'}/><StatRow label="Outstanding invoices" value={String(metrics.outstandingInvoices.length)}/><StatRow label="Outstanding balance" value={currency(metrics.outstandingBalance)}/><StatRow label="Overdue invoices" value={String(metrics.overdueInvoices.length)} tone={metrics.overdueInvoices.length?'danger':'normal'}/></div></div>}
       {canFleet&&<div className="manager-home-panel"><PanelHeading eyebrow="FLEET HEALTH" title="Units & maintenance" link="/maintenance"/><div className="manager-home-stat-list"><StatRow label="Available units" value={`${metrics.availableVehicles.length} of ${workspace.vehicles.length}`}/><StatRow label="Open defects" value={String(metrics.openDefects.length)} tone={metrics.openDefects.length?'warn':'normal'}/><StatRow label="Out of service" value={String(metrics.outOfService.length)} tone={metrics.outOfService.length?'danger':'normal'}/><StatRow label="Maintenance overdue" value={String(metrics.maintenanceDue.length)} tone={metrics.maintenanceDue.length?'danger':'normal'}/><StatRow label="Due soon" value={String(metrics.maintenanceSoon.length)} tone={metrics.maintenanceSoon.length?'warn':'normal'}/></div></div>}
       {!canBilling&&!canFleet&&<div className="manager-home-panel"><PanelHeading eyebrow="WORKSPACE" title="Your Northborn view"/><EmptyBlock icon={Gauge} title="Role-aware dashboard" copy="This dashboard only shows operational areas your current role is expected to work with."/></div>}
@@ -202,6 +218,6 @@ export default function ManagerDashboardV2(){
 function Kpi({to,icon:Icon,label,value,detail,attention=false}:{to:string;icon:typeof Gauge;label:string;value:string;detail:string;attention?:boolean}){return <NavLink to={to} className={attention?'manager-kpi attention':'manager-kpi'}><div><Icon size={18}/><span>{label}</span></div><strong>{value}</strong><small>{detail}</small></NavLink>}
 function PanelHeading({eyebrow,title,link}:{eyebrow:string;title:string;link?:string}){return <div className="manager-panel-heading"><div><span>{eyebrow}</span><h2>{title}</h2></div>{link&&<NavLink to={link}>Open <ArrowRight size={14}/></NavLink>}</div>}
 function AttentionRow({level,icon:Icon,title,copy,to}:{level:'urgent'|'warn';icon:typeof Gauge;title:string;copy:string;to:string}){return <NavLink to={to} className={`attention-row ${level}`}><div className="attention-row-icon"><Icon size={18}/></div><div><strong>{title}</strong><span>{copy}</span></div><ArrowRight size={16}/></NavLink>}
-function TodayJob({job,workspace}:{job:Job;workspace:Workspace}){const customer=workspace.customers.find(item=>item.id===job.customer_id),rows=workspace.assignments.filter(row=>row.job_id===job.id),crew=rows.filter(row=>row.employee_id).length,units=new Set(rows.filter(row=>row.vehicle_id).map(row=>row.vehicle_id)).size,time=job.onsite_time||job.scheduled_start||job.shop_time;return <NavLink className="today-job" to={`/dispatch?job=${encodeURIComponent(job.id)}`}><div className="today-job-time"><Clock3 size={15}/><strong>{timeLabel(time)}</strong></div><div className="today-job-main"><strong>{job.job_number} · {job.title}</strong><span>{customer?.name||'Customer'}{job.site_name?` · ${job.site_name}`:''}</span></div><div className="today-job-resources"><span className={crew?'ready':'missing'}>{crew} crew</span><span className={units?'ready':'missing'}>{units} unit{units===1?'':'s'}</span></div><ArrowRight size={15}/></NavLink>}
+function TodayJob({job,workspace,withDate=false,dispatchAccess=true}:{job:Job;workspace:Workspace;withDate?:boolean;dispatchAccess?:boolean}){const customer=workspace.customers.find(item=>item.id===job.customer_id),rows=workspace.assignments.filter(row=>row.job_id===job.id),crewMembers=rows.map(row=>workspace.employees.find(employee=>employee.id===row.employee_id)).filter(Boolean) as Employee[],unitRows=rows.map(row=>workspace.vehicles.find(vehicle=>vehicle.id===row.vehicle_id)).filter(Boolean) as Vehicle[],time=job.onsite_time||job.scheduled_start||job.shop_time;return <NavLink className="today-job" to={dispatchAccess?`/dispatch?job=${encodeURIComponent(job.id)}`:"/calendar"}><div className="today-job-time"><Clock3 size={15}/><strong>{timeLabel(time,withDate)}</strong></div><div className="today-job-main"><strong>{job.job_number} · {job.title}</strong><span>{customer?.name||'Customer'}{job.site_name?` · ${job.site_name}`:''}</span></div><div className="today-job-resources"><span className={crewMembers.length?'ready':'missing'}>{crewMembers.length?crewMembers.map(member=>member.first_name).join(', '):'No crew'}</span><span className={unitRows.length?'ready':'missing'}>{unitRows.length?unitRows.map(unit=>`#${unit.unit_number}`).join(', '):'No unit'}</span><span className={job.dispatch_stage==='unassigned'?'missing':'ready'}>{job.dispatch_stage.replaceAll('_',' ')}</span></div><ArrowRight size={15}/></NavLink>}
 function StatRow({label,value,tone='normal'}:{label:string;value:string;tone?:'normal'|'warn'|'danger'}){return <div className={`manager-stat-row ${tone}`}><span>{label}</span><strong>{value}</strong></div>}
 function EmptyBlock({icon:Icon,title,copy}:{icon:typeof Gauge;title:string;copy:string}){return <div className="manager-empty-block"><Icon size={26}/><strong>{title}</strong><span>{copy}</span></div>}

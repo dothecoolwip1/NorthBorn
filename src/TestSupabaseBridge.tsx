@@ -133,6 +133,13 @@ async function fakeRpc(name:string,args:any={}){
     case 'set_my_customer_job_contact': {const meta=readJobMeta();meta[args._job_id]={...(meta[args._job_id]||{}),contact_id:args._contact_id||null};writeJobMeta(meta);return {data:true,error:null}}
     case 'create_my_customer_job_request': {const rows=readRequests();rows.unshift({request_id:uid(),title:args._title,requested_start:args._requested_start||null,site_name:args._site_name||null,site_address:args._site_address||null,onsite_contact_id:args._onsite_contact_id||null,onsite_contact_name:readTestClientContacts().find(c=>c.id===args._onsite_contact_id)?.name||null,client_notes:args._client_notes||null,status:'pending',linked_job_id:null,created_at:now()});writeRequests(rows);return {data:rows[0].request_id,error:null}}
     case 'get_my_assigned_job_contacts': {const customer=data.customers[0];return {data:data.jobs.map(j=>({job_id:j.id,customer_id:j.customer_id,customer_name:customer?.name||'Test Client',customer_phone:customer?.phone||null,contact_id:null,contact_name:null,contact_title:null,contact_phone:null,contact_email:null,contact_type:null,is_primary:false})),error:null}}
+    case 'set_internal_job_dispatch_stage':
+    case 'set_my_assigned_job_dispatch_stage': {
+      const stage=String(args._stage||'unassigned'),stamp=now()
+      const jobs=data.jobs.map((j:any)=>j.id===args._job_id?{...j,dispatch_stage:stage,status:stage==='work_started'?'active':stage==='work_completed'?'completed':j.status,dispatch_acknowledged_at:stage==='acknowledged'?(j.dispatch_acknowledged_at||stamp):j.dispatch_acknowledged_at,en_route_at:stage==='en_route'?(j.en_route_at||stamp):j.en_route_at,onsite_at:stage==='onsite'?(j.onsite_at||stamp):j.onsite_at,work_started_at:stage==='work_started'?(j.work_started_at||stamp):j.work_started_at,work_completed_at:stage==='work_completed'?(j.work_completed_at||stamp):j.work_completed_at,completed_at:stage==='work_completed'?(j.completed_at||stamp):j.completed_at}:j)
+      writeTestLabData({...data,jobs} as any)
+      return {data:jobs.find((j:any)=>j.id===args._job_id)||null,error:null}
+    }
     case 'get_my_customer_invoices': return {data:JSON.parse(localStorage.getItem('northborn_test_invoices_v1')||'[]'),error:null}
     case 'get_my_customer_invoice_line_items': return {data:[],error:null}
     case 'revoke_organization_invite': {const rows=readGeneric('organization_invites').map(r=>r.id===args._invite_id?{...r,status:'revoked'}:r);writeGeneric('organization_invites',rows);return {data:true,error:null}}

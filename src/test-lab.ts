@@ -6,7 +6,7 @@ export const TEST_CLIENT_REQUESTS_KEY = 'northborn_test_client_requests_v1'
 export const TEST_CLIENT_CONTACTS_KEY = 'northborn_test_client_contacts_v1'
 export const TEST_CLIENT_JOB_META_KEY = 'northborn_test_client_job_meta_v1'
 
-const CURRENT_TEST_SCHEMA_VERSION = '2'
+const CURRENT_TEST_SCHEMA_VERSION = '3'
 
 export type TestPersona = 'manager' | 'operator' | 'client'
 
@@ -24,7 +24,7 @@ export const TEST_USERS = {
 type TestCustomer = { id:string; organization_id:string; name:string; billing_email:string|null; phone:string|null; address:string|null; notes:string|null; status:string }
 type TestEmployee = { id:string; organization_id:string; user_id?:string|null; first_name:string; last_name:string; email:string|null; phone:string|null; position:string|null; status:string }
 type TestVehicle = { id:string; organization_id:string; unit_number:string; name:string|null; vehicle_type:string; plate:string|null; status:string; odometer_km?:number|null; engine_hours?:number|null }
-type TestJob = { id:string; organization_id:string; customer_id:string; job_number:string; title:string; site_name:string|null; site_address:string|null; scheduled_start:string|null; scheduled_end:string|null; status:string; notes:string|null; shop_time?:string|null; onsite_time?:string|null; completed_at?:string|null }
+type TestJob = { id:string; organization_id:string; customer_id:string; job_number:string; title:string; site_name:string|null; site_address:string|null; scheduled_start:string|null; scheduled_end:string|null; status:string; dispatch_stage?:string|null; notes:string|null; shop_time?:string|null; onsite_time?:string|null; completed_at?:string|null; dispatch_acknowledged_at?:string|null; en_route_at?:string|null; onsite_at?:string|null; work_started_at?:string|null; work_completed_at?:string|null; dispatch_contact_name?:string|null; dispatch_contact_phone?:string|null; emergency_contact_name?:string|null; emergency_contact_phone?:string|null; primary_operator_employee_id?:string|null; recurrence_series_id?:string|null; recurrence_rule?:string|null; recurrence_parent_id?:string|null }
 type TestAssignment = { id:string; organization_id:string; job_id:string; employee_id:string|null; vehicle_id:string|null; role:string|null }
 export type TestLabData = { customers:TestCustomer[]; employees:TestEmployee[]; vehicles:TestVehicle[]; jobs:TestJob[]; assignments:TestAssignment[] }
 
@@ -51,7 +51,7 @@ function seed(): TestLabData {
       { id:vehicleId, organization_id:TEST_ORG.id, unit_number:'TEST-101', name:'Test Hydrovac', vehicle_type:'Hydrovac', plate:'TEST101', status:'assigned', odometer_km:125000, engine_hours:4200 },
       { id:spareVehicleId, organization_id:TEST_ORG.id, unit_number:'TEST-202', name:'Test Combo Vac', vehicle_type:'Combo Vac', plate:'TEST202', status:'available', odometer_km:83000, engine_hours:3100 },
     ],
-    jobs: [{ id:jobId, organization_id:TEST_ORG.id, customer_id:customerId, job_number:'TEST-0001', title:'Northborn live feature test job', site_name:'Test Site', site_address:'Red Deer County, AB', scheduled_start:onsite.toISOString(), scheduled_end:end.toISOString(), shop_time:shop.toISOString(), onsite_time:onsite.toISOString(), status:'dispatched', notes:'Shared test job used by Manager, Operator and Client personas.' }],
+    jobs: [{ id:jobId, organization_id:TEST_ORG.id, customer_id:customerId, job_number:'TEST-0001', title:'Northborn live feature test job', site_name:'Test Site', site_address:'Red Deer County, AB', scheduled_start:onsite.toISOString(), scheduled_end:end.toISOString(), shop_time:shop.toISOString(), onsite_time:onsite.toISOString(), status:'dispatched', dispatch_stage:'dispatched', dispatch_contact_name:'Test Dispatch', dispatch_contact_phone:'403-555-0101', emergency_contact_name:'Test Emergency', emergency_contact_phone:'403-555-0191', primary_operator_employee_id:operatorId, notes:'Shared test job used by Manager, Operator and Client personas.' }],
     assignments: [
       { id:uid(), organization_id:TEST_ORG.id, job_id:jobId, employee_id:operatorId, vehicle_id:null, role:'operator' },
       { id:uid(), organization_id:TEST_ORG.id, job_id:jobId, employee_id:swamperId, vehicle_id:null, role:'swamper' },
@@ -117,10 +117,24 @@ function normalizeTestData(value: unknown): TestLabData | null {
     scheduled_start: job.scheduled_start ?? job.onsite_time ?? null,
     scheduled_end: job.scheduled_end ?? null,
     status: job.status || 'scheduled',
+    dispatch_stage: job.dispatch_stage ?? (job.status === 'completed' ? 'work_completed' : job.status === 'dispatched' ? 'dispatched' : 'unassigned'),
     notes: job.notes ?? null,
     shop_time: job.shop_time ?? null,
     onsite_time: job.onsite_time ?? job.scheduled_start ?? null,
     completed_at: job.completed_at ?? null,
+    dispatch_acknowledged_at: job.dispatch_acknowledged_at ?? null,
+    en_route_at: job.en_route_at ?? null,
+    onsite_at: job.onsite_at ?? null,
+    work_started_at: job.work_started_at ?? null,
+    work_completed_at: job.work_completed_at ?? null,
+    dispatch_contact_name: job.dispatch_contact_name ?? null,
+    dispatch_contact_phone: job.dispatch_contact_phone ?? null,
+    emergency_contact_name: job.emergency_contact_name ?? null,
+    emergency_contact_phone: job.emergency_contact_phone ?? null,
+    primary_operator_employee_id: job.primary_operator_employee_id ?? null,
+    recurrence_series_id: job.recurrence_series_id ?? null,
+    recurrence_rule: job.recurrence_rule ?? null,
+    recurrence_parent_id: job.recurrence_parent_id ?? null,
   }))
 
   const assignments = parsed.assignments!.map(assignment => ({

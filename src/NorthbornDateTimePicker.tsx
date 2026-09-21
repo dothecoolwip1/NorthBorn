@@ -8,6 +8,7 @@ type Props = {
   placeholder?: string
   min?: string
   disabled?: boolean
+  ariaLabel?: string
 }
 
 const WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -32,7 +33,7 @@ function formatButton(value:string){
 function monthTitle(date:Date){ return new Intl.DateTimeFormat('en-CA',{month:'long',year:'numeric'}).format(date) }
 function sameDay(a:Date,b:Date){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate() }
 
-export default function NorthbornDateTimePicker({value,onChange,placeholder='Select date & time',min,disabled}:Props){
+export default function NorthbornDateTimePicker({value,onChange,placeholder='Select date & time',min,disabled,ariaLabel}:Props){
   const [open,setOpen]=useState(false)
   const initial=parseValue(value)||roundNow()
   const [draft,setDraft]=useState(initial)

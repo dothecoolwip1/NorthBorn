@@ -225,7 +225,7 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   await modal.getByLabel('Job number', { exact: true }).fill(jobNumber)
   await modal.getByLabel('Job title', { exact: true }).fill(title)
   await modal.getByLabel('Lifecycle state', { exact: true }).selectOption('scheduled')
-  await modal.getByRole('button', { name: 'Choose on-site time', exact: true }).click()
+  await modal.getByRole('button', { name: 'On-site time', exact: true }).click()
   const picker = page.getByRole('dialog', { name: 'Choose date and time' })
   await expect(picker).toBeVisible()
   await picker.getByRole('button', { name: 'Done', exact: true }).click()

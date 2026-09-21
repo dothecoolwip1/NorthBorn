@@ -96,7 +96,7 @@ export default function NorthbornDateTimePicker({value,onChange,placeholder='Sel
   const chooseToday=()=>{ const now=roundNow(); setDraft(now); setViewMonth(new Date(now.getFullYear(),now.getMonth(),1)) }
 
   return <div className="nb-datetime" ref={ref}>
-    <button type="button" aria-label={formatButton(value)||placeholder} className={value?'nb-datetime-trigger has-value':'nb-datetime-trigger'} onClick={()=>!disabled&&setOpen(v=>!v)} disabled={disabled}>
+    <button type="button" aria-label={ariaLabel||formatButton(value)||placeholder} className={value?'nb-datetime-trigger has-value':'nb-datetime-trigger'} onClick={()=>!disabled&&setOpen(v=>!v)} disabled={disabled}>
       <CalendarDays size={17}/><span>{formatButton(value)||placeholder}</span><Clock3 size={15}/>
     </button>
     {open&&<div className="nb-datetime-popover" role="dialog" aria-label="Choose date and time">

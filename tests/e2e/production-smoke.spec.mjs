@@ -242,7 +242,10 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   await manage.getByRole('button', { name: 'Assign selected', exact: true }).click()
   await expect(manage).toContainText('Ready', { timeout: 20000 })
 
-  await manage.getByLabel('Primary operator', { exact: true }).selectOption({ label: /Operator Test/ })
+  const primaryOperatorSelect = manage.getByLabel('Primary operator', { exact: true })
+  const primaryOperatorValue = await primaryOperatorSelect.locator('option').filter({ hasText: 'Operator Test' }).first().getAttribute('value')
+  if (!primaryOperatorValue) throw new Error('Pack 2 QA could not resolve the assigned operator option.')
+  await primaryOperatorSelect.selectOption(primaryOperatorValue)
   await manage.getByLabel('Dispatch contact name', { exact: true }).fill('Pack 2 Dispatch')
   await manage.getByLabel('Dispatch contact phone', { exact: true }).fill('403-555-0202')
   await manage.getByLabel('Emergency contact name', { exact: true }).fill('Pack 2 Emergency')

@@ -146,7 +146,7 @@ function failWithIssues(issues) {
   if (issues.length) throw new Error(`Northborn production QA found ${issues.length} issue(s):\n${issues.map((issue, index) => `${index + 1}. ${issue}`).join('\n')}`)
 }
 
-test('guest, login, and isolated Mallard routes are healthy', async ({ page }) => {
+test('guest and login routes are healthy', async ({ page }) => {
   const issues = []
   await page.goto(absolute('/'))
   await auditPage(page, '/', issues)
@@ -157,10 +157,6 @@ test('guest, login, and isolated Mallard routes are healthy', async ({ page }) =
   await expect(page.getByLabel('Email or username', { exact: true })).toBeVisible()
   await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
 
-  await page.goto(absolute('/mallard'))
-  await settle(page)
-  await expect(page).toHaveTitle(/Mallard/i)
-  await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toHaveCount(0)
   failWithIssues(issues)
 })
 

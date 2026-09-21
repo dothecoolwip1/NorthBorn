@@ -28,7 +28,6 @@ import BillingQueuePage from './BillingQueuePage'
 import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
 import SafetyRoutePage from './SafetyRoutePage'
 import TemplateManagerPage from './TemplateManagerPage'
-import MallardRoute from './MallardRoute'
 import GlobalAccountMenu from './GlobalAccountMenu'
 import TestRoleSwitcher from './TestRoleSwitcher'
 import ReleaseNotes from './ReleaseNotes'
@@ -49,11 +48,6 @@ const RETIRED_TEST_KEYS = ['northborn_test_mode', 'northborn_test_persona']
 for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)
 
 type RouteRole = 'loading' | 'guest' | 'unconnected' | 'manager' | 'operator' | 'client' | 'error'
-function isMallardPath(pathname: string) {
-  const path = pathname.replace(/\/+$/, '') || '/'
-  return path === '/mallard' || path.startsWith('/mallard/')
-}
-
 function StandardApp() {
   return <><RoleAwareApp /><AuthEnhancements /></>
 }
@@ -71,7 +65,6 @@ function WorkspaceLoadError() {
 }
 
 function RoutedWorkspace({ normalizedPath, hasInvite, routeRole, internalRoleKey }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole; internalRoleKey:string }) {
-  if (isMallardPath(normalizedPath)) return <MallardRoute />
   if (normalizedPath === '/logout') return <LogoutPage />
   if (normalizedPath === '/client-join') return <ClientJoinPage />
   if (normalizedPath === '/join' || (hasInvite && normalizedPath !== '/client-join')) return <JoinOrganizationPage />
@@ -141,7 +134,6 @@ function NorthbornRouter() {
   const [authError, setAuthError] = React.useState('')
 
   React.useEffect(() => {
-    if (isMallardPath(normalizedPath)) return
     document.title = 'Northborn'
   }, [normalizedPath])
 
@@ -179,7 +171,6 @@ function NorthbornRouter() {
   }, [])
 
   React.useEffect(() => {
-    if (isMallardPath(normalizedPath)) return
     let active = true
 
     const resolveRole = async () => {
@@ -238,7 +229,6 @@ function NorthbornOnlyChrome() {
     return () => observer.disconnect()
   }, [])
 
-  if (isMallardPath(location.pathname)) return null
   return <><GlobalAccountMenu /><TestRoleSwitcher /><ReleaseNotes /></>
 }
 
@@ -246,7 +236,7 @@ const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.en
 const rootElement = document.getElementById('root')!
 
 document.documentElement.dataset.northbornMounted = '1'
-if (import.meta.env.PROD && !isMallardPath(window.location.pathname)) initializeNorthbornPwa()
+if (import.meta.env.PROD) initializeNorthbornPwa()
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>

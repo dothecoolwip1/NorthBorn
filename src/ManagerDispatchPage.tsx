@@ -146,11 +146,11 @@ function JobManagementModal({job,ws,onClose,onChanged,onMove}:{job:Job;ws:Worksp
         <label><span>Be at shop</span><NorthbornDateTimePicker value={form.shop_time} onChange={v=>setForm({...form,shop_time:v})}/></label>
         <label><span>On site</span><NorthbornDateTimePicker value={form.onsite_time} onChange={v=>setForm({...form,onsite_time:v})}/></label>
         <label><span>Expected finish</span><NorthbornDateTimePicker value={form.scheduled_end} onChange={v=>setForm({...form,scheduled_end:v})} min={form.onsite_time}/></label>
-        <label><span>Dispatch contact name</span><input value={form.dispatch_contact_name} onChange={e=>setForm({...form,dispatch_contact_name:e.target.value})}/></label>
-        <label><span>Dispatch contact phone</span><input value={form.dispatch_contact_phone} onChange={e=>setForm({...form,dispatch_contact_phone:e.target.value})}/></label>
-        <label><span>Emergency contact name</span><input value={form.emergency_contact_name} onChange={e=>setForm({...form,emergency_contact_name:e.target.value})}/></label>
-        <label><span>Emergency contact phone</span><input value={form.emergency_contact_phone} onChange={e=>setForm({...form,emergency_contact_phone:e.target.value})}/></label>
-        <label><span>Primary operator</span><select value={form.primary_operator_employee_id} onChange={e=>setForm({...form,primary_operator_employee_id:e.target.value})}><option value="">Not selected</option>{crewEmployees.map(e=><option key={e.id} value={e.id}>{e.first_name} {e.last_name}{e.phone?` · ${e.phone}`:''}</option>)}</select></label>
+        <label><span>Dispatch contact name</span><input aria-label="Dispatch contact name" value={form.dispatch_contact_name} onChange={e=>setForm({...form,dispatch_contact_name:e.target.value})}/></label>
+        <label><span>Dispatch contact phone</span><input aria-label="Dispatch contact phone" value={form.dispatch_contact_phone} onChange={e=>setForm({...form,dispatch_contact_phone:e.target.value})}/></label>
+        <label><span>Emergency contact name</span><input aria-label="Emergency contact name" value={form.emergency_contact_name} onChange={e=>setForm({...form,emergency_contact_name:e.target.value})}/></label>
+        <label><span>Emergency contact phone</span><input aria-label="Emergency contact phone" value={form.emergency_contact_phone} onChange={e=>setForm({...form,emergency_contact_phone:e.target.value})}/></label>
+        <label><span>Primary operator</span><select aria-label="Primary operator" value={form.primary_operator_employee_id} onChange={e=>setForm({...form,primary_operator_employee_id:e.target.value})}><option value="">Not selected</option>{crewEmployees.map(e=><option key={e.id} value={e.id}>{e.first_name} {e.last_name}{e.phone?` · ${e.phone}`:''}</option>)}</select></label>
         <label className="wide"><span>Notes</span><textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></label>
       </div><div className="dispatch-v2-save-row"><button className="primary" disabled={busy}>Save job details</button></div>
     </form>

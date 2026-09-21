@@ -192,17 +192,29 @@ test('manager routes and core actions are healthy', async ({ page }) => {
 })
 
 test('Pack 2 job flows from manager creation through field completion', async ({ page }) => {
-  const jobNumber = `PACK2-${Date.now()}`
+  const stamp = Date.now()
+  const jobNumber = `PACK2-${stamp}`
   const title = 'Pack 2 workflow QA'
+  const customerName = `Pack 2 QA Customer ${stamp}`
 
   await loginAs(page, 'manager')
   await page.goto(absolute('/jobs'))
   await page.getByRole('button', { name: /new job/i }).click()
   const modal = page.locator('.manager-job-modal')
   await expect(modal).toBeVisible()
+
+  await modal.getByRole('button', { name: 'Quick add client', exact: true }).click()
+  await modal.getByPlaceholder('Company name').fill(customerName)
+  await modal.getByRole('button', { name: 'Add client', exact: true }).click()
+  await expect(modal.getByRole('option', { name: customerName })).toBeAttached()
+
   await modal.getByLabel('Job number', { exact: true }).fill(jobNumber)
   await modal.getByLabel('Job title', { exact: true }).fill(title)
   await modal.getByLabel('Lifecycle state', { exact: true }).selectOption('scheduled')
+  await modal.getByRole('button', { name: 'Choose on-site time', exact: true }).click()
+  const picker = page.getByRole('dialog', { name: 'Choose date and time' })
+  await expect(picker).toBeVisible()
+  await picker.getByRole('button', { name: 'Done', exact: true }).click()
   await modal.getByRole('button', { name: 'Create job', exact: true }).click()
 
   const jobCard = page.locator('.manager-job-card').filter({ hasText: jobNumber }).first()

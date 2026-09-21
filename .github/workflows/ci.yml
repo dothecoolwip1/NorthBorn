@@ -10,8 +10,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: northborn-ci-${{ github.ref }}
-  cancel-in-progress: true
+  # This suite changes the shared functional manager role in Supabase.
+  # Serialize it with Production QA so the two browser suites cannot change
+  # the same test identity at the same time.
+  group: northborn-functional-account-qa
+  cancel-in-progress: false
 
 jobs:
   build:

@@ -9,8 +9,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: northborn-production-qa
-  cancel-in-progress: true
+  # This suite changes the shared functional manager role in Supabase.
+  # Serialize it with Northborn CI so role assertions cannot race each other.
+  group: northborn-functional-account-qa
+  cancel-in-progress: false
 
 jobs:
   production-qa:

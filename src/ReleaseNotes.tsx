@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.8.45':[
+    'Serialized role-mutating browser QA so concurrent CI and production checks cannot interfere with the shared functional test account.',
+    'Kept the full internal-role, direct-route, navigation, sign-out and mobile assertions enabled without weakening access-control coverage.',
+    'Preserved the Pack 1 workspace, authentication and session hardening while eliminating the final flaky integration failure.',
+  ],
   '0.8.44':[
     'Hardened workspace and session resolution so temporary backend failures no longer look like disconnected accounts.',
     'Added self-healing functional test accounts and full internal role QA coverage.',

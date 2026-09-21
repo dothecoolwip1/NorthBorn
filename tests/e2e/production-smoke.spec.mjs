@@ -107,6 +107,18 @@ async function expectPersonaReady(page, persona) {
   expect(body).not.toContain('Workspace unavailable')
 }
 
+async function dismissTransientUi(page) {
+  for (const name of ['Dismiss release notes', 'Dismiss notification']) {
+    const button = page.getByRole('button', { name, exact: true }).last()
+    if (await button.isVisible().catch(() => false)) await button.click()
+  }
+  const menu = page.getByRole('dialog', { name: 'Northborn menu' })
+  if (await menu.isVisible().catch(() => false)) {
+    const close = page.getByRole('button', { name: 'Close menu', exact: true })
+    if (await close.isVisible().catch(() => false)) await close.click()
+  }
+}
+
 async function loginAs(page, persona) {
   await page.goto(absolute('/login'))
   await settle(page)
@@ -116,6 +128,8 @@ async function loginAs(page, persona) {
   await page.waitForURL(url => url.origin === new URL(BASE).origin && url.pathname === '/', { timeout: 30000 })
   await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
   await expectPersonaReady(page, persona)
+  await page.waitForTimeout(900)
+  await dismissTransientUi(page)
 }
 
 async function setManagerInternalRole(page, roleKey) {

@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.9':[
+    'Completed Pack 2 dispatch, calendar and jobs workflows with end-to-end manager and operator field progression, recurring work, multi-resource dispatch, history and command-centre visibility.',
+    'Verified completed jobs automatically release assigned units back to available and moved temporary Pack 2 QA cleanup out of the user-facing Fleet editor.',
+    'Hardened functional test recovery so stale Pack 2 QA jobs and units self-clean without deleting the active run being verified.',
+  ],
   '0.9.8':[
     'Finished Pack 2 dispatch, calendar and jobs workflows with isolated end-to-end QA and automatic unit release after completed or cancelled jobs.',
     'Fixed assignment-history cleanup, functional test state reset, Fleet workflow selectors, signed-out verification, and test-only role-switcher overlap during final fleet-release QA.',

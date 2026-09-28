@@ -147,7 +147,7 @@ async function signOutThroughMenu(page) {
   await expect(menu).toBeVisible({ timeout: 30000 })
   await menu.getByRole('button', { name: 'Sign out', exact: true }).click()
   await page.waitForURL(url => url.origin === new URL(BASE).origin && url.pathname === '/', { timeout: 30000 })
-  await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible({ timeout: 30000 })
+  await expect(page.getByRole('link', { name: 'Sign in', exact: true }).first()).toBeVisible({ timeout: 30000 })
 }
 
 async function setManagerInternalRole(page, roleKey) {

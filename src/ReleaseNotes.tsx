@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.6':[
+    'Finalized Pack 2 signed-out browser verification so the intentional header and footer Sign in links are both handled correctly.',
+    'Kept the full manager to operator to manager dispatch workflow under real browser validation without weakening authentication checks.',
+    'Preserved all Pack 2 dispatch, calendar, jobs, fleet lifecycle and data consistency hardening.',
+  ],
   '0.9.5':[
     'Finalized Pack 2 functional QA so temporary fleet units use their real Available default and status cleanup targets the actual select control.',
     'Preserved active Pack 2 QA state across manager sign-ins so the completed job remains available for final verification.',

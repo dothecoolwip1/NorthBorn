@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.5':[
+    'Finalized Pack 2 functional QA so temporary fleet units use their real Available default and status cleanup targets the actual select control.',
+    'Preserved active Pack 2 QA state across manager sign-ins so the completed job remains available for final verification.',
+    'Kept all Pack 2 dispatch, calendar, jobs, unit-release, delete-consistency and test-layout fixes intact.',
+  ],
   '0.9.4':[
     'Moved manager Fleet actions clear of the functional TEST role control so QA can exercise real clicks without forced interactions.',
     'Kept the Pack 2 isolated unit workflow and completed-job fleet release checks intact.',

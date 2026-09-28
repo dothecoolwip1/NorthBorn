@@ -238,7 +238,6 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   await expect(unitEditor).toBeVisible({ timeout: 20000 })
   await unitEditor.getByLabel('Unit number', { exact: true }).fill(unitNumber)
   await unitEditor.getByLabel('Unit name', { exact: true }).fill('Pack 2 QA Unit')
-  await unitEditor.getByLabel('Status', { exact: true }).selectOption('available')
   await unitEditor.getByRole('button', { name: 'Save unit', exact: true }).click()
   await expect(page.locator('.fleet-card').filter({ hasText: `Unit ${unitNumber}` }).first()).toBeVisible({ timeout: 20000 })
 
@@ -326,7 +325,7 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   const drawer = page.locator('.fleet-drawer')
   await drawer.getByRole('button', { name: 'Edit', exact: true }).click()
   const archiveEditor = page.locator('.fleet-editor')
-  await archiveEditor.getByLabel('Status', { exact: true }).selectOption('archived')
+  await archiveEditor.locator('select').nth(1).selectOption('archived')
   await archiveEditor.getByRole('button', { name: 'Save unit', exact: true }).click()
 })
 

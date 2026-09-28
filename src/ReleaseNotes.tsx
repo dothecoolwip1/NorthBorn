@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.8.46':[
+    "Finalized the Pack 1 production baseline and restored Northborn's mandatory version discipline after the standalone Mallard migration cleanup.",
+    'Kept the Pack 1 workspace, authentication, role-aware navigation and session hardening intact on the current Northborn mainline.',
+    'Restored Production QA eligibility so the full browser suite can verify the current production release instead of stopping at the version gate.',
+  ],
   '0.8.45':[
     'Serialized role-mutating browser QA so concurrent CI and production checks cannot interfere with the shared functional test account.',
     'Kept the full internal-role, direct-route, navigation, sign-out and mobile assertions enabled without weakening access-control coverage.',

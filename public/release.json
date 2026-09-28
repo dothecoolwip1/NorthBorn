@@ -1,9 +1,9 @@
 {
-  "version": "0.9.6",
+  "version": "0.9.7",
   "title": "Operations Workflow",
   "notes": [
     "Finished Pack 2 dispatch, calendar and jobs workflows with isolated end-to-end QA and automatic unit release after completed or cancelled jobs.",
-    "Fixed assignment-history cleanup, functional test layout, active QA state preservation, Fleet workflow selectors, and signed-out browser verification.",
+    "Fixed assignment-history cleanup, functional test layout, active QA state preservation, Fleet workflow selectors, signed-out verification, and final fleet-release QA.",
     "Preserved the full Pack 1 authentication, role isolation, navigation, mobile and production QA baseline."
   ]
 }

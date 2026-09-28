@@ -206,3 +206,44 @@
   .ops-calendar-controls button{min-width:44px;min-height:44px}
   .ops-calendar-controls strong{flex:1;text-align:center}
 }
+
+/* Pack 2 QA readability and touch baseline */
+.dispatch-stage-column>header>span,
+.dispatch-card-main>span,
+.dispatch-card-main>small,
+.dispatch-card-times span,
+.dispatch-card-resources span,
+.dispatch-stage-select>span,
+.dispatch-stage-select select,
+.dispatch-history small,
+.dispatch-history time,
+.manager-job-state small,
+.manager-job-repeat,
+.manager-job-copy,
+.ops-event em,
+.ops-month-day>header span,
+.month-event>span,
+.month-event>strong,
+.month-event>small,
+.calendar-unscheduled-count span,
+.calendar-unscheduled>div:first-child>span,
+.calendar-unscheduled p,
+.calendar-unscheduled button span,
+.calendar-unscheduled button small,
+.operator-stage-track span{font-size:10px!important;line-height:1.35}
+.dispatch-stage-select select,
+.dispatch-progress-grid button,
+.manager-job-copy,
+.month-more,
+.month-event,
+.calendar-view-toggle button,
+.calendar-toolbar label select{min-height:32px}
+@media(max-width:700px){
+  .dispatch-stage-select select,
+  .dispatch-progress-grid button,
+  .manager-job-copy,
+  .month-more,
+  .month-event,
+  .calendar-view-toggle button,
+  .calendar-toolbar label select{min-height:40px}
+}

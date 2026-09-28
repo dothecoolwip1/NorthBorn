@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import OperatorJobCompletionActions from './OperatorJobCompletionActions'
+import OperatorDispatchProgress from './OperatorDispatchProgress'
 import './operator-app.css'
 
 const db = supabase as any
@@ -44,6 +45,17 @@ type Job = {
   scheduled_start: string | null
   scheduled_end: string | null
   status: string
+  dispatch_stage: string | null
+  dispatch_acknowledged_at: string | null
+  en_route_at: string | null
+  onsite_at: string | null
+  work_started_at: string | null
+  work_completed_at: string | null
+  dispatch_contact_name: string | null
+  dispatch_contact_phone: string | null
+  emergency_contact_name: string | null
+  emergency_contact_phone: string | null
+  primary_operator_employee_id: string | null
   notes: string | null
 }
 type Assignment = { id: string; job_id: string; employee_id: string | null; vehicle_id: string | null; role: string | null }
@@ -124,7 +136,7 @@ export default function OperatorAppV2({ userId, organizationId, organizationName
     setError('')
     const [employeeResult, jobsResult, assignmentsResult, vehiclesResult, contactsResult] = await Promise.all([
       db.from('employees').select('id,first_name,last_name,position,status').eq('organization_id', organizationId).eq('user_id', userId).maybeSingle(),
-      db.from('jobs').select('id,customer_id,job_number,title,site_name,site_address,shop_time,onsite_time,scheduled_start,scheduled_end,status,notes').eq('organization_id', organizationId).order('onsite_time', { ascending: true, nullsFirst: false }),
+      db.from('jobs').select('id,customer_id,job_number,title,site_name,site_address,shop_time,onsite_time,scheduled_start,scheduled_end,status,dispatch_stage,dispatch_acknowledged_at,en_route_at,onsite_at,work_started_at,work_completed_at,dispatch_contact_name,dispatch_contact_phone,emergency_contact_name,emergency_contact_phone,primary_operator_employee_id,notes').eq('organization_id', organizationId).order('onsite_time', { ascending: true, nullsFirst: false }),
       db.from('dispatch_assignments').select('id,job_id,employee_id,vehicle_id,role').eq('organization_id', organizationId),
       db.from('fleet_vehicles').select('id,unit_number,name,vehicle_type,status').eq('organization_id', organizationId).order('unit_number'),
       db.rpc('get_my_assigned_job_contacts', { _organization_id: organizationId }),
@@ -282,8 +294,11 @@ function JobModal({ job, data, organizationId, organizationName, onCompleted, on
       <section className="field-detail-section"><div className="field-detail-heading"><MapPin size={19}/><span>Job site</span></div><strong>{job.site_name||'Job site'}</strong>{job.site_address?<><span>{job.site_address}</span><button className="field-copy-button" onClick={()=>void copyAddress()}><Copy size={16}/>{copied?'Copied':'Copy address'}</button></>:<span className="field-detail-muted">No site address entered.</span>}</section>
       <section className="field-detail-section field-contacts-section"><div className="field-detail-heading"><Building2 size={19}/><span>Client</span></div>{client?<><strong>{client.customer_name}</strong>{client.customer_phone?<a href={`tel:${client.customer_phone}`}><Phone size={15}/><span>Main/company: {client.customer_phone}</span></a>:<span className="field-detail-muted">No main company number entered.</span>}<div className="field-contact-subheading">Field contacts</div>{fieldContacts.length?fieldContacts.map(contact=><div className="field-contact-card" key={contact.contact_id||`${job.id}-${contact.contact_name}`}><div><strong>{contact.contact_name||'Contact'}</strong>{contact.contact_title&&<span>{contact.contact_title}</span>}{contact.is_primary&&<small>Primary field contact</small>}</div>{contact.contact_phone&&<a href={`tel:${contact.contact_phone}`}><Phone size={15}/>{contact.contact_phone}</a>}{contact.contact_email&&<a href={`mailto:${contact.contact_email}`}><Mail size={15}/>{contact.contact_email}</a>}</div>):<span className="field-detail-muted">No field contact selected for this job.</span>}</>:<span className="field-detail-muted">Client contact information is unavailable.</span>}</section>
       <section className="field-detail-section"><div className="field-detail-heading"><Truck size={19}/><span>Assigned equipment</span></div>{units.length?units.map(unit=><span key={unit.id}>Unit {unit.unit_number} · {unit.name||unit.vehicle_type}</span>):<span className="field-detail-muted">No unit assigned.</span>}</section>
+      <section className="field-detail-section"><div className="field-detail-heading"><Phone size={19}/><span>Dispatch contact</span></div>{job.dispatch_contact_phone?<a href={`tel:${job.dispatch_contact_phone}`}><Phone size={15}/><span>{job.dispatch_contact_name||'Dispatch'} · {job.dispatch_contact_phone}</span></a>:<span className="field-detail-muted">No job-specific dispatch contact entered.</span>}</section>
+      <section className="field-detail-section"><div className="field-detail-heading"><ShieldCheck size={19}/><span>Emergency contact</span></div>{job.emergency_contact_phone?<a href={`tel:${job.emergency_contact_phone}`}><Phone size={15}/><span>{job.emergency_contact_name||'Emergency'} · {job.emergency_contact_phone}</span></a>:<span className="field-detail-muted">No job-specific emergency contact entered.</span>}</section>
       <section className="field-detail-section field-notes-section"><div className="field-detail-heading"><FileText size={19}/><span>Job notes</span></div><p>{job.notes?.trim()||'No job notes have been added.'}</p></section>
     </div>
+    <OperatorDispatchProgress job={job} organizationId={organizationId} onChanged={onCompleted}/>
     <OperatorJobCompletionActions job={job} organizationId={organizationId} organizationName={organizationName} onCompleted={onCompleted}/>
     <button className="field-modal-done" onClick={onClose}>Done</button>
   </section></div>

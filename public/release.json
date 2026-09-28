@@ -1,9 +1,9 @@
 {
-  "version": "0.8.46",
-  "title": "Pack 1 Baseline Finalization",
+  "version": "0.9.9",
+  "title": "Operations Workflow",
   "notes": [
-    "Finalized the Pack 1 production baseline and restored Northborn's mandatory version discipline after the standalone Mallard migration cleanup.",
-    "Kept the Pack 1 workspace, authentication, role-aware navigation and session hardening intact on the current Northborn mainline.",
-    "Restored Production QA eligibility so the full browser suite can verify the current production release instead of stopping at the version gate."
+    "Completed Pack 2 dispatch, calendar and jobs workflows with end-to-end manager and operator field progression, recurring work, multi-resource dispatch, history and command-centre visibility.",
+    "Verified completed jobs automatically release assigned units back to available and moved temporary Pack 2 QA cleanup out of the user-facing Fleet editor.",
+    "Hardened functional test recovery so stale Pack 2 QA jobs and units self-clean without deleting the active run being verified."
   ]
 }

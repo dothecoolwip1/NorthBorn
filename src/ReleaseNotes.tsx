@@ -12,10 +12,60 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.9':[
+    'Completed Pack 2 dispatch, calendar and jobs workflows with end-to-end manager and operator field progression, recurring work, multi-resource dispatch, history and command-centre visibility.',
+    'Verified completed jobs automatically release assigned units back to available and moved temporary Pack 2 QA cleanup out of the user-facing Fleet editor.',
+    'Hardened functional test recovery so stale Pack 2 QA jobs and units self-clean without deleting the active run being verified.',
+  ],
+  '0.9.8':[
+    'Finished Pack 2 dispatch, calendar and jobs workflows with isolated end-to-end QA and automatic unit release after completed or cancelled jobs.',
+    'Fixed assignment-history cleanup, functional test state reset, Fleet workflow selectors, signed-out verification, and test-only role-switcher overlap during final fleet-release QA.',
+    'Preserved the full Pack 1 authentication, role isolation, navigation, mobile and production QA baseline.',
+  ],
+  '0.9.7':[
+    'Finalized Pack 2 fleet-release verification with a case-insensitive availability assertion that matches the existing status display.',
+    'Confirmed the completed-job lifecycle returns its assigned QA unit to available before cleanup.',
+    'Preserved the complete dispatch, calendar, jobs, auth, role, mobile and data-consistency QA contract.',
+  ],
+  '0.9.6':[
+    'Finalized Pack 2 signed-out browser verification so the intentional header and footer Sign in links are both handled correctly.',
+    'Kept the full manager to operator to manager dispatch workflow under real browser validation without weakening authentication checks.',
+    'Preserved all Pack 2 dispatch, calendar, jobs, fleet lifecycle and data consistency hardening.',
+  ],
+  '0.9.5':[
+    'Finalized Pack 2 functional QA so temporary fleet units use their real Available default and status cleanup targets the actual select control.',
+    'Preserved active Pack 2 QA state across manager sign-ins so the completed job remains available for final verification.',
+    'Kept all Pack 2 dispatch, calendar, jobs, unit-release, delete-consistency and test-layout fixes intact.',
+  ],
+  '0.9.4':[
+    'Moved manager Fleet actions clear of the functional TEST role control so QA can exercise real clicks without forced interactions.',
+    'Kept the Pack 2 isolated unit workflow and completed-job fleet release checks intact.',
+    'Preserved the finalized dispatch, calendar, jobs and data-lifecycle hardening from Pack 2.',
+  ],
+  '0.9.3':[
+    'Fixed Pack 2 job deletion so assignment-history cleanup cannot write an event against a parent job that is already being removed.',
+    'Kept assignment history intact for normal crew and unit changes while making cascade deletes safe and consistent.',
+    'Cleaned stale Pack 2 QA artifacts from the isolated Northborn test workspace and reconciled its fleet availability.',
+  ],
+  '0.9.2':[
+    'Finished Pack 2 release hardening with isolated end-to-end dispatch resources so failed QA runs cannot consume the shared test fleet.',
+    'Automatically returns assigned units to Available when their completed or cancelled job closes and no other active job still needs the unit.',
+    'Made functional test sign-in tolerant of a transient first redirect while still requiring the authenticated workspace to render before QA continues.',
+  ],
+  '0.9.1':[
+    'Completed the Operations Workflow release with dispatch stages, multi-crew and multi-unit assignment, operator field progress, recurring work, and upgraded calendar and job views.',
+    'Hardened the Pack 2 release test flow so account handoffs wait for confirmed sign-out before the next field persona signs in.',
+    'Synced Pack 2 onto the finalized Pack 1 production baseline and retained the complete role, auth, navigation, mobile and production QA contract.',
+  ],
   '0.8.46':[
     "Finalized the Pack 1 production baseline and restored Northborn's mandatory version discipline after the standalone Mallard migration cleanup.",
     'Kept the Pack 1 workspace, authentication, role-aware navigation and session hardening intact on the current Northborn mainline.',
     'Restored Production QA eligibility so the full browser suite can verify the current production release instead of stopping at the version gate.',
+  ],
+  '0.9.0':[
+    'Rebuilt Dispatch as a field workflow board with crew, unit and stage tracking from unassigned through work completion.',
+    'Added operator acknowledgement, en route, on site and work-start controls with job-specific dispatch and emergency contacts.',
+    'Upgraded Jobs and Calendar with recurring work, duplication, search, week and month views, unscheduled work and durable operational history.',
   ],
   '0.8.45':[
     'Serialized role-mutating browser QA so concurrent CI and production checks cannot interfere with the shared functional test account.',

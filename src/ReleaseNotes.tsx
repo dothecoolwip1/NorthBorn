@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.10':[
+    'Completed Pack 2A backend verification and hardening for dispatch stages, assignment history, tenant isolation, and automatic fleet release.',
+    'Enforced crew and unit requirements before Ready or Dispatched, sequential operator progress, and work-start requirements before operator completion.',
+    'Blocked cross-company job, employee, vehicle, and primary-operator links and locked internal trigger functions against direct execution.',
+  ],
   '0.9.9':[
     'Completed Pack 2 dispatch, calendar and jobs workflows with end-to-end manager and operator field progression, recurring work, multi-resource dispatch, history and command-centre visibility.',
     'Verified completed jobs automatically release assigned units back to available and moved temporary Pack 2 QA cleanup out of the user-facing Fleet editor.',

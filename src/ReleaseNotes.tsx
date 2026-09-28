@@ -12,6 +12,16 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.1':[
+    'Completed the Operations Workflow release with dispatch stages, multi-crew and multi-unit assignment, operator field progress, recurring work, and upgraded calendar and job views.',
+    'Hardened the Pack 2 release test flow so account handoffs wait for confirmed sign-out before the next field persona signs in.',
+    'Synced Pack 2 onto the finalized Pack 1 production baseline and retained the complete role, auth, navigation, mobile and production QA contract.',
+  ],
+  '0.8.46':[
+    "Finalized the Pack 1 production baseline and restored Northborn's mandatory version discipline after the standalone Mallard migration cleanup.",
+    'Kept the Pack 1 workspace, authentication, role-aware navigation and session hardening intact on the current Northborn mainline.',
+    'Restored Production QA eligibility so the full browser suite can verify the current production release instead of stopping at the version gate.',
+  ],
   '0.9.0':[
     'Rebuilt Dispatch as a field workflow board with crew, unit and stage tracking from unassigned through work completion.',
     'Added operator acknowledgement, en route, on site and work-start controls with job-specific dispatch and emergency contacts.',

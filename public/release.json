@@ -1,9 +1,9 @@
 {
-  "version": "0.9.0",
+  "version": "0.9.1",
   "title": "Operations Workflow",
   "notes": [
-    "Rebuilt Dispatch as a field workflow board with crew, unit and stage tracking from unassigned through work completion.",
-    "Added operator acknowledgement, en route, on site and work-start controls with job-specific dispatch and emergency contacts.",
-    "Upgraded Jobs and Calendar with recurring work, duplication, search, week and month views, unscheduled work and durable operational history."
+    "Completed the Operations Workflow release with dispatch stages, multi-crew and multi-unit assignment, operator field progress, recurring work, and upgraded calendar and job views.",
+    "Hardened the Pack 2 release test flow so account handoffs wait for confirmed sign-out before the next field persona signs in.",
+    "Synced Pack 2 onto the finalized Pack 1 production baseline and retained the complete role, auth, navigation, mobile and production QA contract."
   ]
 }

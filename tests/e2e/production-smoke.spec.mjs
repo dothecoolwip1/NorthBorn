@@ -132,6 +132,15 @@ async function loginAs(page, persona) {
   await dismissTransientUi(page)
 }
 
+async function signOutThroughMenu(page) {
+  await page.getByRole('button', { name: 'Open Northborn menu' }).click()
+  const menu = page.getByRole('dialog', { name: 'Northborn menu' })
+  await expect(menu).toBeVisible({ timeout: 30000 })
+  await menu.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await page.waitForURL(url => url.origin === new URL(BASE).origin && url.pathname === '/', { timeout: 30000 })
+  await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible({ timeout: 30000 })
+}
+
 async function setManagerInternalRole(page, roleKey) {
   const config = INTERNAL_ROLE_MENUS[roleKey]
   await page.goto(absolute('/'))
@@ -256,8 +265,7 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   await expect(manage).toContainText('Dispatched', { timeout: 20000 })
   await manage.getByRole('button', { name: 'Done', exact: true }).click()
 
-  await page.getByRole('button', { name: 'Open Northborn menu' }).click()
-  await page.getByRole('dialog', { name: 'Northborn menu' }).getByRole('button', { name: 'Sign out', exact: true }).click()
+  await signOutThroughMenu(page)
   await loginAs(page, 'operator')
   await page.goto(absolute('/jobs'))
 
@@ -283,8 +291,7 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   await expect(invoiceModal).toBeVisible({ timeout: 20000 })
   await invoiceModal.locator('header button').click()
 
-  await page.getByRole('button', { name: 'Open Northborn menu' }).click()
-  await page.getByRole('dialog', { name: 'Northborn menu' }).getByRole('button', { name: 'Sign out', exact: true }).click()
+  await signOutThroughMenu(page)
   await loginAs(page, 'manager')
   await page.goto(absolute('/jobs?view=completed'))
   await page.locator('.manager-job-search input').fill(jobNumber)

@@ -1,9 +1,9 @@
 {
-  "version": "0.9.10",
-  "title": "Pack 2A Backend Integrity",
+  "version": "0.9.11",
+  "title": "Pack 2B Jobs and Dispatch",
   "notes": [
-    "Completed Pack 2A backend verification and hardening for dispatch stages, assignment history, tenant isolation, and automatic fleet release.",
-    "Enforced crew and unit requirements before Ready or Dispatched, sequential operator progress, and work-start requirements before operator completion.",
-    "Blocked cross-company job, employee, vehicle, and primary-operator links and locked internal trigger functions against direct execution."
+    "Completed the Pack 2B Jobs and Dispatch checkpoint with quick client creation available even for brand-new companies with no clients yet.",
+    "Hardened multi-crew and multi-unit assignment handling so fleet state stays consistent when units are assigned or removed.",
+    "Made duplicated jobs independent drafts instead of silently rejoining recurring series, corrected month-end recurrence dates, and made Dispatch New job open the creation flow directly."
   ]
 }

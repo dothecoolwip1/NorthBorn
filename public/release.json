@@ -1,9 +1,9 @@
 {
-  "version": "0.9.2",
+  "version": "0.9.3",
   "title": "Operations Workflow",
   "notes": [
-    "Finished Pack 2 release hardening with isolated end-to-end dispatch resources so failed QA runs cannot consume the shared test fleet.",
-    "Automatically returns assigned units to Available when their completed or cancelled job closes and no other active job still needs the unit.",
-    "Made functional test sign-in tolerant of a transient first redirect while still requiring the authenticated workspace to render before QA continues."
+    "Finished Pack 2 dispatch, calendar and jobs workflows with isolated end-to-end QA and automatic unit release after completed or cancelled jobs.",
+    "Fixed assignment-history cleanup so deleting a job cannot fail when its crew or unit assignments cascade away.",
+    "Preserved the full Pack 1 authentication, role isolation, navigation, mobile and production QA baseline."
   ]
 }

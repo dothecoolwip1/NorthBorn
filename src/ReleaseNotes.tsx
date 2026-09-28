@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.3':[
+    'Fixed Pack 2 job deletion so assignment-history cleanup cannot write an event against a parent job that is already being removed.',
+    'Kept assignment history intact for normal crew and unit changes while making cascade deletes safe and consistent.',
+    'Cleaned stale Pack 2 QA artifacts from the isolated Northborn test workspace and reconciled its fleet availability.',
+  ],
   '0.9.2':[
     'Finished Pack 2 release hardening with isolated end-to-end dispatch resources so failed QA runs cannot consume the shared test fleet.',
     'Automatically returns assigned units to Available when their completed or cancelled job closes and no other active job still needs the unit.',

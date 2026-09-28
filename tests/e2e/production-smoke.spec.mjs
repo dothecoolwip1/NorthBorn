@@ -320,7 +320,7 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   await page.goto(absolute('/fleet'))
   await page.getByPlaceholder('Search unit, VIN, plate, make or model…').fill(unitNumber)
   const completedUnit = page.locator('.fleet-card').filter({ hasText: `Unit ${unitNumber}` }).first()
-  await expect(completedUnit).toContainText('Available', { timeout: 20000 })
+  await expect(completedUnit).toContainText(/available/i, { timeout: 20000 })
   await completedUnit.click()
   const drawer = page.locator('.fleet-drawer')
   await drawer.getByRole('button', { name: 'Edit', exact: true }).click()

@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.11':[
+    'Completed the Pack 2B Jobs and Dispatch checkpoint with quick client creation available even for brand-new companies with no clients yet.',
+    'Hardened multi-crew and multi-unit assignment handling so fleet state stays consistent when units are assigned or removed.',
+    'Made duplicated jobs independent drafts instead of silently rejoining recurring series, corrected month-end recurrence dates, and made Dispatch New job open the creation flow directly.',
+  ],
   '0.9.10':[
     'Completed Pack 2A backend verification and hardening for dispatch stages, assignment history, tenant isolation, and automatic fleet release.',
     'Enforced crew and unit requirements before Ready or Dispatched, sequential operator progress, and work-start requirements before operator completion.',

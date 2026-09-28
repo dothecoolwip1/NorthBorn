@@ -1,9 +1,9 @@
 {
-  "version": "0.9.3",
+  "version": "0.9.4",
   "title": "Operations Workflow",
   "notes": [
     "Finished Pack 2 dispatch, calendar and jobs workflows with isolated end-to-end QA and automatic unit release after completed or cancelled jobs.",
-    "Fixed assignment-history cleanup so deleting a job cannot fail when its crew or unit assignments cascade away.",
+    "Fixed assignment-history cleanup and test-control layout so job deletion and real Fleet interactions remain reliable.",
     "Preserved the full Pack 1 authentication, role isolation, navigation, mobile and production QA baseline."
   ]
 }

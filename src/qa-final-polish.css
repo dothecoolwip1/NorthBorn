@@ -7,13 +7,15 @@
     bottom: 18px !important;
   }
 
-  body:has(.northborn-test-role-switcher) .manager-jobs-header {
+  body:has(.northborn-test-role-switcher) .manager-jobs-header,
+  body:has(.northborn-test-role-switcher) .fleet-header {
     padding-right: 150px !important;
   }
 }
 
 @media (max-width: 720px) {
-  body:has(.northborn-test-role-switcher) .manager-jobs-header {
+  body:has(.northborn-test-role-switcher) .manager-jobs-header,
+  body:has(.northborn-test-role-switcher) .fleet-header {
     padding-right: 138px !important;
   }
 }

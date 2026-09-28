@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.4':[
+    'Moved manager Fleet actions clear of the functional TEST role control so QA can exercise real clicks without forced interactions.',
+    'Kept the Pack 2 isolated unit workflow and completed-job fleet release checks intact.',
+    'Preserved the finalized dispatch, calendar, jobs and data-lifecycle hardening from Pack 2.',
+  ],
   '0.9.3':[
     'Fixed Pack 2 job deletion so assignment-history cleanup cannot write an event against a parent job that is already being removed.',
     'Kept assignment history intact for normal crew and unit changes while making cascade deletes safe and consistent.',

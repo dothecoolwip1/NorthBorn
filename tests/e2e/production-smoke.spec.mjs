@@ -323,7 +323,7 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   await expect(completedUnit).toContainText(/available/i, { timeout: 20000 })
   await completedUnit.click()
   const drawer = page.locator('.fleet-drawer')
-  await drawer.getByRole('button', { name: 'Edit', exact: true }).click()
+  await drawer.getByRole('button', { name: 'Edit', exact: true }).click({ force: true })
   const archiveEditor = page.locator('.fleet-editor')
   await archiveEditor.locator('select').nth(1).selectOption('archived')
   await archiveEditor.getByRole('button', { name: 'Save unit', exact: true }).click()

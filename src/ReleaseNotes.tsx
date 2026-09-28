@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.2':[
+    'Finished Pack 2 release hardening with isolated end-to-end dispatch resources so failed QA runs cannot consume the shared test fleet.',
+    'Automatically returns assigned units to Available when their completed or cancelled job closes and no other active job still needs the unit.',
+    'Made functional test sign-in tolerant of a transient first redirect while still requiring the authenticated workspace to render before QA continues.',
+  ],
   '0.9.1':[
     'Completed the Operations Workflow release with dispatch stages, multi-crew and multi-unit assignment, operator field progress, recurring work, and upgraded calendar and job views.',
     'Hardened the Pack 2 release test flow so account handoffs wait for confirmed sign-out before the next field persona signs in.',

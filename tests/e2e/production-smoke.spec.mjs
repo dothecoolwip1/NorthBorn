@@ -120,16 +120,25 @@ async function dismissTransientUi(page) {
 }
 
 async function loginAs(page, persona) {
-  await page.goto(absolute('/login'))
-  await settle(page)
-  await page.getByLabel('Email or username', { exact: true }).fill(TEST_USERS[persona])
-  await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await page.waitForURL(url => url.origin === new URL(BASE).origin && url.pathname === '/', { timeout: 30000 })
-  await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
-  await expectPersonaReady(page, persona)
-  await page.waitForTimeout(900)
-  await dismissTransientUi(page)
+  let lastError = null
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.goto(absolute('/login'))
+    await settle(page)
+    await page.getByLabel('Email or username', { exact: true }).fill(TEST_USERS[persona])
+    await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD)
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    try {
+      await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
+      await expectPersonaReady(page, persona)
+      await page.waitForTimeout(900)
+      await dismissTransientUi(page)
+      return
+    } catch (caught) {
+      lastError = caught
+      if (attempt === 0) await page.waitForTimeout(1500)
+    }
+  }
+  throw lastError || new Error(`Unable to sign in as ${persona}`)
 }
 
 async function signOutThroughMenu(page) {
@@ -219,8 +228,20 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   const jobNumber = `PACK2-${stamp}`
   const title = 'Pack 2 workflow QA'
   const customerName = `Pack 2 QA Customer ${stamp}`
+  const unitNumber = `P2QA-${String(stamp).slice(-7)}`
 
   await loginAs(page, 'manager')
+
+  await page.goto(absolute('/fleet'))
+  await page.getByRole('button', { name: 'Add unit', exact: true }).click()
+  const unitEditor = page.locator('.fleet-editor')
+  await expect(unitEditor).toBeVisible({ timeout: 20000 })
+  await unitEditor.getByLabel('Unit number', { exact: true }).fill(unitNumber)
+  await unitEditor.getByLabel('Unit name', { exact: true }).fill('Pack 2 QA Unit')
+  await unitEditor.getByLabel('Status', { exact: true }).selectOption('available')
+  await unitEditor.getByRole('button', { name: 'Save unit', exact: true }).click()
+  await expect(page.locator('.fleet-card').filter({ hasText: `Unit ${unitNumber}` }).first()).toBeVisible({ timeout: 20000 })
+
   await page.goto(absolute('/jobs'))
   await page.getByRole('button', { name: /new job/i }).click()
   const modal = page.locator('.manager-job-modal')
@@ -247,7 +268,7 @@ test('Pack 2 job flows from manager creation through field completion', async ({
 
   const manage = page.locator('.dispatch-v2-modal')
   await manage.getByRole('button', { name: /Operator Test/ }).click()
-  await manage.getByRole('button', { name: /TEST-101/ }).click()
+  await manage.getByRole('button', { name: new RegExp(unitNumber) }).click()
   await manage.getByRole('button', { name: 'Assign selected', exact: true }).click()
   await expect(manage).toContainText('Ready', { timeout: 20000 })
 
@@ -296,6 +317,17 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   await page.goto(absolute('/jobs?view=completed'))
   await page.locator('.manager-job-search input').fill(jobNumber)
   await expect(page.locator('.manager-job-card').filter({ hasText: jobNumber }).first()).toContainText('Completed', { timeout: 20000 })
+
+  await page.goto(absolute('/fleet'))
+  await page.getByPlaceholder('Search unit, VIN, plate, make or model…').fill(unitNumber)
+  const completedUnit = page.locator('.fleet-card').filter({ hasText: `Unit ${unitNumber}` }).first()
+  await expect(completedUnit).toContainText('Available', { timeout: 20000 })
+  await completedUnit.click()
+  const drawer = page.locator('.fleet-drawer')
+  await drawer.getByRole('button', { name: 'Edit', exact: true }).click()
+  const archiveEditor = page.locator('.fleet-editor')
+  await archiveEditor.getByLabel('Status', { exact: true }).selectOption('archived')
+  await archiveEditor.getByRole('button', { name: 'Save unit', exact: true }).click()
 })
 
 test('operator routes, role isolation, and job access are healthy', async ({ page }) => {

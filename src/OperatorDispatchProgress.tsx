@@ -7,9 +7,9 @@ import './operator-dispatch-progress.css'
 
 const db=supabase as any
 type Job={id:string;dispatch_stage?:string|null;status:string}
-type Props={job:Job;organizationId:string;onChanged:()=>Promise<unknown>}
+type Props={job:Job;organizationId:string;onChanged:()=>Promise<unknown>;compact?:boolean}
 
-export default function OperatorDispatchProgress({job,organizationId,onChanged}:Props){
+export default function OperatorDispatchProgress({job,organizationId,onChanged,compact=false}:Props){
   const [busy,setBusy]=useState(false),[error,setError]=useState('')
   const stage=(job.dispatch_stage||'unassigned') as DispatchStage
   const next=nextOperatorStage(stage)
@@ -34,9 +34,9 @@ export default function OperatorDispatchProgress({job,organizationId,onChanged}:
     finally{setBusy(false)}
   }
 
-  return <section className="operator-dispatch-progress">
-    <div className="operator-dispatch-progress-head"><div><span>FIELD PROGRESS</span><strong>{dispatchStageLabel(stage)}</strong></div><Radio size={20}/></div>
-    <div className="operator-stage-track">{visible.map(item=>{const index=stageIndex(item),done=current>index,active=current===index;return <div className={active?'active':done?'done':''} key={item}>{done?<CheckCircle2/>:<Circle/>}<span>{dispatchStageLabel(item)}</span></div>})}</div>
+  return <section className={compact?'operator-dispatch-progress compact':'operator-dispatch-progress'}>
+    <div className="operator-dispatch-progress-head"><div><span>{compact?'CURRENT STATUS':'FIELD PROGRESS'}</span><strong>{dispatchStageLabel(stage)}</strong></div><Radio size={20}/></div>
+    {!compact&&<div className="operator-stage-track">{visible.map(item=>{const index=stageIndex(item),done=current>index,active=current===index;return <div className={active?'active':done?'done':''} key={item}>{done?<CheckCircle2/>:<Circle/>}<span>{dispatchStageLabel(item)}</span></div>})}</div>}
     {error&&<div className="operator-stage-error">{error}</div>}
     {action&&<button className="operator-stage-action" type="button" onClick={()=>void advance()} disabled={busy}>{busy?<Loader2 className="spin" size={18}/>:next==='en_route'?<Navigation size={18}/>:next==='onsite'?<Truck size={18}/>:<CheckCircle2 size={18}/>} {busy?'Updating…':action}</button>}
     {!action&&stage==='work_started'&&<div className="operator-stage-note">Work is underway. Complete the job from the completion section below when field work is finished.</div>}

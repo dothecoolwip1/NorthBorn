@@ -144,3 +144,21 @@ test('field ticket editor has named controls and returns keyboard focus',async({
  await expect(dialog.getByLabel('Service quantity')).toBeVisible()
  await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(opener).toBeFocused()
 })
+
+
+test('public homepage is mobile-first and role previews work without horizontal overflow',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message))
+ await page.setViewportSize({width:390,height:844})
+ await page.goto('/')
+ await expect(page.getByRole('heading',{name:/Your whole operation/i})).toBeVisible()
+ await expect(page.getByRole('tab',{name:'Manager'})).toBeVisible()
+ await expect(page.locator('.marketing-mobile-dock')).toBeVisible()
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2)).toBe(true)
+
+ await page.getByRole('tab',{name:'Operator'}).click()
+ await expect(page.locator('.showcase-product.operator')).toContainText('3 jobs assigned')
+ await page.getByRole('tab',{name:'Client'}).click()
+ await expect(page.locator('.showcase-product.client')).toContainText('Signed field ticket')
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2)).toBe(true)
+ expect(errors).toEqual([])
+})

@@ -190,6 +190,7 @@ export default function ManagerDashboardV2(){
   return <main className="manager-home-page">
     <section className="manager-home-top">
       <div className="manager-home-intro">
+        <span className="manager-home-eyebrow">COMMAND CENTRE</span>
         <span className="manager-home-date">{dateLabel}</span>
         <h1>{greeting}. <em>Here’s the day.</em></h1>
         <p>{workspace.organization.name} · {label(workspace.roleKey)} workspace</p>

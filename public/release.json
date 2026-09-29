@@ -1,15 +1,16 @@
 {
-  "version": "0.20.0",
-  "title": "Operator Today — Pack 3",
+  "version": "0.21.0",
+  "title": "Field Forms — Pack 4",
   "notes": [
-    "Replace the operator's dashboard-style home with a task-first Today screen centered on the active or next assigned job.",
-    "Show job number, title, shop time, on-site time, location, client, assigned unit and privacy-safe crew count directly on Today.",
-    "Surface the next real workflow action on the main screen: Acknowledge dispatch, Start driving, Mark on site, Start work or Complete job.",
-    "Reuse Northborn's existing secured dispatch and completion actions instead of creating a second status workflow.",
-    "Add one-tap job actions for Directions, Dispatch call, Safety, Field Ticket and Time.",
-    "Show simple Later Today or Next Scheduled rows instead of dashboard KPI cards.",
-    "Remove the legacy operator-only mobile navigation bar so Pack 2's role-aware bottom navigation is the single phone navigation system.",
-    "Keep coworker employee details private: operators see assigned crew count/roles without gaining access to other employee profiles.",
-    "Add browser regression coverage for the active job, status action, field quick actions and removal of duplicate mobile navigation."
+    "Replace the operator Safety landing page with a field-first forms hub for Pre-trip, FLHA, Incident, Near Miss and Equipment Inspection workflows.",
+    "Carry the active assigned job from Today into Safety, Field Ticket and Timesheet workflows instead of asking the operator to select the same job again.",
+    "Prefill field context Northborn already knows, including operator, job, customer, site, assigned unit and schedule where available.",
+    "Use one-tap Pass, Defect and N/A inspection controls sized for field use.",
+    "Expand defect details only when Defect is selected, including description, severity, remove-from-service and optional defect photo.",
+    "Store inspection detail inside the existing safety submission record and upload defect photos through the existing safety attachment system.",
+    "Prefill FLHAs from the job passed from Today.",
+    "Restrict operator field-ticket job choices to assigned work and prefill the assigned unit when possible.",
+    "Open timesheets from Today with the assigned job already selected.",
+    "Remove the duplicate legacy operator mobile navigation from Safety so Pack 2's global role-aware navigation remains the single phone navigation system."
   ]
 }

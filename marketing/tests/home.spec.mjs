@@ -15,8 +15,33 @@ test('Northborn marketing site works on a 390px phone', async ({ page }) => {
     viewportWidth: innerWidth,
     offenders: Array.from(document.querySelectorAll('*')).map(el => {
       const rect = el.getBoundingClientRect()
-      return { tag: el.tagName, className: typeof el.className === 'string' ? el.className : '', left: Math.round(rect.left), right: Math.round(rect.right), width: Math.round(rect.width) }
-    }).filter(item => item.right > innerWidth + 2 || item.left < -2).slice(0, 20),
+      let parent = el.parentElement
+      let contained = false
+      while (parent && parent !== document.body && parent !== document.documentElement) {
+        const overflowX = getComputedStyle(parent).overflowX
+        if (overflowX === 'auto' || overflowX === 'scroll' || overflowX === 'hidden' || overflowX === 'clip') {
+          const parentRect = parent.getBoundingClientRect()
+          if (rect.right > parentRect.right + 2 || rect.left < parentRect.left - 2) contained = true
+          break
+        }
+        parent = parent.parentElement
+      }
+      return {
+        tag: el.tagName,
+        className: typeof el.className === 'string' ? el.className : '',
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        width: Math.round(rect.width),
+        contained,
+      }
+    }).filter(item => (item.right > innerWidth + 2 || item.left < -2) && !item.contained).slice(0, 30),
+    boxes: ['.site-shell','.hero','.hero-visual','.manifesto','.manifesto-line','.journey','.journey-layout','.journey-steps','.journey-sticky','.roles-section','.role-stage','.system-section','.field-section','.closing','footer'].map(selector => {
+      const el = document.querySelector(selector)
+      if (!el) return { selector, missing: true }
+      const rect = el.getBoundingClientRect()
+      const style = getComputedStyle(el)
+      return { selector, left: Math.round(rect.left), right: Math.round(rect.right), width: Math.round(rect.width), scrollWidth: el.scrollWidth, overflowX: style.overflowX, display: style.display }
+    }),
   }))
   expect(mobileOverflow, JSON.stringify(mobileOverflow, null, 2)).toMatchObject({ pageWidth: expect.any(Number), viewportWidth: 390 })
   expect(mobileOverflow.pageWidth, JSON.stringify(mobileOverflow, null, 2)).toBeLessThanOrEqual(392)

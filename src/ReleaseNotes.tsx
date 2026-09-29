@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.13':[
+    'Cleaned up desktop navigation so pages with a left sidebar no longer show a duplicate top-right hamburger.',
+    'Moved the functional test switcher to the lower-left rail so it stays out of operational controls.',
+    'Rebuilt client job cards to prevent job numbers, dates and statuses from colliding in narrow layouts.',
+  ],
   '0.9.12':[
     'Completed the Pack 2C operator workflow checkpoint from dispatch acknowledgement through field completion.',
     'Operators can only complete a job after work has actually started, matching the server-enforced field progression.',

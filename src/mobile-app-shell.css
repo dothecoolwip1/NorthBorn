@@ -92,7 +92,7 @@ body:has(.northborn-account-menu.print-route) .northborn-test-role-switcher{disp
     color:#17120b;
     display:grid;
     place-items:center;
-    font-size:10px;
+    font-size:var(--nb-font-xs);
     line-height:1;
   }
 
@@ -165,5 +165,5 @@ body:has(.northborn-account-menu.print-route) .northborn-test-role-switcher{disp
 @media(max-width:390px){
   .northborn-mobile-tabs{padding-left:5px;padding-right:5px;gap:0}
   .northborn-mobile-tabs>button{padding-left:1px;padding-right:1px}
-  .northborn-mobile-tabs>button>span{font-size:11px}
+  .northborn-mobile-tabs>button>span{font-size:var(--nb-font-xs)}
 }

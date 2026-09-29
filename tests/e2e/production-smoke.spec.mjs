@@ -326,6 +326,40 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   await expect(completedUnit).toContainText(/available/i, { timeout: 20000 })
 })
 
+test('Pack 2 calendar and dashboard controls are healthy', async ({ page }) => {
+  await loginAs(page, 'manager')
+  try {
+    await page.goto(absolute('/'))
+    await expect(page.locator('body')).toContainText('COMMAND CENTRE')
+    await expect(page.locator('.manager-home-kpis a').first()).toBeVisible({ timeout: 20000 })
+
+    await page.goto(absolute('/calendar'))
+    await expect(page.getByRole('button', { name: 'Week', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Month', exact: true })).toBeVisible()
+    await expect(page.getByPlaceholder('Job, site, crew or unit')).toBeVisible()
+    await expect(page.getByText('Unscheduled', { exact: true })).toBeVisible()
+    await expect(page.locator('.calendar-toolbar select')).toHaveCount(3)
+    await page.getByRole('button', { name: 'Month', exact: true }).click()
+    await expect(page.locator('.ops-month-grid')).toBeVisible()
+    await page.getByRole('button', { name: 'Week', exact: true }).click()
+    await expect(page.locator('.ops-week-grid')).toBeVisible()
+
+    await setManagerInternalRole(page, 'safety')
+    await page.goto(absolute('/calendar'))
+    const safetyCalendarNav=page.locator('.ops-calendar-sidebar nav')
+    await expect(safetyCalendarNav).toContainText('Jobs')
+    await expect(safetyCalendarNav).not.toContainText('Dispatch')
+
+    await setManagerInternalRole(page, 'accounting')
+    await page.goto(absolute('/'))
+    const accountingShortcuts=page.locator('.manager-home-shortcuts')
+    await expect(accountingShortcuts).toContainText('Invoices')
+    await expect(accountingShortcuts).not.toContainText('Jobs')
+  } finally {
+    await setManagerInternalRole(page, 'owner')
+  }
+})
+
 test('operator routes, role isolation, and job access are healthy', async ({ page }) => {
   const issues = []
   await loginAs(page, 'operator')

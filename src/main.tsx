@@ -47,6 +47,7 @@ import './menu-shell-overrides.css'
 import './qa-final-polish.css'
 
 const DEMO_MODE_KEY = 'northborn_test_mode'
+// Demo mode is an isolated local workspace and intentionally survives page reloads.
 
 type RouteRole = 'loading' | 'guest' | 'unconnected' | 'manager' | 'operator' | 'client' | 'superadmin' | 'error'
 function StandardApp() {

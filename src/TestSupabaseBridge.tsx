@@ -73,8 +73,9 @@ function baseRows(table:string): any[] {
     case 'fleet_vehicles': return data.vehicles
     case 'jobs': return data.jobs
     case 'dispatch_assignments': return data.assignments
-    case 'customer_contacts': return readTestClientContacts().map(c=>({ ...c, organization_id:TEST_ORG.id, customer_id:customer?.id }))
+    case 'customer_contacts': { const rows=readGeneric('customer_contacts'); return rows.length ? rows : readTestClientContacts().map(c=>({ ...c, organization_id:TEST_ORG.id, customer_id:customer?.id })) }
     case 'customer_portal_users': return [{ id:'test-client-portal-user', organization_id:TEST_ORG.id, customer_id:customer?.id, user_id:TEST_USERS.client.id, portal_role:'admin', status:'active' }]
+    case 'invoices': { try { return JSON.parse(localStorage.getItem('northborn_test_invoices_v1') || '[]') } catch { return [] } }
     default: return readGeneric(table)
   }
 }
@@ -86,7 +87,8 @@ function saveRows(table:string, rows:any[]) {
   if (table==='fleet_vehicles') return writeTestLabData({ ...data, vehicles:rows })
   if (table==='jobs') return writeTestLabData({ ...data, jobs:rows })
   if (table==='dispatch_assignments') return writeTestLabData({ ...data, assignments:rows })
-  if (table==='customer_contacts') return writeTestClientContacts(rows.map(({id,name,title,phone,email,contact_type,status,updated_at}:any)=>({id,name,title,phone,email,contact_type,status,updated_at:updated_at||now()})))
+  if (table==='customer_contacts') return writeGeneric('customer_contacts', rows)
+  if (table==='invoices') { localStorage.setItem('northborn_test_invoices_v1', JSON.stringify(rows)); window.dispatchEvent(new Event('northborn-test-data-changed')); return }
   if (['organizations','organization_members','roles','membership_roles','customer_portal_users','profiles'].includes(table)) return
   writeGeneric(table, rows)
 }

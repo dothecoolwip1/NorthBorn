@@ -1,9 +1,9 @@
 {
-  "version": "0.9.13",
-  "title": "Pack 2D Calendar and Dashboard",
+  "version": "0.9.14",
+  "title": "Navigation and Client Layout Cleanup",
   "notes": [
-    "Completed the Pack 2D calendar and dashboard checkpoint with week and month planning, unscheduled work and role-aware navigation.",
-    "Expanded calendar filtering across dispatch stage, lifecycle status, customer and free-text searches for jobs, sites, crew and units.",
-    "Removed dashboard and calendar links that sent restricted roles into modules they do not have permission to use."
+    "Removed the duplicate desktop hamburger on pages that already provide a persistent left navigation rail.",
+    "Moved the functional test switcher to the lower-left area so it no longer crowds operational header controls.",
+    "Reworked client job cards so job numbers, dates, statuses and chevrons remain readable without overlapping."
   ]
 }

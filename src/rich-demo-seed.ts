@@ -220,7 +220,7 @@ export function createRichDemoBundle(core:CoreData,orgId:string,users:DemoUsers)
     {id:'demo-defect-4',organization_id:orgId,vehicle_id:core.vehicles[3].id,title:'Air leak at gladhand',description:'Slow air leak noted during post-trip.',severity:'medium',status:'resolved',out_of_service:false,reported_at:at(-48,18),resolved_at:at(-47,8),resolution_notes:'Seal replaced and leak test passed.',odometer_km:core.vehicles[3].odometer_km-4100,engine_hours:core.vehicles[3].engine_hours-160,report_count:1},
     {id:'demo-defect-5',organization_id:orgId,vehicle_id:core.vehicles[4].id,title:'Backup alarm intermittent',description:'Alarm failed once during pre-trip and passed on retest.',severity:'high',status:'resolved',out_of_service:true,reported_at:at(-72,6),resolved_at:at(-72,10),resolution_notes:'Loose connector repaired. Function verified.',odometer_km:core.vehicles[4].odometer_km-7200,engine_hours:core.vehicles[4].engine_hours-280,report_count:1},
   ]
-  const inspections=Array.from({length:18},(_,index)=>{
+  const inspections:any[]=Array.from({length:18},(_,index)=>{
     const vehicle=core.vehicles[index%core.vehicles.length]
     const isAttention=index===1||index===11
     return {
@@ -248,7 +248,7 @@ export function createRichDemoBundle(core:CoreData,orgId:string,users:DemoUsers)
     ['ground_disturbance','Ground Disturbance Level II','Global Training Centre',300],['confined_space','Confined Space Entry','Energy Safety Canada',140],
     ['whmis','WHMIS 2015','Company Training',330],['tdg','Transportation of Dangerous Goods','Company Training',250],
   ]
-  const credentials=core.employees.filter((employee:any)=>employee.status==='active').flatMap((employee:any,employeeIndex:number)=>
+  const credentials:any[]=core.employees.filter((employee:any)=>employee.status==='active').flatMap((employee:any,employeeIndex:number)=>
     credentialTypes.slice(0,employeeIndex%3===0?6:4).map((row:any,typeIndex:number)=>({
       id:id('credential',employeeIndex*10+typeIndex+1),organization_id:orgId,employee_id:employee.id,credential_type:row[0],title:row[1],issuer:row[2],
       credential_number:'DEMO-' + String(employeeIndex+1) + '-' + String(typeIndex+1),issued_on:date(-365+employeeIndex*9+typeIndex*5),

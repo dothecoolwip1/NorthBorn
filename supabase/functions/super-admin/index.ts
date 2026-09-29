@@ -475,7 +475,7 @@ Deno.serve(async (req) => {
         if (created.error) throw created.error;
         createdUser = created.data.user;
       } else {
-        const appUrl = Deno.env.get("NORTHBORN_APP_URL") || "https://northborn.vercel.app";
+        const appUrl = Deno.env.get("NORTHBORN_APP_URL") || "https://dothecoolwip1.github.io/NorthBorn/";
         const invited = await service.auth.admin.inviteUserByEmail(email, {
           redirectTo: appUrl,
           data: payload.displayName ? { display_name: String(payload.displayName) } : undefined,

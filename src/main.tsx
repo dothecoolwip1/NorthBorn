@@ -82,7 +82,7 @@ function DemoRoutedWorkspace({ normalizedPath }:{ normalizedPath:string }) {
     else if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) page = <SafetyRoutePage />
     else page = <WorkspaceNotFound homeLabel="Back to my jobs" />
   } else if (persona === 'client') {
-    if (normalizedPath === '/') page = <StandardApp />
+    if (normalizedPath === '/' || normalizedPath === '/jobs' || normalizedPath === '/invoices' || normalizedPath === '/reports') page = <ClientPortalApp />
     else if (normalizedPath === '/tickets' || normalizedPath === '/client-tickets') page = <ClientFieldTicketsPage />
     else if (normalizedPath === '/client-ticket-print') page = <ClientTicketPrintPage />
     else page = <WorkspaceNotFound homeLabel="Back to client portal" />

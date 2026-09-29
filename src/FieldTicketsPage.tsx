@@ -197,7 +197,7 @@ export default function FieldTicketsPage({activeTemplate=null}:{activeTemplate?:
   if(!organization)return <div className="ticket-loading">Field tickets are not available for this account.</div>
 
   return <main className="ticket-page">
-    <section className="ticket-hero"><div><span>FIELD TICKETS</span><h1>From the truck to the office.</h1><p>Capture the work, hours, unit, quantities, disposal information and customer sign-off while the job is still fresh.</p></div>{canSubmit&&<button className="ticket-primary" type="button" onClick={openNew}><Plus size={17}/>New ticket</button>}</section>
+    <section className="ticket-hero"><div><span>FIELD TICKETS</span><h1>From the truck to the office.</h1><p>Capture the work, hours, unit, quantities, disposal information and customer sign-off while the job is still fresh.</p></div>{canSubmit&&<button className="ticket-primary" type="button" onClick={()=>openNew()}><Plus size={17}/>New ticket</button>}</section>
     {error&&<div className="ticket-message error">{error}</div>}{notice&&<div className="ticket-message success"><CheckCircle2 size={17}/>{notice}</div>}
 
     <section className="ticket-metrics"><Metric label="All tickets" value={String(tickets.length)}/><Metric label="Waiting review" value={String(submitted)} attention={submitted>0}/><Metric label="Approved" value={String(approved)}/><Metric label="Unsigned submitted" value={String(unsigned)} attention={unsigned>0}/></section>

@@ -468,6 +468,31 @@ test('Pack 5 fleet and maintenance are healthy', async ({ page }) => {
   await expect(page.getByRole('button',{name:'Upload',exact:true})).toBeVisible()
 })
 
+test('Pack 7 templates tickets and timesheets are healthy', async ({ page }) => {
+  await loginAs(page, 'manager')
+
+  await page.goto(absolute('/templates'))
+  await expect(page.locator('body')).toContainText('Templates', { timeout: 30000 })
+
+  await page.goto(absolute('/tickets'))
+  const newTicket=page.getByRole('button',{name:/new ticket/i})
+  await expect(newTicket).toBeVisible({timeout:30000})
+  await newTicket.click()
+  await expect(page.locator('.ticket-editor')).toBeVisible()
+  await expect(page.locator('.ticket-editor')).toContainText('Operator sign-off')
+  await expect(page.locator('.ticket-editor')).toContainText('Attachments')
+  await page.locator('.ticket-editor > header button').click()
+
+  await page.goto(absolute('/timesheets'))
+  const addTime=page.getByRole('button',{name:/add time/i})
+  await expect(addTime).toBeVisible({timeout:30000})
+  await addTime.click()
+  await expect(page.locator('.timesheet-modal')).toBeVisible()
+  await expect(page.locator('.timesheet-modal')).toContainText('Employee signature')
+  await expect(page.locator('.timesheet-modal')).toContainText('Attachments')
+  await page.locator('.timesheet-modal header button').click()
+})
+
 test('operator routes, role isolation, and job access are healthy', async ({ page }) => {
   const issues = []
   await loginAs(page, 'operator')

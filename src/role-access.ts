@@ -10,6 +10,7 @@ export const INTERNAL_ROLE_PATHS: Record<string, readonly string[]> = {
 
 export function normalizeInternalRoute(pathname: string) {
   if (pathname.startsWith('/ticket-print/')) return '/ticket-print'
+  if (pathname === '/timesheet-print' || pathname.startsWith('/timesheet-print/')) return '/timesheets'
   if (pathname.startsWith('/safety/')) return '/safety'
   return pathname
 }

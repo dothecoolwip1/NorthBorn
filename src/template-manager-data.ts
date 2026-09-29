@@ -13,6 +13,9 @@ export type TemplateField = {
   pdf_field_name?: string
   source?: 'preset' | 'pdf' | 'custom'
   options?: string[]
+  section?: string
+  condition_key?: string
+  condition_value?: string
 }
 
 export type TemplateRow = {

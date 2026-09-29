@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.14.0':[
+    'Connected the no-code Template Manager to real field ticket and timesheet entry so custom sections, required fields and conditional fields are completed in the operational workflow.',
+    'Expanded field tickets and timesheets with exact template/version snapshots, operator and employee signatures, photo/PDF attachments, approval/return workflows and printable PDF-ready records.',
+    'Added repository migrations for template-linked answers, form attachments, immutable sign-off metadata and private attachment storage. These migrations are committed but intentionally not applied live in this GitHub-only update.',
+  ],
   '0.13.0':[
     'Completed the Safety centre with worker credentials, searchable safety documents, version/review/expiry metadata, employee acknowledgements and multi-role-aware safety access.',
     'Expanded digital safety paperwork with FLHAs, incidents, near misses, hazards, toolbox talks, vehicle/equipment inspections, attachments/photos and print-to-PDF output.',

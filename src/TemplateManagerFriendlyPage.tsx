@@ -195,13 +195,15 @@ export default function TemplateManagerFriendlyPage() {
         setLoading(false)
         return
       }
-      const roleResult = await db.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id).limit(1).maybeSingle()
+      const roleResult = await db.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id)
       if (!active) return
+      const roleKeys=(roleResult.data||[]).map((row:any)=>row.role?.key).filter(Boolean)
+      const precedence=['owner','admin','supervisor','dispatcher','safety','mechanic','accounting','operator']
       const organization = membership.data.organization as { name?: string } | null
       setContext({
         organizationId: membership.data.organization_id,
         organizationName: organization?.name || 'Northborn company',
-        roleKey: roleResult.data?.role?.key || '',
+        roleKey: precedence.find(key=>roleKeys.includes(key))||roleKeys[0]||'',
         userId: next.user.id,
       })
       setLoading(false)
@@ -661,7 +663,10 @@ export default function TemplateManagerFriendlyPage() {
                 <label className="binding"><span>Fill automatically from</span><select value={field.binding} onChange={event => updateField(index, { binding: event.target.value })}>{NORTHBORN_BINDINGS.map(option => <option value={option.value} key={`${option.group}-${option.value}`}>{option.value ? `${option.group} · ${option.label}` : option.label}</option>)}</select></label>
                 {draft.sourceKind === 'fillable_pdf' && <label><span>PDF box name</span><input value={field.pdf_field_name || ''} onChange={event => updateField(index, { pdf_field_name: event.target.value })}/></label>}
                 <label className="required"><input type="checkbox" checked={field.required} onChange={event => updateField(index, { required: event.target.checked })}/><span>Must be filled out</span></label>
-                <button type="button" className="template-remove-field" onClick={() => removeField(index)} aria-label={`Remove ${field.label}`}><Trash2 size={16}/></button>
+                
+                <label><span>Section</span><input value={field.section || ''} onChange={event => updateField(index, { section: event.target.value })} placeholder="Job details, Sign-off..."/></label>
+                <label><span>Show only when field</span><input value={field.condition_key || ''} onChange={event => updateField(index, { condition_key: event.target.value })} placeholder="internal field name"/></label>
+                <label><span>Condition value</span><input value={field.condition_value || ''} onChange={event => updateField(index, { condition_value: event.target.value })} placeholder="Yes, Disposal..."/></label><button type="button" className="template-remove-field" onClick={() => removeField(index)} aria-label={`Remove ${field.label}`}><Trash2 size={16}/></button>
               </div>)}</div>
             </div>}
           </section>

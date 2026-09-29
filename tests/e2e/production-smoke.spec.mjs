@@ -202,22 +202,48 @@ test('guest and login routes are healthy', async ({ page }) => {
 
   await page.getByLabel('Email or username', { exact: true }).fill('admin')
   await page.getByLabel('Password', { exact: true }).fill('admin')
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page).toHaveURL(absolute('/'), { timeout: 15000 })
-  await expect(page.locator('body')).toContainText('TEST WORKSPACE', { timeout: 15000 })
+  await page.locator('form').getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page).toHaveURL(absolute('/'), { timeout: 20000 })
+  await expect(page.locator('body')).toContainText('COMMAND CENTRE', { timeout: 20000 })
+  await expect(page.locator('body')).toContainText('Northborn Test Company')
   await page.reload()
-  await expect(page.locator('body')).toContainText('TEST WORKSPACE', { timeout: 15000 })
+  await expect(page.locator('body')).toContainText('COMMAND CENTRE', { timeout: 20000 })
 
   await page.setViewportSize({ width: 390, height: 844 })
-  const mobileMenu = page.getByRole('button', { name: 'Open navigation' })
+  const mobileMenu = page.getByRole('button', { name: 'Open Northborn menu' })
   await expect(mobileMenu).toBeVisible()
   await mobileMenu.click()
-  await expect(page.locator('.sidebar.open')).toBeVisible()
-  await expect(page.locator('.sidebar.open')).toContainText('Customers')
-  await expect(page.locator('.view-switcher')).toBeVisible()
-  await expect(page.locator('.view-switcher')).toContainText('manager')
-  await expect(page.locator('.view-switcher')).toContainText('operator')
-  await expect(page.locator('.view-switcher')).toContainText('client')
+  const demoMenu = page.getByRole('dialog', { name: 'Northborn menu' })
+  await expect(demoMenu).toBeVisible()
+  await expect(demoMenu).toContainText('Customers')
+  await expect(demoMenu).toContainText('Switch demo view')
+  await expect(demoMenu).toContainText('Manager')
+  await expect(demoMenu).toContainText('Operator')
+  await expect(demoMenu).toContainText('Client')
+  await page.getByRole('button', { name: 'Close Northborn menu' }).click()
+
+  const demoRoutes = [
+    ['/customers', 'Prairie Peak Energy'],
+    ['/jobs', 'Hydrovac line locate and daylighting'],
+    ['/fleet', 'Hydrovac 101'],
+    ['/maintenance', '250 Hour Service'],
+    ['/safety', 'Safety library'],
+    ['/tickets', 'FT-2026-'],
+    ['/timesheets', 'Alex Morgan'],
+    ['/invoices', 'INV-2026-1001'],
+    ['/billing', 'Approved work, ready to bill.'],
+    ['/pricing', 'Hydrovac'],
+    ['/templates', 'Hydrovac Field Ticket'],
+    ['/reports', 'Northborn Test Company'],
+  ]
+  for (const [path, marker] of demoRoutes) {
+    await page.goto(absolute(path))
+    await expect(page.locator('body')).toContainText(marker, { timeout: 20000 })
+  }
+
+  await page.goto(absolute('/safety'))
+  await page.getByRole('button', { name: /Safety library/ }).first().click()
+  await expect(page.locator('body')).toContainText('Hydrogen Sulfide (H2S) SDS', { timeout: 20000 })
 
   failWithIssues(issues)
 })

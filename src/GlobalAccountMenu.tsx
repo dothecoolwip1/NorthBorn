@@ -7,6 +7,7 @@ import { supabase } from './lib/supabase'
 import { resolveWorkspaceAccess } from './workspace-access'
 import { INTERNAL_ROLE_PATHS } from './role-access'
 import { FUNCTIONAL_TEST_USERS, personaFromSession, switchFunctionalTestPersona, type FunctionalTestPersona } from './functional-test-auth'
+import { getTestPersona, isTestMode, setTestPersona, type TestPersona } from './test-lab'
 import { applyNorthbornUpdate, checkForNorthbornUpdate, getPwaUpdateMode, hasInstallPrompt, isNorthbornInstalled, promptNorthbornInstall, setPwaUpdateMode, type NorthbornUpdateMode } from './pwa'
 import './global-account-menu.css'
 
@@ -91,8 +92,11 @@ export default function GlobalAccountMenu() {
   const [updateMode, setUpdateModeState] = useState<NorthbornUpdateMode>(getPwaUpdateMode())
   const previousIdentity = useRef('')
 
-  const persona = personaFromSession(session)
-  const isFunctionalTest = persona !== null
+  const functionalPersona = personaFromSession(session)
+  const localDemo = isTestMode()
+  const localPersona = localDemo ? getTestPersona() : null
+  const persona = functionalPersona ?? localPersona
+  const isFunctionalTest = functionalPersona !== null
   const userId = session?.user.id || ''
   const effectiveRole = persona === 'client' ? 'client' : persona === 'operator' ? 'operator' : roleKey
   const unreadCount = useMemo(() => notifications.filter(item => !item.read_at).length, [notifications])
@@ -242,6 +246,13 @@ export default function GlobalAccountMenu() {
 
   const switchPersona = async (next: FunctionalTestPersona) => {
     if (next === persona) { setOpen(false); return }
+    if (localDemo) {
+      setTestPersona(next as TestPersona)
+      setOpen(false)
+      const home = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
+      window.location.replace(home)
+      return
+    }
     setSwitching(next)
     try {
       await switchFunctionalTestPersona(next)
@@ -290,7 +301,7 @@ export default function GlobalAccountMenu() {
     return location.pathname === path && !location.hash
   }
 
-  return <div className="northborn-account-menu">
+  return <div className={localDemo ? 'northborn-account-menu demo-mode' : 'northborn-account-menu'}>
     {toast && <div className="northborn-notification-toast">
       <button type="button" className="northborn-toast-main" onClick={() => toast.notification ? void openNotification(toast.notification) : setOpen(true)}>
         <BellRing size={19}/><span><strong>{toast.title}</strong>{toast.message && <small>{toast.message}</small>}</span>
@@ -322,7 +333,7 @@ export default function GlobalAccountMenu() {
         <div className="northborn-account-section-title">About</div>
         <div className="northborn-version-card"><div className="northborn-version-logo">N</div><div><strong>Northborn</strong><span>Version {APP_VERSION}</span></div></div>
       </> : <>
-        <div className="northborn-account-heading"><UserRound size={18}/><div><strong>{isFunctionalTest ? 'Test account' : 'Northborn account'}</strong><span>{persona ? FUNCTIONAL_TEST_USERS[persona].email : session.user.email}</span></div></div>
+        <div className="northborn-account-heading"><UserRound size={18}/><div><strong>{isFunctionalTest || localDemo ? 'Demo workspace' : 'Northborn account'}</strong><span>{persona ? FUNCTIONAL_TEST_USERS[persona].email : session.user.email}</span></div></div>
 
         <div className="northborn-account-section-title">Navigation</div>
         <div className="northborn-menu-links northborn-navigation-links">
@@ -347,7 +358,7 @@ export default function GlobalAccountMenu() {
           {canPricing && <button type="button" onClick={() => go('/billing')}><ReceiptText size={18}/><span><strong>Billing queue</strong><small>Approved tickets ready to invoice</small></span></button>}
         </div></>}
 
-        {isFunctionalTest && <><div className="northborn-account-section-title">Switch test account</div><div className="northborn-test-account-list">
+        {(isFunctionalTest || localDemo) && <><div className="northborn-account-section-title">Switch demo view</div><div className="northborn-test-account-list">
           {personas.map(([key, email, Icon]) => <button key={key} type="button" disabled={Boolean(switching)} className={persona === key ? 'active' : ''} onClick={() => void switchPersona(key)}><Icon size={18}/><div><strong>{FUNCTIONAL_TEST_USERS[key].label}</strong><span>{email}</span></div>{persona === key ? <em>Active</em> : switching === key ? <em>Opening…</em> : null}</button>)}
         </div></>}
 

@@ -73,8 +73,9 @@ function baseRows(table:string): any[] {
     case 'fleet_vehicles': return data.vehicles
     case 'jobs': return data.jobs
     case 'dispatch_assignments': return data.assignments
-    case 'customer_contacts': return readTestClientContacts().map(c=>({ ...c, organization_id:TEST_ORG.id, customer_id:customer?.id }))
+    case 'customer_contacts': { const rows=readGeneric('customer_contacts'); return rows.length ? rows : readTestClientContacts().map(c=>({ ...c, organization_id:TEST_ORG.id, customer_id:customer?.id })) }
     case 'customer_portal_users': return [{ id:'test-client-portal-user', organization_id:TEST_ORG.id, customer_id:customer?.id, user_id:TEST_USERS.client.id, portal_role:'admin', status:'active' }]
+    case 'invoices': { try { return JSON.parse(localStorage.getItem('northborn_test_invoices_v1') || '[]') } catch { return [] } }
     default: return readGeneric(table)
   }
 }
@@ -86,26 +87,27 @@ function saveRows(table:string, rows:any[]) {
   if (table==='fleet_vehicles') return writeTestLabData({ ...data, vehicles:rows })
   if (table==='jobs') return writeTestLabData({ ...data, jobs:rows })
   if (table==='dispatch_assignments') return writeTestLabData({ ...data, assignments:rows })
-  if (table==='customer_contacts') return writeTestClientContacts(rows.map(({id,name,title,phone,email,contact_type,status,updated_at}:any)=>({id,name,title,phone,email,contact_type,status,updated_at:updated_at||now()})))
+  if (table==='customer_contacts') return writeGeneric('customer_contacts', rows)
+  if (table==='invoices') { localStorage.setItem('northborn_test_invoices_v1', JSON.stringify(rows)); window.dispatchEvent(new Event('northborn-test-data-changed')); return }
   if (['organizations','organization_members','roles','membership_roles','customer_portal_users','profiles'].includes(table)) return
   writeGeneric(table, rows)
 }
 
-type Filter = { op:'eq'|'neq'|'in'|'is'; key:string; value:any }
+type Filter = { op:'eq'|'neq'|'in'|'is'|'gte'|'lte'; key:string; value:any }
 class TestQuery implements PromiseLike<any> {
-  table:string;mode:'select'|'insert'|'update'|'delete'='select';payload:any=null;filters:Filter[]=[];limitCount:number|null=null;orderKey:string|null=null;orderAscending=true
+  table:string;mode:'select'|'insert'|'update'|'delete'='select';payload:any=null;filters:Filter[]=[];limitCount:number|null=null;rangeStart:number|null=null;rangeEnd:number|null=null;orderKey:string|null=null;orderAscending=true
   constructor(table:string){this.table=table}
   select(_columns='*'){return this} insert(payload:any){this.mode='insert';this.payload=payload;return this} upsert(payload:any,_options?:any){this.mode='insert';this.payload=payload;return this} update(payload:any){this.mode='update';this.payload=payload;return this} delete(){this.mode='delete';return this}
-  eq(key:string,value:any){this.filters.push({op:'eq',key,value});return this} neq(key:string,value:any){this.filters.push({op:'neq',key,value});return this} in(key:string,value:any[]){this.filters.push({op:'in',key,value});return this} is(key:string,value:any){this.filters.push({op:'is',key,value});return this} order(key:string,options?:{ascending?:boolean}){this.orderKey=key;this.orderAscending=options?.ascending!==false;return this} limit(value:number){this.limitCount=value;return this} maybeSingle(){return this.execute(true)} single(){return this.execute(true,true)}
+  eq(key:string,value:any){this.filters.push({op:'eq',key,value});return this} neq(key:string,value:any){this.filters.push({op:'neq',key,value});return this} in(key:string,value:any[]){this.filters.push({op:'in',key,value});return this} is(key:string,value:any){this.filters.push({op:'is',key,value});return this} gte(key:string,value:any){this.filters.push({op:'gte',key,value});return this} lte(key:string,value:any){this.filters.push({op:'lte',key,value});return this} order(key:string,options?:{ascending?:boolean}){this.orderKey=key;this.orderAscending=options?.ascending!==false;return this} limit(value:number){this.limitCount=value;return this} range(from:number,to:number){this.rangeStart=from;this.rangeEnd=to;return this} maybeSingle(){return this.execute(true)} single(){return this.execute(true,true)}
   then<TResult1 = any, TResult2 = never>(onfulfilled?: ((value:any)=>TResult1|PromiseLike<TResult1>)|null,onrejected?:((reason:any)=>TResult2|PromiseLike<TResult2>)|null){return this.execute(false).then(onfulfilled,onrejected)}
-  private matches(row:any){return this.filters.every(f=>{const value=row?.[f.key];if(f.op==='eq')return value===f.value;if(f.op==='neq')return value!==f.value;if(f.op==='in')return f.value.includes(value);return f.value===null?value==null:value===f.value})}
+  private matches(row:any){return this.filters.every(f=>{const value=row?.[f.key];if(f.op==='eq')return value===f.value;if(f.op==='neq')return value!==f.value;if(f.op==='in')return f.value.includes(value);if(f.op==='gte')return value>=f.value;if(f.op==='lte')return value<=f.value;return f.value===null?value==null:value===f.value})}
   private async execute(single=false,strict=false){
     try{
       let rows=baseRows(this.table);const matched=rows.filter(r=>this.matches(r))
       if(this.mode==='insert'){const incoming=Array.isArray(this.payload)?this.payload:[this.payload];const added=incoming.map((item:any)=>({id:item.id||uid(),created_at:item.created_at||now(),updated_at:item.updated_at||now(),...item}));if(this.table==='employee_fleet_access_profiles'){for(const item of added){const index=rows.findIndex(r=>r.organization_id===item.organization_id&&r.employee_id===item.employee_id);if(index>=0)rows[index]={...rows[index],...item};else rows.push(item)}}else rows=[...rows,...added];saveRows(this.table,rows);return {data:single?(added[0]||null):added,error:null}}
       if(this.mode==='update'){rows=rows.map(row=>this.matches(row)?{...row,...this.payload,updated_at:now()}:row);saveRows(this.table,rows);const data=rows.filter(r=>this.matches(r));return {data:single?(data[0]||null):data,error:null}}
       if(this.mode==='delete'){const deleted=matched;rows=rows.filter(row=>!this.matches(row));saveRows(this.table,rows);return {data:single?(deleted[0]||null):deleted,error:null}}
-      let data=[...matched];if(this.orderKey){const key=this.orderKey,dir=this.orderAscending?1:-1;data.sort((a,b)=>String(a?.[key]??'').localeCompare(String(b?.[key]??''))*dir)}if(this.limitCount!==null)data=data.slice(0,this.limitCount);if(single){if(strict&&!data.length)return {data:null,error:{message:'No rows found'}};return {data:data[0]||null,error:null}}return {data,error:null}
+      let data=[...matched];if(this.orderKey){const key=this.orderKey,dir=this.orderAscending?1:-1;data.sort((a,b)=>String(a?.[key]??'').localeCompare(String(b?.[key]??''))*dir)}if(this.rangeStart!==null)data=data.slice(this.rangeStart,(this.rangeEnd??this.rangeStart)+1);if(this.limitCount!==null)data=data.slice(0,this.limitCount);if(single){if(strict&&!data.length)return {data:null,error:{message:'No rows found'}};return {data:data[0]||null,error:null}}return {data,error:null}
     }catch(error:any){return {data:single?null:[],error:{message:error?.message||String(error)}}}
   }
 }

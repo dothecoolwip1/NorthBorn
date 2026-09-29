@@ -1,9 +1,9 @@
 {
-  "version": "0.9.14",
-  "title": "Navigation and Client Layout Cleanup",
+  "version": "0.9.15",
+  "title": "Pack 2 Complete",
   "notes": [
-    "Removed the duplicate desktop hamburger on pages that already provide a persistent left navigation rail.",
-    "Moved the functional test switcher to the lower-left area so it no longer crowds operational header controls.",
-    "Reworked client job cards so job numbers, dates, statuses and chevrons remain readable without overlapping."
+    "Completed the full Pack 2 operations workflow across backend integrity, Jobs and Dispatch, operator field progress, Calendar and Dashboard.",
+    "Added dedicated Calendar and Dashboard regression coverage while preserving the latest desktop navigation and client-card cleanup.",
+    "Split browser QA into isolated groups so one long end-to-end run cannot stall the entire release gate and every group still reports before the release fails."
   ]
 }

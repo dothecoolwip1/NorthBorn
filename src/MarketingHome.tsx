@@ -151,6 +151,11 @@ export default function MarketingHome() {
 
       <div className="hero-product">
         <div className="hero-glow"/>
+        <div className="hero-photo" aria-hidden="true">
+          <img src="https://images.pexels.com/photos/36778699/pexels-photo-36778699.jpeg?auto=compress&cs=tinysrgb&w=1400" alt="" />
+          <div className="hero-photo-shade"/>
+          <div className="hero-photo-tag"><span>FIELD OPERATIONS</span><strong>Work happening where the day actually happens.</strong></div>
+        </div>
         <ManagerProduct/>
         <div className="hero-phone"><PhoneProduct mode="operator"/></div>
         <div className="field-note"><HardHat size={18}/><span>BUILT<br/>FROM THE FIELD</span></div>
@@ -182,6 +187,11 @@ export default function MarketingHome() {
     </section>
 
     <section className="nb-section workflow-section" id="workflow">
+      <div className="workflow-photo-band">
+        <img loading="lazy" src="https://images.pexels.com/photos/7006169/pexels-photo-7006169.jpeg?auto=compress&cs=tinysrgb&w=1600" alt="Industrial worker preparing beside a service truck" />
+        <div className="workflow-photo-overlay"/>
+        <div className="workflow-photo-copy"><span>FROM THE TRUCK TO THE OFFICE</span><strong>The software follows the work, not the other way around.</strong></div>
+      </div>
       <div className="section-heading">
         <div><span className="section-label">REQUEST TO REVENUE</span><h2>The job should only be entered once.</h2></div>
         <p>Information follows the work from the first call to the final invoice instead of being copied from system to system.</p>
@@ -205,6 +215,11 @@ export default function MarketingHome() {
     </section>
 
     <section className="field-section" id="field">
+      <div className="field-photo">
+        <img loading="lazy" src="https://images.pexels.com/photos/35224901/pexels-photo-35224901.jpeg?auto=compress&cs=tinysrgb&w=1500" alt="Industrial equipment and worker at an active job site" />
+        <div className="field-photo-overlay"/>
+        <div className="field-photo-badge"><HardHat size={18}/><span>REAL WORK<br/>REAL CONDITIONS</span></div>
+      </div>
       <div className="field-copy">
         <span className="section-label">BUILT FOR THE REAL CONDITIONS</span>
         <h2>The office is only one place the work happens.</h2>

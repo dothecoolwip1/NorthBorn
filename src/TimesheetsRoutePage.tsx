@@ -1,3 +1,4 @@
+import { hasAnyRole } from './role-access'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, Clock3, FileClock, Filter, Plus, RefreshCw, Send, Trash2, UserRound, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
@@ -40,7 +41,7 @@ function emptyForm(employeeId='',template?:TemplateRow|null):Form{return {id:nul
 
 export default function TimesheetsRoutePage(){
   const [organization,setOrganization]=useState<Organization|null>(null)
-  const [roleKey,setRoleKey]=useState('')
+  const [assignedRoles,setAssignedRoles]=useState<string[]>([])
   const [userId,setUserId]=useState('')
   const [employees,setEmployees]=useState<Employee[]>([])
   const [jobs,setJobs]=useState<Job[]>([])
@@ -56,8 +57,8 @@ export default function TimesheetsRoutePage(){
   const [form,setForm]=useState<Form|null>(null)
   const [activeTemplate,setActiveTemplate]=useState<TemplateRow|null>(null)
 
-  const canManage=MANAGE_ROLES.has(roleKey)
-  const canSubmit=SUBMIT_ROLES.has(roleKey)
+  const canManage=hasAnyRole(assignedRoles,MANAGE_ROLES)
+  const canSubmit=hasAnyRole(assignedRoles,SUBMIT_ROLES)
   const range=useMemo(()=>weekRange(weekOffset),[weekOffset])
 
   const load=useCallback(async()=>{
@@ -68,8 +69,7 @@ export default function TimesheetsRoutePage(){
     if(membership.error||!membership.data?.id){setError(membership.error?.message||'No active Northborn company was found.');setLoading(false);return}
     const roleResult=await db.from('membership_roles').select('role:roles(key)').eq('membership_id',membership.data.id)
     const roleKeys=(roleResult.data||[]).map((row:any)=>row.role?.key).filter(Boolean)
-    const precedence=['owner','admin','supervisor','accounting','dispatcher','safety','mechanic','operator']
-    const resolvedRole=precedence.find(key=>roleKeys.includes(key))||roleKeys[0]||'';setRoleKey(resolvedRole)
+    setAssignedRoles(roleKeys)
     const org=membership.data.organization as Organization;setOrganization(org)
     const [employeeResult,jobResult,templateResult]=await Promise.all([
       db.from('employees').select('id,user_id,first_name,last_name,position,status').eq('organization_id',org.id).neq('status','archived').order('last_name').order('first_name'),

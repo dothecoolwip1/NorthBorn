@@ -1,0 +1,1 @@
+alter table public.user_notifications alter column payload set default '{}'::jsonb;

@@ -1,3 +1,4 @@
+import { primaryInternalRole } from './role-access'
 import { useCallback, useEffect, useState } from 'react'
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
@@ -99,7 +100,7 @@ export default function App({ resolvedSession, authResolved = false }: AppProps)
       const org = membership?.organization as unknown as Organization | null; setOrganization(org ?? null)
       if (membership?.id) {
         const { data: roleRows } = await supabase.from('membership_roles').select('role:roles(key,name)').eq('membership_id', membership.id)
-        const role = ((roleRows?.[0]?.role as unknown as { key?: string } | null)?.key) || 'operator'; setRoleKey(role)
+        setRoleKey(primaryInternalRole((roleRows||[]).map((row:any)=>row.role?.key).filter(Boolean)))
       }
     })
   }, [session, testMode])

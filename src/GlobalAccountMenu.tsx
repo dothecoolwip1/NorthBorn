@@ -84,6 +84,7 @@ export default function GlobalAccountMenu() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [toast, setToast] = useState<Toast | null>(null)
   const [roleKey, setRoleKey] = useState('')
+  const [roleKeys, setRoleKeys] = useState<string[]>([])
   const [installed, setInstalled] = useState(isNorthbornInstalled())
   const [canInstall, setCanInstall] = useState(hasInstallPrompt())
   const [updateAvailable, setUpdateAvailable] = useState(false)
@@ -95,12 +96,12 @@ export default function GlobalAccountMenu() {
   const userId = session?.user.id || ''
   const effectiveRole = persona === 'client' ? 'client' : persona === 'operator' ? 'operator' : roleKey
   const unreadCount = useMemo(() => notifications.filter(item => !item.read_at).length, [notifications])
-  const canTeam = ['owner', 'admin'].includes(effectiveRole)
+  const canTeam = roleKeys.some(role=>['owner','admin'].includes(role))
   const canTemplates = ['owner', 'admin'].includes(effectiveRole)
-  const canPricing = ['owner', 'admin', 'accounting'].includes(effectiveRole)
+  const canPricing = roleKeys.some(role=>['owner','admin','accounting'].includes(role))
   const isOperator = effectiveRole === 'operator'
   const isClient = effectiveRole === 'client'
-  const allowedManagerPaths = INTERNAL_ROLE_PATHS[effectiveRole] || ['/']
+  const allowedManagerPaths = [...new Set(roleKeys.flatMap(role=>INTERNAL_ROLE_PATHS[role] || []))]
   const navigation = isClient ? clientNavigation : isOperator ? operatorNavigation : managerNavigation.filter(([,path])=>allowedManagerPaths.includes(path))
 
   useEffect(() => {
@@ -113,11 +114,12 @@ export default function GlobalAccountMenu() {
   useEffect(() => {
     let active = true
     const loadRole = async () => {
-      if (!session?.user.id) { if (active) setRoleKey(''); return }
-      if (persona === 'client') { if (active) setRoleKey('client'); return }
+      if (!session?.user.id) { if (active) {setRoleKey('');setRoleKeys([])}; return }
+      if (persona === 'client') { if (active) {setRoleKey('client');setRoleKeys([])}; return }
       try {
         const access = await resolveWorkspaceAccess(session.user.id)
         if (!active) return
+        setRoleKeys(access.kind === 'internal' ? access.roleKeys : [])
         if (access.kind === 'internal') setRoleKey(access.roleKey)
         else if (access.kind === 'client') setRoleKey('client')
         else setRoleKey('')

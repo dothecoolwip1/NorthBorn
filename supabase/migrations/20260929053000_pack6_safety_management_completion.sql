@@ -149,7 +149,7 @@ using (
   or exists(
     select 1 from public.safety_form_submissions s
     where s.id=submission_id
-      and s.organization_id=organization_id
+      and s.organization_id=safety_form_attachments.organization_id
       and s.submitted_by=(select auth.uid())
   )
 );
@@ -161,7 +161,7 @@ with check (
   and exists(
     select 1 from public.safety_form_submissions s
     where s.id=submission_id
-      and s.organization_id=organization_id
+      and s.organization_id=safety_form_attachments.organization_id
       and (
         s.submitted_by=(select auth.uid())
         or private.has_org_permission(organization_id,'safety.manage')

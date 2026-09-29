@@ -1,3 +1,4 @@
+import { primaryInternalRole } from './role-access'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate, NavLink } from 'react-router-dom'
 import { ArrowLeft, Check, Search, ShieldCheck, Truck, Users } from 'lucide-react'
@@ -32,7 +33,7 @@ export default function EmployeeFleetAccessPage(){
     }
     const {data:s}=await supabase.auth.getSession();const user=s.session?.user;if(!user){setLoading(false);return}
     const m=await db.from('organization_members').select('id,organization_id,organization:organizations(id,name)').eq('user_id',user.id).eq('status','active').limit(1).maybeSingle();if(m.error||!m.data){setLoading(false);return}
-    const rr=await db.from('membership_roles').select('role:roles(key)').eq('membership_id',m.data.id);const roleKey=rr.data?.[0]?.role?.key||'';const org=m.data.organization as Org
+    const rr=await db.from('membership_roles').select('role:roles(key)').eq('membership_id',m.data.id);const roleKey=primaryInternalRole((rr.data||[]).map((row:any)=>row.role?.key).filter(Boolean));const org=m.data.organization as Org
     if(!ALLOWED.has(roleKey)){setWs({...EMPTY,organization:org,roleKey});setLoading(false);return}
     const [e,v,p,g]=await Promise.all([
       db.from('employees').select('id,first_name,last_name,position,status').eq('organization_id',org.id).neq('status','archived').order('last_name'),

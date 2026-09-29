@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      live_qa:
+        description: Run legacy functional QA against an explicitly enabled QA deployment
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -15,7 +20,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify production release and public routes
+        run: node scripts/production-smoke.mjs
+
   production-qa:
+    if: github.event_name == 'workflow_dispatch' && inputs.live_qa
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

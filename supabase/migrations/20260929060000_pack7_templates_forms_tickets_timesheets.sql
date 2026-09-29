@@ -154,14 +154,14 @@ using (
   or exists(
     select 1 from public.field_tickets t
     where t.id=ticket_id
-      and t.organization_id=organization_id
+      and t.organization_id=field_ticket_attachments.organization_id
       and (
         t.created_by=(select auth.uid())
         or exists(
           select 1 from public.employees e
           where e.id=t.primary_employee_id
             and e.user_id=(select auth.uid())
-            and e.organization_id=organization_id
+            and e.organization_id=field_ticket_attachments.organization_id
         )
       )
   )
@@ -176,7 +176,7 @@ with check (
     or exists(
       select 1 from public.field_tickets t
       where t.id=ticket_id
-        and t.organization_id=organization_id
+        and t.organization_id=field_ticket_attachments.organization_id
         and t.status in ('draft','rejected')
         and (
           t.created_by=(select auth.uid())
@@ -184,7 +184,7 @@ with check (
             select 1 from public.employees e
             where e.id=t.primary_employee_id
               and e.user_id=(select auth.uid())
-              and e.organization_id=organization_id
+              and e.organization_id=field_ticket_attachments.organization_id
           )
         )
     )
@@ -206,7 +206,7 @@ using (
     select 1 from public.timesheet_entries t
     join public.employees e on e.id=t.employee_id and e.organization_id=t.organization_id
     where t.id=timesheet_entry_id
-      and t.organization_id=organization_id
+      and t.organization_id=timesheet_attachments.organization_id
       and e.user_id=(select auth.uid())
   )
 );
@@ -221,7 +221,7 @@ with check (
       select 1 from public.timesheet_entries t
       join public.employees e on e.id=t.employee_id and e.organization_id=t.organization_id
       where t.id=timesheet_entry_id
-        and t.organization_id=organization_id
+        and t.organization_id=timesheet_attachments.organization_id
         and t.status in ('draft','rejected')
         and e.user_id=(select auth.uid())
     )

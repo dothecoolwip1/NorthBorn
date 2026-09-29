@@ -18,7 +18,7 @@ const emit = (name: string) => window.dispatchEvent(new CustomEvent(name))
 
 export const getPwaUpdateMode = (): NorthbornUpdateMode => {
   const stored = localStorage.getItem(PWA_UPDATE_MODE_KEY)
-  return stored === 'notify' ? 'notify' : 'auto'
+  return stored === 'auto' ? 'auto' : 'notify'
 }
 
 export const setPwaUpdateMode = (mode: NorthbornUpdateMode) => {
@@ -67,7 +67,7 @@ export const initializeNorthbornPwa = () => {
     window.location.reload()
   })
 
-  void navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(registration => {
+  void navigator.serviceWorker.register(new URL('sw.js', new URL(import.meta.env.BASE_URL, window.location.origin)).href, { scope: import.meta.env.BASE_URL }).then(registration => {
     const handleWaitingWorker = () => {
       if (!registration.waiting) return
       const firstActivation = !navigator.serviceWorker.controller

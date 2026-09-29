@@ -46,8 +46,7 @@ import './mobile-polish.css'
 import './menu-shell-overrides.css'
 import './qa-final-polish.css'
 
-const RETIRED_TEST_KEYS = ['northborn_test_mode', 'northborn_test_persona']
-for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)
+const DEMO_MODE_KEY = 'northborn_test_mode'
 
 type RouteRole = 'loading' | 'guest' | 'unconnected' | 'manager' | 'operator' | 'client' | 'superadmin' | 'error'
 function StandardApp() {
@@ -75,6 +74,8 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole, internalRoleKey
   if (routeRole === 'error') return <WorkspaceLoadError />
 
   if (routeRole === 'guest') {
+    const demoMode = localStorage.getItem(DEMO_MODE_KEY) === '1'
+    if (demoMode) return <StandardApp />
     if (normalizedPath === '/') return <MarketingHome />
     return <StandardApp />
   }

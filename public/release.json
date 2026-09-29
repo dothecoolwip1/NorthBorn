@@ -1,14 +1,14 @@
 {
-  "version": "0.22.1",
-  "title": "Public Homepage Experience",
+  "version": "0.23.0",
+  "title": "Mobile Public Homepage",
   "notes": [
-    "Rebuild the public Northborn landing page around the real field-operations workflow instead of a generic feature-card layout.",
-    "Make the Northborn product itself the hero visual with a realistic command-centre preview, Start Here priority, dispatch flow and today’s work.",
-    "Clarify the public navigation and primary paths for sign in, client portal access, workflow exploration and platform information.",
-    "Explain the customer-to-dispatch-to-field-to-billing workflow before listing individual modules.",
-    "Add dedicated manager, operator and client sections so visitors can immediately understand what each role sees.",
-    "Improve mobile typography, spacing, touch targets and product-preview behavior across the public homepage.",
-    "Raise small product-preview and brand labels to production readability standards.",
-    "Add clearer public page metadata and a field-operations page title."
+    "Rebuild the pre-sign-in Northborn homepage mobile-first around real product presentation instead of stacked marketing sections.",
+    "Lead with a compact outcome-focused hero and layered desktop/phone product composition that visibly demonstrates Northborn.",
+    "Add interactive Manager, Operator and Client product previews so visitors can understand role-specific workspaces directly on the homepage.",
+    "Convert the request-to-billing workflow into a touch-friendly horizontal flow on phones.",
+    "Convert platform modules and industry chips into mobile horizontal browsing patterns instead of long vertical card walls.",
+    "Add an unobtrusive mobile action dock for fast access to Northborn while scrolling.",
+    "Strengthen the industrial field-built visual identity and reduce generic SaaS styling.",
+    "Maintain production readability with no tiny interface labels in public homepage previews."
   ]
 }

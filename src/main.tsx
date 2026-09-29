@@ -41,7 +41,7 @@ import { initializeNorthbornPwa } from './pwa'
 import { resolveWorkspaceAccess } from './workspace-access'
 import { canAccessInternalRoute } from './role-access'
 import TestSupabaseBridge from './TestSupabaseBridge'
-import { getTestPersona, isTestMode } from './test-lab'
+import { getTestPersona, isTestMode, testClientContext } from './test-lab'
 import './styles.css'
 import './contact-hierarchy.css'
 import './mobile-first.css'
@@ -83,7 +83,7 @@ function DemoRoutedWorkspace({ normalizedPath }:{ normalizedPath:string }) {
     else if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) page = <SafetyRoutePage />
     else page = <WorkspaceNotFound homeLabel="Back to my jobs" />
   } else if (persona === 'client') {
-    if (normalizedPath === '/' || normalizedPath === '/jobs' || normalizedPath === '/invoices' || normalizedPath === '/reports') page = <ClientPortalApp />
+    if (normalizedPath === '/' || normalizedPath === '/jobs' || normalizedPath === '/invoices' || normalizedPath === '/reports') page = <ClientPortalApp initialContext={testClientContext()} />
     else if (normalizedPath === '/tickets' || normalizedPath === '/client-tickets') page = <ClientFieldTicketsPage />
     else if (normalizedPath === '/client-ticket-print') page = <ClientTicketPrintPage />
     else page = <WorkspaceNotFound homeLabel="Back to client portal" />

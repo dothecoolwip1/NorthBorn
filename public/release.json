@@ -1,9 +1,9 @@
 {
-  "version": "0.8.44",
-  "title": "Stability, Auth and QA Hardening",
+  "version": "0.8.36",
+  "title": "Pack 1 Interface Cleanup",
   "notes": [
-    "Hardened workspace and session resolution so temporary backend failures no longer masquerade as disconnected accounts.",
-    "Added self-healing isolated test accounts and complete internal role switching for owner, admin, supervisor, dispatcher, safety, mechanic and accounting QA.",
-    "Expanded production browser QA for deep links, reloads, hamburger navigation, browser and Android-style back history, sign-out, role isolation and notification routing."
+    "Removed the duplicate desktop hamburger on pages that already provide a persistent left navigation rail.",
+    "Moved the functional test switcher to the lower-left area so it no longer crowds operational header controls.",
+    "Reworked client job cards so job numbers, dates, statuses and chevrons remain readable without overlapping."
   ]
 }

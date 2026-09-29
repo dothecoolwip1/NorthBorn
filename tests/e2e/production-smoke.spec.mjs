@@ -119,6 +119,12 @@ async function dismissTransientUi(page) {
   }
 }
 
+async function expectWorkspaceNavigation(page) {
+  const menu = page.getByRole('button', { name: 'Open Northborn menu' })
+  if (await menu.isVisible().catch(() => false)) return
+  await expect(page.locator('aside[class*="sidebar"] nav')).toBeVisible({ timeout: 30000 })
+}
+
 async function loginAs(page, persona) {
   let lastError = null
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -128,7 +134,7 @@ async function loginAs(page, persona) {
     await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD)
     await page.getByRole('button', { name: 'Sign in', exact: true }).click()
     try {
-      await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
+      await expectWorkspaceNavigation(page)
       await expectPersonaReady(page, persona)
       await page.waitForTimeout(900)
       await dismissTransientUi(page)
@@ -142,7 +148,12 @@ async function loginAs(page, persona) {
 }
 
 async function signOutThroughMenu(page) {
-  await page.getByRole('button', { name: 'Open Northborn menu' }).click()
+  const trigger = page.getByRole('button', { name: 'Open Northborn menu' })
+  if (!await trigger.isVisible().catch(() => false)) {
+    await page.goto(absolute('/'))
+    await expect(trigger).toBeVisible({ timeout: 30000 })
+  }
+  await trigger.click()
   const menu = page.getByRole('dialog', { name: 'Northborn menu' })
   await expect(menu).toBeVisible({ timeout: 30000 })
   await menu.getByRole('button', { name: 'Sign out', exact: true }).click()
@@ -326,6 +337,18 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   await expect(completedUnit).toContainText(/available/i, { timeout: 20000 })
 })
 
+test('desktop sidebar pages do not duplicate navigation in the top-right', async ({ page }) => {
+  await loginAs(page, 'manager')
+  await page.goto(absolute('/dispatch'))
+  await expect(page.locator('aside[class*="sidebar"] nav')).toBeVisible({ timeout: 30000 })
+  await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeHidden()
+  const testTrigger = page.getByRole('button', { name: 'Switch test role' })
+  await expect(testTrigger).toBeVisible()
+  const box = await testTrigger.boundingBox()
+  expect(box).not.toBeNull()
+  expect(box.y).toBeGreaterThan(500)
+})
+
 test('operator routes, role isolation, and job access are healthy', async ({ page }) => {
   const issues = []
   await loginAs(page, 'operator')
@@ -384,7 +407,7 @@ test('internal roles reject hidden direct routes and keep allowed routes availab
 
       await page.goto(absolute(entry.allowed))
       await expect(page.locator('body')).not.toContainText('Page not found')
-      await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
+      await expectWorkspaceNavigation(page)
 
       await page.goto(absolute(entry.blocked))
       await expect(page.locator('body')).toContainText('Page not found')
@@ -409,7 +432,7 @@ test('hamburger navigation, history, deep-link reload, and sign-out work for eve
     await expect(page).toHaveURL(absolute(entry.path))
 
     await page.reload()
-    await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
+    await expectWorkspaceNavigation(page)
     const bodyAfterReload = await page.locator('body').innerText()
     expect(bodyAfterReload).not.toContain('Choose how to continue')
     expect(bodyAfterReload).not.toContain('Workspace unavailable')
@@ -465,7 +488,7 @@ test('functional test role switcher can change personas', async ({ page }) => {
   await expect(dialog).toContainText('Client')
   await dialog.getByRole('button').filter({ hasText: 'Operator' }).click()
   await expect(page.getByRole('link', { name: 'All my jobs' })).toBeVisible({ timeout: 30000 })
-  await expect(page.getByRole('button', { name: 'Open Northborn menu' })).toBeVisible({ timeout: 30000 })
+  await expectWorkspaceNavigation(page)
   await page.getByRole('button', { name: 'Open Northborn menu' }).click()
   const menuText = await page.locator('body').innerText()
   expect(menuText).not.toContain('Templates')

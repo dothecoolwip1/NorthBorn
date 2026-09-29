@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.8.36':[
+    'Cleaned up desktop navigation so pages with a left sidebar no longer show a duplicate top-right hamburger.',
+    'Moved the functional test switcher to the lower-left rail so it stays out of operational controls.',
+    'Rebuilt client job cards to prevent job numbers, dates and statuses from colliding in narrow layouts.',
+  ],
   '0.8.44':[
     'Hardened workspace and session resolution so temporary backend failures no longer look like disconnected accounts.',
     'Added self-healing functional test accounts and full internal role QA coverage.',

@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.14':[
+    'Completed the full Pack 2 operations workflow across backend integrity, Jobs and Dispatch, operator field progress, Calendar and Dashboard.',
+    'Added dedicated Calendar and Dashboard regression coverage for planning controls and role-aware navigation.',
+    'Split browser QA into isolated groups so one long end-to-end run cannot stall the entire release gate and every group still reports before the release fails.',
+  ],
   '0.9.13':[
     'Completed the Pack 2D calendar and dashboard checkpoint with week and month planning, unscheduled work and role-aware navigation.',
     'Expanded calendar filtering across dispatch stage, lifecycle status, customer and free-text searches for jobs, sites, crew and units.',

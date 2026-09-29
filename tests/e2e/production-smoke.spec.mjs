@@ -407,6 +407,34 @@ test('Pack 3 customers and client portal are healthy', async ({ page }) => {
   await expect(page.locator('body')).not.toContainText('Internal notes')
 })
 
+test('Pack 4 employees teams and permissions are healthy', async ({ page }) => {
+  await loginAs(page, 'manager')
+  await page.goto(absolute('/employees'))
+  await expect(page.locator('.manager-employee-card').first()).toBeVisible({ timeout: 30000 })
+  await page.locator('.manager-employee-open').first().click()
+  const record=page.locator('.employee-admin-record')
+  await expect(record).toBeVisible()
+  for (const tab of ['Profile','Roles','Teams','Credentials','Documents','Equipment']) {
+    await expect(record.getByRole('button',{name:tab,exact:true})).toBeVisible()
+  }
+  await record.getByRole('button',{name:'Roles',exact:true}).click()
+  await expect(record).toContainText('Northborn access roles')
+  await record.getByRole('button',{name:'Teams',exact:true}).click()
+  await expect(record).toContainText('Crew and team groups')
+  await record.getByRole('button',{name:'Credentials',exact:true}).click()
+  await expect(record).toContainText('Certifications and safety credentials')
+  await record.getByRole('button',{name:'Documents',exact:true}).click()
+  await expect(record).toContainText('Employee documents')
+  await record.getByRole('button',{name:'Equipment',exact:true}).click()
+  await expect(record).toContainText('Assigned equipment access')
+  await record.locator('header button').click()
+
+  await page.goto(absolute('/team-access'))
+  await expect(page.locator('.permission-matrix')).toBeVisible({ timeout: 30000 })
+  await expect(page.locator('.permission-matrix')).toContainText('Role permission audit')
+  await expect(page.locator('.member-manage').first()).toBeVisible()
+})
+
 test('operator routes, role isolation, and job access are healthy', async ({ page }) => {
   const issues = []
   await loginAs(page, 'operator')

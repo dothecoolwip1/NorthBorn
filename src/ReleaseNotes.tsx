@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.12.0':[
+    'Completed fleet operations with unit photos, permanent service history, itemized parts and labour, recurring maintenance schedules, inspections, defects, work orders and fleet documents.',
+    'Added defect-hold return-to-service controls so blocking defects force units out of service, prevent dispatch, and only release units when every blocking defect is cleared.',
+    'Hardened fleet administration with multi-role-aware access, tenant-scoped work-order items, synchronized cost history and focused Pack 5 regression coverage.',
+  ],
   '0.11.0':[
     'Completed employee administration with employment details, emergency contacts, driver licence tracking, supervisors, internal notes and archive-first account removal.',
     'Added team grouping, multi-role access management, role permission auditing, employee documents, certification and expiry tracking, and assigned equipment visibility.',

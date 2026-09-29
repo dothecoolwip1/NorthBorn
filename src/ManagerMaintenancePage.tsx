@@ -24,6 +24,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import FleetWorkOrderItems from './FleetWorkOrderItems'
 import './manager-maintenance.css'
 
 const db = supabase as any
@@ -336,7 +337,9 @@ export default function ManagerMaintenancePage() {
 
     const organization = membership.data.organization as Organization
     const roleRows = await db.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id)
-    const roleKey = roleRows.data?.[0]?.role?.key || ''
+    const roleKeys=(roleRows.data||[]).map((row:any)=>row.role?.key).filter(Boolean)
+    const precedence=['owner','admin','supervisor','mechanic','dispatcher','safety','accounting','operator']
+    const roleKey=precedence.find(key=>roleKeys.includes(key))||roleKeys[0]||''
     if (roleKey === 'operator') {
       setWs({ ...EMPTY, organization, roleKey })
       setLoading(false)
@@ -820,6 +823,20 @@ function WorkOrderEditor({ work, ws, onClose, onSaved }: { work: WorkOrder | nul
     setBusy(true)
     setError('')
     try {
+      let costTotals = {
+        labour_cost_cents: dollarsToCents(form.labour),
+        parts_cost_cents: dollarsToCents(form.parts),
+        external_cost_cents: dollarsToCents(form.external),
+      }
+      if (work?.id && !ws.testMode) {
+        const latestCosts=await db.from('fleet_work_orders').select('labour_cost_cents,parts_cost_cents,external_cost_cents').eq('organization_id',ws.organization!.id).eq('id',work.id).single()
+        if (latestCosts.error) throw latestCosts.error
+        costTotals={
+          labour_cost_cents:latestCosts.data.labour_cost_cents||0,
+          parts_cost_cents:latestCosts.data.parts_cost_cents||0,
+          external_cost_cents:latestCosts.data.external_cost_cents||0,
+        }
+      }
       const payload = {
         vehicle_id: form.vehicle_id,
         maintenance_assignment_id: form.maintenance_assignment_id || null,
@@ -835,9 +852,7 @@ function WorkOrderEditor({ work, ws, onClose, onSaved }: { work: WorkOrder | nul
         completed_at: form.status === 'completed' ? (work?.completed_at || new Date().toISOString()) : null,
         completed_odometer_km: numberOrNull(form.completed_odometer_km),
         completed_engine_hours: numberOrNull(form.completed_engine_hours),
-        labour_cost_cents: dollarsToCents(form.labour),
-        parts_cost_cents: dollarsToCents(form.parts),
-        external_cost_cents: dollarsToCents(form.external),
+        ...costTotals,
         downtime_minutes: Number(form.downtime_minutes) || 0,
         completion_notes: form.completion_notes.trim() || null,
       }
@@ -923,12 +938,14 @@ function WorkOrderEditor({ work, ws, onClose, onSaved }: { work: WorkOrder | nul
       <div className="editor-section">
         <strong>Cost and downtime</strong>
         <div className="four">
-          <label>Labour $<input type="number" min="0" step="0.01" value={form.labour} onChange={e => setForm({ ...form, labour: e.target.value })}/></label>
-          <label>Parts $<input type="number" min="0" step="0.01" value={form.parts} onChange={e => setForm({ ...form, parts: e.target.value })}/></label>
-          <label>External $<input type="number" min="0" step="0.01" value={form.external} onChange={e => setForm({ ...form, external: e.target.value })}/></label>
+          <label>Labour total<input type="text" value={money(dollarsToCents(form.labour))} readOnly/></label>
+          <label>Parts total<input type="text" value={money(dollarsToCents(form.parts))} readOnly/></label>
+          <label>External total<input type="text" value={money(dollarsToCents(form.external))} readOnly/></label>
           <label>Downtime min<input type="number" min="0" value={form.downtime_minutes} onChange={e => setForm({ ...form, downtime_minutes: e.target.value })}/></label>
         </div>
+        {!work?.id&&<span>Save this work order once, then reopen it to add itemized parts and labour.</span>}
       </div>
+      {work?.id&&<FleetWorkOrderItems organizationId={ws.organization!.id} workOrderId={work.id} disabled={work.status==='completed'} onError={setError} onChanged={onSaved}/>} 
       <label>Completion notes<textarea value={form.completion_notes} onChange={e => setForm({ ...form, completion_notes: e.target.value })} placeholder="Work completed, parts changed, follow-up notes…"/></label>
       <Actions busy={busy} onCancel={onClose}/>
     </form>

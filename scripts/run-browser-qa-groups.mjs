@@ -8,6 +8,7 @@ const groups=[
   {name:'pack2-operations',grep:'Pack 2 job flows from manager creation through field completion|Pack 2 calendar and dashboard controls are healthy'},
   {name:'pack3-customers',grep:'Pack 3 customers and client portal are healthy'},
   {name:'pack4-employees',grep:'Pack 4 employees teams and permissions are healthy'},
+  {name:'pack5-fleet',grep:'Pack 5 fleet and maintenance are healthy'},
   {name:'role-access',grep:'all internal manager roles receive the correct navigation contract|internal roles reject hidden direct routes and keep allowed routes available|role-restricted routes fail closed instead of leaking another workspace|functional test role switcher can change personas'},
   {name:'navigation-notifications',grep:'hamburger navigation, history, deep-link reload, and sign-out work for every persona|known notifications open their intended module|desktop sidebar pages do not duplicate navigation in the top-right'},
   {name:'mobile',grep:'manager mobile routes avoid overflow and tiny controls|operator mobile routes avoid overflow and dead ends|client mobile routes avoid overflow and dead ends'},

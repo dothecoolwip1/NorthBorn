@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  ArrowRight, Banknote, BriefcaseBusiness, Building2, CalendarDays, Check,
+  ArrowRight, Banknote, BriefcaseBusiness, Building2, CalendarDays,
   CheckCircle2, ClipboardCheck, Clock3, FileCheck2, FileText, Gauge, HardHat,
   MapPin, ReceiptText, ShieldCheck, Smartphone, Truck, Users, WifiOff, Wrench,
 } from 'lucide-react'

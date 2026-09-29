@@ -81,24 +81,28 @@ export default function TimesheetsRoutePage(){
       db.from('document_templates').select('*').eq('organization_id',org.id).eq('document_type','timesheet').eq('status','active').order('is_default',{ascending:false}).order('updated_at',{ascending:false}).limit(1).maybeSingle(),
     ])
     if(employeeResult.error||jobResult.error||assignmentResult.error){setError(employeeResult.error?.message||jobResult.error?.message||assignmentResult.error?.message||'Unable to load timesheet setup.');setLoading(false);return}
-    const employeeRows=(employeeResult.data||[]) as Employee[];setEmployees(employeeRows);setJobs((jobResult.data||[]) as Job[]);setAssignments((assignmentResult.data||[]) as Assignment[]);setActiveTemplate((templateResult.data||null) as TemplateRow|null)
-    const own=employeeRows.find(employee=>employee.user_id===user.id);setOwnEmployeeId(own?.id||'')
+    const employeeRows=(employeeResult.data||[]) as Employee[];const own=employeeRows.find(employee=>employee.user_id===user.id);const managesTimesheets=hasAnyRole(roleKeys,MANAGE_ROLES);setEmployees(managesTimesheets?employeeRows:(own?[own]:[]));setJobs((jobResult.data||[]) as Job[]);setAssignments((assignmentResult.data||[]) as Assignment[]);setActiveTemplate((templateResult.data||null) as TemplateRow|null)
+    setOwnEmployeeId(own?.id||'')
     setLoading(false)
   },[])
 
   const loadEntries=useCallback(async()=>{
     if(!organization)return
-    const result=await db.from('timesheet_entries').select('*').eq('organization_id',organization.id).gte('work_date',range.start).lte('work_date',range.end).order('work_date',{ascending:false}).order('created_at',{ascending:false})
+    if(!canManage&&!ownEmployeeId){setEntries([]);return}
+    let query=db.from('timesheet_entries').select('*').eq('organization_id',organization.id).gte('work_date',range.start).lte('work_date',range.end)
+    if(!canManage)query=query.eq('employee_id',ownEmployeeId)
+    const result=await query.order('work_date',{ascending:false}).order('created_at',{ascending:false})
     if(result.error)setError(result.error.message);else setEntries((result.data||[]) as Entry[])
-  },[organization,range.start,range.end])
+  },[organization,range.start,range.end,canManage,ownEmployeeId])
 
   useEffect(()=>{void load()},[load])
   useEffect(()=>{if(organization)void loadEntries()},[organization,loadEntries])
 
-  const visible=useMemo(()=>entries.filter(entry=>(employeeFilter==='all'||entry.employee_id===employeeFilter)&&(statusFilter==='all'||entry.status===statusFilter)),[entries,employeeFilter,statusFilter])
+  const scopedEntries=useMemo(()=>canManage?entries:entries.filter(entry=>entry.employee_id===ownEmployeeId),[entries,canManage,ownEmployeeId])
+  const visible=useMemo(()=>scopedEntries.filter(entry=>(canManage?(employeeFilter==='all'||entry.employee_id===employeeFilter):true)&&(statusFilter==='all'||entry.status===statusFilter)),[scopedEntries,canManage,employeeFilter,statusFilter])
   const weekHours=useMemo(()=>visible.reduce((sum,entry)=>sum+number(entry.regular_hours)+number(entry.overtime_hours),0),[visible])
-  const submittedCount=entries.filter(entry=>entry.status==='submitted').length
-  const approvedHours=entries.filter(entry=>entry.status==='approved').reduce((sum,entry)=>sum+number(entry.regular_hours)+number(entry.overtime_hours),0)
+  const submittedCount=scopedEntries.filter(entry=>entry.status==='submitted').length
+  const approvedHours=scopedEntries.filter(entry=>entry.status==='approved').reduce((sum,entry)=>sum+number(entry.regular_hours)+number(entry.overtime_hours),0)
 
   const openNew=()=>{
     const target=canManage?(employeeFilter!=='all'?employeeFilter:ownEmployeeId||employees[0]?.id||''):ownEmployeeId
@@ -160,7 +164,7 @@ export default function TimesheetsRoutePage(){
 
     <section className="timesheet-controls">
       <div className="timesheet-week"><button type="button" aria-label="Previous week" onClick={()=>setWeekOffset(value=>value-1)}><ChevronLeft size={18}/></button><div><small>WORK WEEK</small><strong>{range.label}</strong></div><button type="button" aria-label="Next week" disabled={weekOffset>=0} onClick={()=>setWeekOffset(value=>Math.min(0,value+1))}><ChevronRight size={18}/></button></div>
-      <div className="timesheet-filters"><Filter size={15}/>{employees.length>1&&<NorthbornSelect ariaLabel="Filter by employee" className="compact" value={employeeFilter} onChange={setEmployeeFilter} options={[{value:'all',label:'All employees'},...employees.map(employee=>({value:employee.id,label:`${employee.first_name} ${employee.last_name}`,detail:employee.position||undefined}))]}/>}<NorthbornSelect ariaLabel="Filter by status" className="compact" value={statusFilter} onChange={setStatusFilter} options={[{value:'all',label:'All statuses'},{value:'draft',label:'Draft'},{value:'submitted',label:'Submitted'},{value:'approved',label:'Approved'},{value:'rejected',label:'Rejected'}]}/><button type="button" onClick={()=>void loadEntries()}><RefreshCw size={15}/>Refresh</button></div>
+      <div className="timesheet-filters"><Filter size={15}/>{canManage&&employees.length>1&&<NorthbornSelect ariaLabel="Filter by employee" className="compact" value={employeeFilter} onChange={setEmployeeFilter} options={[{value:'all',label:'All employees'},...employees.map(employee=>({value:employee.id,label:`${employee.first_name} ${employee.last_name}`,detail:employee.position||undefined}))]}/>}<NorthbornSelect ariaLabel="Filter by status" className="compact" value={statusFilter} onChange={setStatusFilter} options={[{value:'all',label:'All statuses'},{value:'draft',label:'Draft'},{value:'submitted',label:'Submitted'},{value:'approved',label:'Approved'},{value:'rejected',label:'Rejected'}]}/><button type="button" onClick={()=>void loadEntries()}><RefreshCw size={15}/>Refresh</button></div>
     </section>
 
     <section className="timesheet-metrics"><Metric label="Hours in view" value={hours(weekHours)}/><Metric label="Waiting review" value={String(submittedCount)}/><Metric label="Approved hours" value={hours(approvedHours)}/><Metric label="Entries" value={String(visible.length)}/></section>

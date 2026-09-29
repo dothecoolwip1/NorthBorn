@@ -420,7 +420,8 @@
     .journey-machine{position:relative;top:auto}
     .system-section{grid-template-columns:1fr}
     .system-intro{position:relative;top:auto;max-width:850px}
-    .field-section{grid-template-columns:1fr}
+    .field-section{grid-template-columns:minmax(0,1fr)}
+    .field-title,.field-reality{min-width:0}
   }
 
   @media(max-width:760px){
@@ -475,7 +476,7 @@
     .system-list article{min-height:0;padding:22px 0;grid-template-columns:38px 1fr;gap:8px 12px}
     .system-list h3{font-size:18px}.system-list p{grid-column:2;font-size:12px}.system-list article>b{grid-column:2}
 
-    .field-section{padding:80px 16px;gap:36px}.field-lead{font-size:20px}.industry-run{overflow-x:auto;flex-wrap:nowrap;margin-right:-16px;padding-right:16px}.industry-run span{white-space:nowrap}
+    .field-section{padding:80px 16px;gap:36px}.field-lead{max-width:100%;font-size:20px}.industry-run{width:calc(100% + 16px);max-width:calc(100% + 16px);min-width:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain;flex-wrap:nowrap;margin-right:-16px;padding-right:16px}.industry-run span{white-space:nowrap}
 
     .closing{padding:90px 16px;grid-template-columns:1fr;gap:32px}
     .closing-actions{width:100%}.closing-actions .button,.closing-client{width:100%;min-width:0}

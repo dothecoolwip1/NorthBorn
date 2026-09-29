@@ -155,7 +155,7 @@ export default function JoinOrganizationPage() {
         _position: position.trim(),
       })
       if (error) throw error
-      window.location.href = '/'
+      window.location.href = appRoot()
     } catch (err) {
       setMessage(readError(err))
       setBusy(false)

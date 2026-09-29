@@ -209,7 +209,26 @@ test('guest and login routes are healthy', async ({ page }) => {
   await page.reload()
   await expect(page.locator('body')).toContainText('COMMAND CENTRE', { timeout: 20000 })
 
+  const designTokens = await page.evaluate(() => {
+    const styles = getComputedStyle(document.documentElement)
+    return {
+      touch: styles.getPropertyValue('--nb-touch').trim(),
+      primaryTouch: styles.getPropertyValue('--nb-primary-touch').trim(),
+      body: getComputedStyle(document.body).fontSize,
+    }
+  })
+  expect(designTokens).toEqual({ touch: '48px', primaryTouch: '52px', body: '16px' })
+
   await page.setViewportSize({ width: 390, height: 844 })
+  const accountTarget = await page.getByRole('button', { name: 'Open Northborn menu' }).evaluate(el => {
+    const box = el.getBoundingClientRect()
+    return { width: box.width, height: box.height }
+  })
+  expect(accountTarget.width).toBeGreaterThanOrEqual(48)
+  expect(accountTarget.height).toBeGreaterThanOrEqual(48)
+  const compactMetadata = await page.locator('.manager-home-top > div > span').first().evaluate(el => parseFloat(getComputedStyle(el).fontSize))
+  expect(compactMetadata).toBeGreaterThanOrEqual(12)
+
   const mobileMenu = page.getByRole('button', { name: 'Open Northborn menu' })
   await expect(mobileMenu).toBeVisible()
   await mobileMenu.click()

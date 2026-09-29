@@ -1,5 +1,6 @@
-.northborn-test-account-list{display:none!important}
-.northborn-account-section-title:has(+ .northborn-test-account-list){display:none!important}
+.northborn-account-menu:not(.demo-mode) .northborn-test-account-list{display:none!important}
+.northborn-account-menu:not(.demo-mode) .northborn-account-section-title:has(+ .northborn-test-account-list){display:none!important}
+.northborn-account-menu.demo-mode .northborn-test-account-list{display:grid!important}
 body:has(.northborn-account-menu) .app-shell .menu-button{display:none!important}
 
 /* The fixed hamburger is the mobile navigation control for every authenticated role. */

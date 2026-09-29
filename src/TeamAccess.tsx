@@ -6,7 +6,6 @@ import { supabase } from './lib/supabase'
 import './team-access.css'
 
 const db = supabase as any
-const PRODUCTION_URL = 'https://northborn.vercel.app'
 const TEAM_ROLES = [
   { key: 'admin', label: 'Administrator' },
   { key: 'dispatcher', label: 'Dispatcher' },
@@ -27,9 +26,12 @@ function readError(error: unknown) {
   return String(error || 'Something went wrong')
 }
 
+function appRoot() {
+  return new URL(import.meta.env.BASE_URL, window.location.origin).toString()
+}
+
 function authRedirect(path: string) {
-  const base = window.location.hostname.endsWith('vercel.app') ? PRODUCTION_URL : window.location.origin
-  return `${base}${path}`
+  return new URL(path.replace(/^\/+/, ''), appRoot()).toString()
 }
 
 async function loadWorkspace(userId: string): Promise<Workspace | null> {
@@ -80,7 +82,7 @@ export function TeamAccessLauncher() {
   }, [])
 
   if (!show) return null
-  return <a className="team-access-launcher" href="/team-access"><Users size={18}/>Team access</a>
+  return <a className="team-access-launcher" href={authRedirect('/team-access')}><Users size={18}/>Team access</a>
 }
 
 export default function TeamAccessPage() {
@@ -211,13 +213,13 @@ export default function TeamAccessPage() {
   }
 
   if (loading) return <div className="team-page team-center">Loading team access…</div>
-  if (!session) return <div className="team-page team-center"><div className="team-card compact-card"><ShieldCheck size={36}/><h1>Sign in required</h1><p>Sign in to Northborn before managing company access.</p><a className="team-primary" href="/">Go to sign in</a></div></div>
-  if (!workspace) return <div className="team-page team-center"><div className="team-card compact-card"><h1>No company found</h1><p>This account is not attached to a Northborn company yet.</p><a className="team-primary" href="/">Return to Northborn</a></div></div>
-  if (!canManage) return <div className="team-page team-center"><div className="team-card compact-card"><ShieldCheck size={36}/><h1>Owner or admin access required</h1><p>Your current role is {workspace.roleKey}.</p><a className="team-primary" href="/">Return to Northborn</a></div></div>
+  if (!session) return <div className="team-page team-center"><div className="team-card compact-card"><ShieldCheck size={36}/><h1>Sign in required</h1><p>Sign in to Northborn before managing company access.</p><a className="team-primary" href={appRoot()}>Go to sign in</a></div></div>
+  if (!workspace) return <div className="team-page team-center"><div className="team-card compact-card"><h1>No company found</h1><p>This account is not attached to a Northborn company yet.</p><a className="team-primary" href={appRoot()}>Return to Northborn</a></div></div>
+  if (!canManage) return <div className="team-page team-center"><div className="team-card compact-card"><ShieldCheck size={36}/><h1>Owner or admin access required</h1><p>Your current role is {workspace.roleKey}.</p><a className="team-primary" href={appRoot()}>Return to Northborn</a></div></div>
 
   return <div className="team-page">
     <div className="team-wrap">
-      <div className="team-topbar"><a href="/" className="team-back"><ArrowLeft size={18}/>Northborn</a><span>{workspace.organizationName}</span></div>
+      <div className="team-topbar"><a href={appRoot()} className="team-back"><ArrowLeft size={18}/>Northborn</a><span>{workspace.organizationName}</span></div>
       <div className="team-hero"><div><div className="team-eyebrow">COMPANY ACCESS</div><h1>Team access</h1><p>Invite your crew and control what each person can access in Northborn.</p></div><div className="team-count"><Users size={24}/><strong>{members.length}</strong><span>active member{members.length === 1 ? '' : 's'}</span></div></div>
 
       {error && <div className="team-error">{error}</div>}
@@ -305,7 +307,7 @@ export function JoinOrganizationPage() {
     try {
       const { error } = await db.rpc('accept_organization_invite', { _token: token })
       if (error) throw error
-      window.location.href = '/'
+      window.location.href = appRoot()
     } catch (err) { setMessage(readError(err)); setBusy(false) }
   }
 
@@ -340,7 +342,7 @@ export function JoinOrganizationPage() {
 
       {details && !inactive && session && <div className="accept-box"><ShieldCheck size={30}/><p>Signed in as <strong>{session.user.email}</strong></p><button className="team-primary" disabled={busy} onClick={() => void accept()}>{busy ? 'Joining…' : `Join ${details.organization_name}`}</button><button className="join-signout" onClick={() => void signOut()}><LogOut size={16}/>Use a different account</button></div>}
 
-      <a className="join-home" href="/">Return to Northborn</a>
+      <a className="join-home" href={appRoot()}>Return to Northborn</a>
     </div>
   </div>
 }

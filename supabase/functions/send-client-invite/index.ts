@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
-const productionUrl = "https://northborn.vercel.app";
+const productionUrl = "https://dothecoolwip1.github.io/NorthBorn";
 const TIMEOUT = 12000;
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

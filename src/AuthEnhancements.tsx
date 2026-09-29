@@ -3,10 +3,7 @@ import { supabase } from './lib/supabase'
 import { FUNCTIONAL_TESTING_ENABLED, personaFromSession, restoreFunctionalTestWorkspace, signInFunctionalTestAdmin } from './functional-test-auth'
 import './auth-enhancements.css'
 
-const PRODUCTION_URL = 'https://northborn.vercel.app'
-
 function getAuthRedirectUrl() {
-  if (window.location.hostname.endsWith('vercel.app')) return PRODUCTION_URL
   return new URL(import.meta.env.BASE_URL, window.location.origin).toString()
 }
 

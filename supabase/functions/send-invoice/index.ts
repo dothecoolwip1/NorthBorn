@@ -28,7 +28,7 @@ Deno.serve(async (req: Request) => {
     const authorization = req.headers.get("Authorization") ?? "";
     const resendKey = Deno.env.get("RESEND_API_KEY") ?? "";
     const fromAddress = Deno.env.get("RESEND_FROM_EMAIL") || "Northborn <onboarding@resend.dev>";
-    const appUrl = Deno.env.get("NORTHBORN_APP_URL") || "https://northborn.vercel.app";
+    const appUrl = Deno.env.get("NORTHBORN_APP_URL") || "https://dothecoolwip1.github.io/NorthBorn";
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authorization } },

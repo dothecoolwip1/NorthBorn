@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const productionUrl = "https://northborn.vercel.app";
+const productionUrl = "https://dothecoolwip1.github.io/NorthBorn";
 const EMAIL_TIMEOUT_MS = 12000;
 
 async function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {

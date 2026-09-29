@@ -216,7 +216,7 @@ export default function OperatorAppV2({ userId, organizationId, organizationName
     if (current) await db.from('user_notifications').update({ read_at: new Date().toISOString() }).eq('id', current.id).eq('recipient_user_id', userId)
   }
 
-  const signOut = async () => { await supabase.auth.signOut(); window.location.href='/' }
+  const signOut = async () => { await supabase.auth.signOut(); window.location.href=new URL(import.meta.env.BASE_URL,window.location.origin).toString() }
   const selectedJob = selectedJobId ? data.jobs.find(job => job.id === selectedJobId) ?? null : null
 
   if (loading) return <div className="field-loading">Loading your assigned work…</div>

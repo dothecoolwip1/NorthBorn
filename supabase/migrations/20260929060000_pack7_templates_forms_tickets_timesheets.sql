@@ -343,9 +343,31 @@ create policy form_attachments_storage_delete on storage.objects
 for delete to authenticated
 using (
   bucket_id='form-attachments'
+  and private.form_attachment_org_id(name) is not null
   and (
     private.has_org_permission(private.form_attachment_org_id(name),'tickets.manage')
     or private.has_org_permission(private.form_attachment_org_id(name),'timesheets.manage')
-    or owner_id=(select auth.uid())
+    or (
+      split_part(name,'/',2)='tickets'
+      and exists(
+        select 1 from public.field_tickets t
+        left join public.employees e on e.id=t.primary_employee_id and e.organization_id=t.organization_id
+        where t.id=private.form_attachment_record_id(name)
+          and t.organization_id=private.form_attachment_org_id(name)
+          and t.status in ('draft','rejected')
+          and (t.created_by=(select auth.uid()) or e.user_id=(select auth.uid()))
+      )
+    )
+    or (
+      split_part(name,'/',2)='timesheets'
+      and exists(
+        select 1 from public.timesheet_entries t
+        join public.employees e on e.id=t.employee_id and e.organization_id=t.organization_id
+        where t.id=private.form_attachment_record_id(name)
+          and t.organization_id=private.form_attachment_org_id(name)
+          and t.status in ('draft','rejected')
+          and e.user_id=(select auth.uid())
+      )
+    )
   )
 );

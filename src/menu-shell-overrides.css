@@ -1,13 +1,28 @@
 .northborn-test-account-list{display:none!important}
 .northborn-account-section-title:has(+ .northborn-test-account-list){display:none!important}
-.app-shell .menu-button{display:none!important}
+body:has(.northborn-account-menu) .app-shell .menu-button{display:none!important}
 
 /* The fixed hamburger is the mobile navigation control for every authenticated role. */
 @media(max-width:720px){
-  .app-shell .sidebar{display:none!important}
+  body:has(.northborn-account-menu) .app-shell .sidebar{display:none!important}
   .app-shell .content{margin-left:0!important;width:100%!important}
   .field-mobile-nav{padding-right:68px}
   body:has(.northborn-account-menu) header{padding-right:68px!important}
+
+  /* Local admin/admin demo mode has no Supabase session, so it uses the built-in mobile drawer. */
+  body:not(:has(.northborn-account-menu)) .app-shell .menu-button{display:grid!important;flex:0 0 44px}
+  body:not(:has(.northborn-account-menu)) .app-shell .sidebar{display:flex!important}
+  body:not(:has(.northborn-account-menu)) .app-shell .view-switcher{
+    display:flex!important;
+    min-width:0;
+    max-width:calc(100vw - 118px);
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  body:not(:has(.northborn-account-menu)) .app-shell .view-switcher::-webkit-scrollbar{display:none}
+  body:not(:has(.northborn-account-menu)) .app-shell .view-switcher>span{display:none}
+  body:not(:has(.northborn-account-menu)) .app-shell .view-switcher button{padding:7px 8px;white-space:nowrap}
+  body:not(:has(.northborn-account-menu)) .app-shell .header-actions{gap:7px;min-width:0}
 }
 
 /* Readability standard: compact metadata must remain readable at a glance. */

@@ -11,7 +11,7 @@ The core application foundation is established and reproducible from source cont
 - Supabase for PostgreSQL, authentication, storage and backend services
 - React Router for application navigation
 - Capacitor configuration for Android and iOS packaging
-- Vercel compatible SPA routing
+- GitHub Pages compatible SPA routing
 - GitHub Actions build verification on every push and pull request to `main`
 
 ## Architecture rules
@@ -82,7 +82,7 @@ The planned sync boundary should prioritize field data that genuinely needs offl
 
 The GitHub repository is the source of truth. A production deployment should be generated from the same commit that passes GitHub Actions.
 
-The current Vercel project exists, but its production domain is still pointing at an early deployment test rather than the current Northborn application. The Vercel project should be connected to `dothecoolwip1/NorthBorn`, or a verified current preview should be promoted to production. Once Git integration is established, pushes to `main` should be the normal production deployment path.
+The GitHub repository is the production source of truth. GitHub Actions builds the Vite app with the `/NorthBorn/` base path and publishes the same `main` commit to GitHub Pages. Production QA targets that GitHub Pages deployment.
 
 ## Foundation completion checklist
 
@@ -101,10 +101,10 @@ Completed:
 - Foreign key performance indexes
 - GitHub Actions build verification
 - Capacitor configuration
-- Vercel SPA routing
+- GitHub Pages SPA routing
 
 External setup still required:
 
-- Connect the Vercel project to the GitHub repository or promote the verified current application deployment
+- Keep GitHub Pages deployment and production QA green on every `main` release
 - Provision the PowerSync service and sync streams before offline data synchronization is enabled
 - Replace temporary interface test mode with real Supabase users before real operational data is entered

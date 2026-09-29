@@ -44,14 +44,14 @@ The console currently provides:
 
 ## Deployment
 
-Repository upload alone does not change the live database or deploy the Edge Function.
+GitHub Pages publishes the web application from `main`. Repository changes to Supabase functions still require deploying those Edge Functions to the live Supabase project.
 
 For the live Northborn Supabase project:
 
 1. Apply the new database migration using the project's normal migration workflow.
 2. Deploy the `super-admin` Edge Function with JWT verification enabled.
 3. Ensure the function environment has `SUPABASE_URL`, a publishable or anon key, and `SUPABASE_SERVICE_ROLE_KEY`.
-4. Optionally set `NORTHBORN_APP_URL` to the production Northborn URL for invitation redirects.
+4. Set `NORTHBORN_APP_URL` to `https://dothecoolwip1.github.io/NorthBorn/` for invitation redirects.
 5. Create and confirm the `admin@northborn.link` Supabase Auth account.
 6. Sign in. Northborn will route the account directly to the super admin console.
 

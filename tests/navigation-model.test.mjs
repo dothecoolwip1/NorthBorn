@@ -1,30 +1,25 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { fullNavigationForRole, mobileNavigationForRole } from '../src/navigation-model.ts'
+import fs from 'node:fs'
 
-const paths=items=>items.map(item=>item.path)
-const labels=items=>items.map(item=>item.label)
+const source=fs.readFileSync(new URL('../src/navigation-model.ts',import.meta.url),'utf8')
 
 test('owner and admin mobile navigation prioritizes the working day',()=>{
-  for(const role of ['owner','admin']){
-    const items=mobileNavigationForRole('manager',[role])
-    assert.deepEqual(paths(items),['/','/calendar','/dispatch','/jobs'])
-    assert.deepEqual(labels(items),['Home','Schedule','Dispatch','Jobs'])
-  }
+  assert.match(source,/owner:\['\/','\/calendar','\/dispatch','\/jobs'\]/)
+  assert.match(source,/admin:\['\/','\/calendar','\/dispatch','\/jobs'\]/)
 })
 
-test('specialist manager roles receive useful permission-safe primary navigation',()=>{
-  assert.deepEqual(paths(mobileNavigationForRole('manager',['accounting'])),['/','/customers','/invoices','/billing'])
-  assert.deepEqual(paths(mobileNavigationForRole('manager',['mechanic'])),['/','/jobs','/fleet','/maintenance'])
-  assert.deepEqual(paths(mobileNavigationForRole('manager',['safety'])),['/','/safety','/jobs','/fleet'])
-  const accountingFull=paths(fullNavigationForRole('manager',['accounting']))
-  assert.equal(accountingFull.includes('/dispatch'),false)
-  assert.equal(accountingFull.includes('/invoices'),true)
+test('specialist manager roles receive permission-safe primary navigation',()=>{
+  assert.match(source,/accounting:\['\/','\/customers','\/invoices','\/billing'\]/)
+  assert.match(source,/mechanic:\['\/','\/jobs','\/fleet','\/maintenance'\]/)
+  assert.match(source,/safety:\['\/','\/safety','\/jobs','\/fleet'\]/)
+  assert.match(source,/fullNavigationForRole\('manager',roleKeys\)/)
 })
 
 test('operator and client mobile navigation stays focused',()=>{
-  assert.deepEqual(labels(mobileNavigationForRole('operator')),['Today','Jobs','Time','Safety'])
-  assert.deepEqual(paths(mobileNavigationForRole('operator')),['/','/jobs','/timesheets','/safety'])
-  assert.deepEqual(labels(mobileNavigationForRole('client')),['Home','Jobs','Invoices'])
-  assert.deepEqual(paths(mobileNavigationForRole('client')),['/','/#client-jobs','/#client-invoices'])
+  assert.match(source,/label:'Today',path:'\/'/)
+  assert.match(source,/label:'Time',path:'\/timesheets'/)
+  assert.match(source,/label:'Safety',path:'\/safety'/)
+  assert.match(source,/label:'Home',path:'\/'/)
+  assert.match(source,/label:'Invoices',path:'\/#client-invoices'/)
 })

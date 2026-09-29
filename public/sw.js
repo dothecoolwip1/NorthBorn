@@ -1,4 +1,4 @@
-const CACHE_NAME = 'northborn-shell-v0.22.0'
+const CACHE_NAME = 'northborn-shell-v0.22.1'
 const BASE = new URL(self.registration.scope)
 const CORE_ASSETS = ['', 'manifest.webmanifest', 'icons/northborn-icon.svg'].map(path => new URL(path, BASE).href)
 

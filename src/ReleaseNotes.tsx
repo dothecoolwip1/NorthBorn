@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.10.0':[
+    'Completed the customer CRM with reusable sites, billing and PO/AFE defaults, separated internal and client-facing notes, customer documents and recent account history.',
+    'Expanded the client portal with shared sites, documents, billing defaults and portal notifications while preserving existing jobs, requests, tickets, invoices, contacts and member roles.',
+    'Corrected client job contacts so job-specific dispatch and emergency numbers and the designated primary operator are preferred without exposing the internal crew roster.',
+  ],
   '0.9.15':[
     'Completed the full Pack 2 operations workflow across backend integrity, Jobs and Dispatch, operator field progress, Calendar and Dashboard.',
     'Added dedicated Calendar and Dashboard regression coverage while preserving the latest desktop navigation and client-card cleanup.',

@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom'
 import {
   ArrowRight, Banknote, BriefcaseBusiness, Building2, CalendarDays, CheckCircle2,
-  ClipboardCheck, ContactRound, FileText, Gauge, HardHat, ReceiptText, ShieldCheck,
-  Smartphone, Truck, Users, WifiOff, Wrench,
+  ClipboardCheck, FileText, Gauge, HardHat, ReceiptText, ShieldCheck, Smartphone,
+  Truck, Users, WifiOff,
 } from 'lucide-react'
 import './marketing-home.css'
 

@@ -261,3 +261,142 @@
 @media (prefers-reduced-motion:reduce){
   .nb-home *{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }
+
+
+/* Real-world field imagery */
+.hero-photo{
+  position:absolute;
+  inset:18px 28px 74px 12%;
+  overflow:hidden;
+  border-radius:24px;
+  border:1px solid rgba(120,142,161,.18);
+  box-shadow:0 40px 110px rgba(0,0,0,.34);
+  opacity:.48;
+  transform:translateY(-18px) rotate(-1.2deg);
+}
+.hero-photo img{
+  width:100%;height:100%;object-fit:cover;object-position:center 44%;
+  filter:saturate(.78) contrast(1.06) brightness(.72);
+}
+.hero-photo-shade{
+  position:absolute;inset:0;
+  background:
+    linear-gradient(90deg,rgba(7,16,25,.85) 0%,rgba(7,16,25,.30) 48%,rgba(7,16,25,.58) 100%),
+    linear-gradient(180deg,rgba(7,16,25,.08),rgba(7,16,25,.72));
+}
+.hero-photo-tag{
+  position:absolute;left:24px;bottom:22px;max-width:260px;
+  display:grid;gap:4px;
+}
+.hero-photo-tag span,.workflow-photo-copy span{
+  color:#dca05a;font-size:8px;letter-spacing:.15em;font-weight:950;
+}
+.hero-photo-tag strong{
+  font-size:14px;line-height:1.25;letter-spacing:-.01em;
+}
+.hero-product>.product-window{z-index:2;transform:translate(1%,5%)}
+.hero-phone{z-index:4}
+
+.workflow-photo-band{
+  position:relative;
+  min-height:340px;
+  margin:0 0 72px;
+  overflow:hidden;
+  border-radius:22px;
+  border:1px solid rgba(91,116,138,.20);
+  background:#0c1721;
+}
+.workflow-photo-band img{
+  position:absolute;inset:0;
+  width:100%;height:100%;object-fit:cover;object-position:center 53%;
+  filter:saturate(.70) contrast(1.08) brightness(.70);
+}
+.workflow-photo-overlay{
+  position:absolute;inset:0;
+  background:
+    linear-gradient(90deg,rgba(7,16,25,.92) 0%,rgba(7,16,25,.46) 46%,rgba(7,16,25,.12) 78%),
+    linear-gradient(180deg,rgba(7,16,25,.05),rgba(7,16,25,.44));
+}
+.workflow-photo-copy{
+  position:absolute;left:clamp(24px,5vw,64px);bottom:clamp(24px,5vw,52px);
+  width:min(560px,72%);
+  display:grid;gap:8px;
+}
+.workflow-photo-copy strong{
+  font-size:clamp(28px,4vw,52px);
+  line-height:1.02;letter-spacing:-.04em;
+}
+
+.field-section{
+  grid-template-columns:.82fr .9fr 1fr;
+  align-items:center;
+}
+.field-photo{
+  position:relative;
+  min-height:520px;
+  overflow:hidden;
+  border-radius:20px;
+  border:1px solid rgba(91,116,138,.20);
+  box-shadow:0 28px 74px rgba(0,0,0,.26);
+}
+.field-photo img{
+  position:absolute;inset:0;
+  width:100%;height:100%;object-fit:cover;object-position:center;
+  filter:saturate(.72) contrast(1.08) brightness(.76);
+}
+.field-photo-overlay{
+  position:absolute;inset:0;
+  background:
+    linear-gradient(180deg,rgba(7,16,25,.03),rgba(7,16,25,.48)),
+    linear-gradient(90deg,rgba(7,16,25,.12),rgba(7,16,25,.02));
+}
+.field-photo-badge{
+  position:absolute;left:18px;bottom:18px;
+  display:flex;align-items:center;gap:9px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid rgba(213,138,52,.32);
+  background:rgba(7,16,25,.76);
+  backdrop-filter:blur(10px);
+  color:#dca05a;
+}
+.field-photo-badge span{
+  font-size:8px;line-height:1.15;letter-spacing:.12em;font-weight:950;
+}
+
+@media (max-width:1100px){
+  .field-section{grid-template-columns:1fr 1fr}
+  .field-photo{grid-column:1/-1;min-height:430px}
+}
+
+@media (max-width:760px){
+  .hero-photo{
+    inset:0 0 52px 0;
+    border-radius:18px;
+    transform:none;
+    opacity:.42;
+  }
+  .hero-photo-tag{display:none}
+  .hero-product>.product-window{transform:translateY(20px)}
+  .workflow-photo-band{
+    min-height:390px;
+    margin-bottom:54px;
+    border-radius:16px;
+  }
+  .workflow-photo-band img{object-position:44% center}
+  .workflow-photo-overlay{
+    background:linear-gradient(180deg,rgba(7,16,25,.12) 20%,rgba(7,16,25,.90) 92%);
+  }
+  .workflow-photo-copy{
+    left:22px;right:22px;bottom:24px;width:auto;
+  }
+  .workflow-photo-copy strong{font-size:34px}
+  .field-section{grid-template-columns:1fr}
+  .field-photo{grid-column:auto;min-height:420px}
+}
+
+@media (max-width:430px){
+  .workflow-photo-band{min-height:340px}
+  .workflow-photo-copy strong{font-size:30px}
+  .field-photo{min-height:360px}
+}

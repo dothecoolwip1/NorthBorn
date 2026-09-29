@@ -17,3 +17,5 @@ test('super admin stays server-authorized and routed', () => {
   assert.match(migration, /admin@northborn\.link/)
   assert.match(migration, /enable row level security/)
 })
+
+// Verification branch sentinel.

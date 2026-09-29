@@ -58,3 +58,8 @@ For the live Northborn Supabase project:
 ## Billing note
 
 The plan catalog and organization subscription state are administrative records. They do not charge cards or create external subscriptions by themselves. A payment provider such as Stripe can be connected later without changing the platform-admin permission model.
+
+
+## Demo workspace
+
+The public demo login (`admin / admin`) is separate from Supabase Auth and the platform super admin. It opens an isolated local test workspace for demonstrations and must not grant access to real organization data.

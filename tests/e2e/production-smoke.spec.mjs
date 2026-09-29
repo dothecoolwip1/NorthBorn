@@ -25,7 +25,7 @@ const INTERNAL_ROLE_MENUS = {
   accounting: { label: 'Accounting', present: ['Customers','Employees','Tickets','Timesheets','Invoices','Billing queue','Reports'], absent: ['Dispatch','Fleet','Maintenance','Safety','Templates'] },
 }
 
-function absolute(path) { return new URL(String(path || '').replace(/^\\/+/, ''), BASE).toString() }
+function absolute(path) { return new URL(String(path || '').replace(/^\/+/, ''), BASE).toString() }
 
 function monitor(page) {
   const pageErrors = []

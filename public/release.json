@@ -1,9 +1,9 @@
 {
-  "version": "0.9.12",
-  "title": "Pack 2C Operator Workflow",
+  "version": "0.9.13",
+  "title": "Pack 2D Calendar and Dashboard",
   "notes": [
-    "Completed the Pack 2C operator workflow checkpoint from dispatch acknowledgement through field completion.",
-    "Operators can only complete a job after work has actually started, matching the server-enforced field progression.",
-    "Rejected field actions now refresh assigned work immediately so removed or changed assignments cannot leave stale operator controls on screen."
+    "Completed the Pack 2D calendar and dashboard checkpoint with week and month planning, unscheduled work and role-aware navigation.",
+    "Expanded calendar filtering across dispatch stage, lifecycle status, customer and free-text searches for jobs, sites, crew and units.",
+    "Removed dashboard and calendar links that sent restricted roles into modules they do not have permission to use."
   ]
 }

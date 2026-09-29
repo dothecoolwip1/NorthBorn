@@ -135,7 +135,7 @@ export default function TemplateAwareFieldTicketsPage() {
   }, [template])
 
   return <>
-    <FieldTicketsPage />
+    <FieldTicketsPage activeTemplate={template}/>
     {templateError && <div className="ticket-template-runtime-message"><RefreshCw size={15}/>{templateError}</div>}
     {template && mounts.banner && createPortal(<TemplateSummary template={template} onOpen={() => setMobilePreview(true)}/>, mounts.banner)}
     {template && mounts.side && createPortal(<TemplateSide template={template} pdfUrl={pdfUrl}/>, mounts.side)}

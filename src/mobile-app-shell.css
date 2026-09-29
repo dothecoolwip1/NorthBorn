@@ -27,7 +27,14 @@ body:has(.northborn-account-menu.print-route) .northborn-test-role-switcher{disp
     box-shadow:0 -14px 36px rgba(0,0,0,.28);
     backdrop-filter:blur(18px);
     -webkit-backdrop-filter:blur(18px);
+    transition:transform var(--nb-transition),opacity var(--nb-transition);
   }
+  body:has([class*="-backdrop"]) .northborn-mobile-tabs{
+    transform:translateY(calc(100% + env(safe-area-inset-bottom)));
+    opacity:0;
+    pointer-events:none;
+  }
+
   .northborn-mobile-tabs>button{
     position:relative;
     min-width:0;

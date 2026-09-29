@@ -1,5 +1,5 @@
 {
-  "version": "0.15.1",
+  "version": "0.15.2",
   "title": "Billing controls and filtered reports — rollout pending",
   "notes": [
     "Invoice and ticket dialogs gain keyboard focus handling and named controls; 15 internal screens checked at phone, tablet and desktop widths.",

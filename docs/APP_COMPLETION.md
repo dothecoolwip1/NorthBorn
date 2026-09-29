@@ -20,7 +20,7 @@ Every remaining pack needs its acceptance flow and permission boundaries verifie
 
 ## Verified findings
 
-- Baseline version 0.14.0 / Pack 7 / PR 51. This branch prepares 0.15.1.
+- Baseline version 0.14.0 / Pack 7 / PR 51. This branch prepares 0.15.2.
 - Packs 6 and 7 are committed but not authorized for live rollout.
 - Invoice saves previously used separate header, line-delete and line-insert calls.
   The new RPC rolls back the entire save if any step fails.
@@ -41,7 +41,7 @@ Every remaining pack needs its acceptance flow and permission boundaries verifie
 
 ## Rollout gate
 
-Do not deploy 0.15.1 until a complete isolated backend has validated the migration
+Do not deploy 0.15.2 until a complete isolated backend has validated the migration
 chain, including Packs 6/7 and all four new migrations through
 `20260929115333_price_minimum_quantities.sql`. The frontend requires the new RPC,
 ledger, approval fields and minimum quantities. Verify migration history aliases

@@ -108,6 +108,7 @@ test('payment dialog traps keyboard focus and restores the opening button',async
  const dialog=page.getByRole('dialog')
  const close=dialog.getByRole('button',{name:'Close payment history'})
  await expect(close).toBeFocused()
+ await expect(dialog.getByRole('button',{name:'Record entry',exact:true})).toBeEnabled()
  await page.keyboard.press('Shift+Tab')
  await expect(dialog.getByRole('button',{name:'Record entry',exact:true})).toBeFocused()
  await page.keyboard.press('Tab');await expect(close).toBeFocused()

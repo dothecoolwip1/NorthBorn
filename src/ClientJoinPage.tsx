@@ -8,7 +8,9 @@ const db=supabase as any
 type Details={organization_name:string;customer_name:string;portal_role?:string;invite_status:string;invite_expires_at:string}
 const readError=(e:unknown)=>e instanceof Error?e.message:String((e as {message?:string})?.message||e||'Something went wrong')
 const roleLabel=(role?:string)=>({admin:'Client Admin',operations:'Operations',billing:'Billing',viewer:'Viewer'}[role||'admin']||'Client Member')
-function appUrl(path=''){const base=new URL(import.meta.env.BASE_URL,window.location.origin);return new URL(String(path).replace(/^\/+/,''),base).toString()}\nfunction appPath(path=''){const u=new URL(appUrl(path));return `${u.pathname}${u.search}${u.hash}`}\nfunction redirect(path:string){return appUrl(path)}
+function appUrl(path=''){const base=new URL(import.meta.env.BASE_URL,window.location.origin);return new URL(String(path).replace(/^\/+/,''),base).toString()}
+function appPath(path=''){const u=new URL(appUrl(path));return `${u.pathname}${u.search}${u.hash}`}
+function redirect(path:string){return appUrl(path)}
 
 export default function ClientJoinPage(){
  const params=new URLSearchParams(window.location.search)

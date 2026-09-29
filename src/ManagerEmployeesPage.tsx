@@ -50,7 +50,9 @@ export default function ManagerEmployeesPage() {
     const membership = await db.from('organization_members').select('id,organization_id,organization:organizations(id,name)').eq('user_id',user.id).eq('status','active').limit(1).maybeSingle()
     if (membership.error || !membership.data?.id) { setLoading(false); return }
     const roles = await db.from('membership_roles').select('role:roles(key)').eq('membership_id',membership.data.id)
-    const resolvedRole = roles.data?.[0]?.role?.key || ''
+    const roleKeys=(roles.data||[]).map((row:any)=>row.role?.key).filter(Boolean)
+    const precedence=['owner','admin','supervisor','dispatcher','safety','mechanic','accounting','operator']
+    const resolvedRole = precedence.find(key=>roleKeys.includes(key)) || roleKeys[0] || ''
     setRoleKey(resolvedRole)
     if (resolvedRole === 'operator') { setLoading(false); return }
     const org = membership.data.organization as Organization

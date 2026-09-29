@@ -82,7 +82,7 @@ export function mobileNavigationForRole(role:ShellRole,roleKeys:readonly string[
   for(const path of preferred){
     const item=byPath.get(path)
     if(item&&!result.some(row=>row.path===item.path)){
-      result.push(path==='/calendar'?{...item,label:'Schedule'}:item)
+      result.push(path==='/'?{...item,label:'Home'}:path==='/calendar'?{...item,label:'Schedule'}:item)
     }
   }
   for(const item of full){

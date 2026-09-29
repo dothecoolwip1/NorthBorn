@@ -11,7 +11,6 @@ import {
   Clock3,
   Copy,
   FileText,
-  HardHat,
   Home,
   LogOut,
   Mail,
@@ -312,7 +311,7 @@ function HomePage({ data, organizationId, organizationName, onOpen, onRefresh }:
 
       <div className="operator-today-action-zone">
         <OperatorDispatchProgress compact job={focus} organizationId={organizationId} onChanged={onRefresh}/>
-        <OperatorJobCompletionActions job={focus} organizationId={organizationId} organizationName={organizationName} onCompleted={onRefresh}/>
+        {focus.dispatch_stage==='work_started'&&<OperatorJobCompletionActions job={focus} organizationId={organizationId} organizationName={organizationName} onCompleted={onRefresh}/>} 
       </div>
 
       <div className="operator-today-quick-actions" aria-label="Job quick actions">

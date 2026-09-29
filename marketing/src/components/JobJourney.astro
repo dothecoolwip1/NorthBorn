@@ -1,0 +1,154 @@
+---
+const steps = [
+  { key: 'request', time: '06:42', label: 'REQUEST', title: 'Customer calls. The job starts once.', body: 'Customer, site, scope and contact details enter Northborn as one operating record.' },
+  { key: 'dispatch', time: '06:47', label: 'DISPATCH', title: 'Crew and equipment get attached.', body: 'The dispatcher schedules the work, assigns people and the unit, then releases it to the field.' },
+  { key: 'field', time: '07:03', label: 'FIELD', title: 'The operator gets the job on the phone.', body: 'Directions, unit, safety requirements, field ticket and time are already connected.' },
+  { key: 'signed', time: '12:26', label: 'SIGNED', title: 'The paperwork closes where the work happened.', body: 'The customer signs the field ticket before the job disappears into another inbox.' },
+  { key: 'billing', time: '13:11', label: 'BILLING', title: 'Approved work becomes revenue.', body: 'Pricing, signed paperwork and job details are ready for invoicing without retyping the day.' },
+]
+---
+
+<section class="journey" id="journey">
+  <div class="journey-heading">
+    <span>ONE JOB · ONE RECORD</span>
+    <h2>Watch the work move.</h2>
+    <p>Northborn is designed around the handoffs that usually create the mess.</p>
+  </div>
+
+  <div class="journey-layout">
+    <div class="journey-steps">
+      {steps.map((step, index) => (
+        <article class="journey-step" data-journey-step={step.key}>
+          <div class="journey-time"><b>{step.time}</b><span>{String(index + 1).padStart(2, '0')}</span></div>
+          <div>
+            <small>{step.label}</small>
+            <h3>{step.title}</h3>
+            <p>{step.body}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+
+    <div class="journey-sticky">
+      <div class="journey-machine" id="journey-machine" data-state="request">
+        <div class="machine-top">
+          <span>NORTHBORN · JOB NB-1048</span>
+          <strong>LIVE RECORD</strong>
+        </div>
+
+        <div class="machine-track" aria-hidden="true">
+          <span data-node="request">REQUEST</span>
+          <i></i>
+          <span data-node="dispatch">DISPATCH</span>
+          <i></i>
+          <span data-node="field">FIELD</span>
+          <i></i>
+          <span data-node="signed">SIGNED</span>
+          <i></i>
+          <span data-node="billing">BILLING</span>
+        </div>
+
+        <div class="machine-stage">
+          <div class="machine-panel request-panel">
+            <small>NEW REQUEST</small>
+            <h4>Hydrovac daylighting</h4>
+            <p>Red Deer County · Pipeline crossing</p>
+            <dl><div><dt>Customer</dt><dd>Acme Energy</dd></div><div><dt>Requested</dt><dd>Sep 29 · 07:00</dd></div></dl>
+            <button>CREATE JOB <span>→</span></button>
+          </div>
+
+          <div class="machine-panel dispatch-panel">
+            <div class="dispatch-row"><span>CREW</span><strong>Cody · Mark</strong><em>ASSIGNED</em></div>
+            <div class="dispatch-row"><span>UNIT</span><strong>Hydrovac 214</strong><em>AVAILABLE</em></div>
+            <div class="dispatch-map">
+              <div class="map-grid"></div>
+              <i class="map-pin one"></i><i class="map-pin two"></i><i class="map-route"></i>
+              <span>RED DEER COUNTY</span>
+            </div>
+            <button>RELEASE TO FIELD <span>→</span></button>
+          </div>
+
+          <div class="machine-panel field-panel">
+            <div class="mini-phone">
+              <div class="mini-phone-notch"></div>
+              <div class="mini-phone-head"><b>N</b><span>TODAY</span></div>
+              <small>07:03 · ON SITE</small>
+              <h4>Hydrovac daylighting</h4>
+              <p>Site 12-24 · Unit 214</p>
+              <div class="mini-phone-actions"><span>Safety</span><span>Ticket</span><span>Time</span></div>
+              <button>OPEN JOB</button>
+            </div>
+          </div>
+
+          <div class="machine-panel signed-panel">
+            <div class="ticket-sheet">
+              <header><span>FIELD TICKET</span><b>NB-1048</b></header>
+              <h4>Hydrovac daylighting</h4>
+              <div class="ticket-lines"><i></i><i></i><i></i></div>
+              <div class="ticket-sign"><span>Customer signature</span><strong>J. Carter</strong></div>
+              <footer>✓ SIGNED · 12:26</footer>
+            </div>
+          </div>
+
+          <div class="machine-panel billing-panel">
+            <div class="invoice-sheet">
+              <header><span>INVOICE</span><b>INV-2026-1048</b></header>
+              <div><span>Hydrovac · 5.5 hrs</span><strong>$2,475.00</strong></div>
+              <div><span>Travel · 1.0 hr</span><strong>$225.00</strong></div>
+              <div><span>Disposal</span><strong>$640.00</strong></div>
+              <footer><span>TOTAL</span><strong>$3,340.00</strong></footer>
+            </div>
+          </div>
+        </div>
+
+        <div class="machine-foot">
+          <span>CUSTOMER</span><i></i><span>CREW</span><i></i><span>UNIT</span><i></i><span>PAPERWORK</span><i></i><span>INVOICE</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { gsap } from 'gsap'
+  import { ScrollTrigger } from 'gsap/ScrollTrigger'
+
+  gsap.registerPlugin(ScrollTrigger)
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const machine = document.querySelector<HTMLElement>('#journey-machine')
+  const steps = Array.from(document.querySelectorAll<HTMLElement>('[data-journey-step]'))
+
+  if (machine) {
+    const setState = (state: string, current: HTMLElement) => {
+      machine.dataset.state = state
+      steps.forEach(step => step.classList.toggle('is-active', step === current))
+    }
+
+    if (reduced) {
+      const first = steps[0]
+      if (first) setState(first.dataset.journeyStep || 'request', first)
+    } else {
+      steps.forEach(step => {
+        ScrollTrigger.create({
+          trigger: step,
+          start: 'top 56%',
+          end: 'bottom 44%',
+          onEnter: () => setState(step.dataset.journeyStep || 'request', step),
+          onEnterBack: () => setState(step.dataset.journeyStep || 'request', step),
+        })
+      })
+
+      gsap.from('.journey-machine', {
+        opacity: 0,
+        y: 24,
+        duration: .7,
+        ease: 'power3.out',
+        scrollTrigger: {
+          trigger: '.journey-layout',
+          start: 'top 72%',
+        },
+      })
+    }
+  }
+</script>

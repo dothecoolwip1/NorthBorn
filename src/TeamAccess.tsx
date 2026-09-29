@@ -1,3 +1,4 @@
+import { primaryInternalRole } from './role-access'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { ArrowLeft, Check, Copy, Link2, LogOut, ShieldCheck, UserPlus, Users, X } from 'lucide-react'
@@ -47,13 +48,13 @@ async function loadWorkspace(userId: string): Promise<Workspace | null> {
     .select('role:roles(key,name)')
     .eq('membership_id', membership.id)
   if (roleError) throw roleError
-  const role = roleRows?.[0]?.role
+  const roleKey = primaryInternalRole((roleRows||[]).map((row:any)=>row.role?.key).filter(Boolean))
 
   return {
     organizationId: membership.organization_id,
     organizationName: membership.organization?.name || 'Northborn company',
     membershipId: membership.id,
-    roleKey: role?.key || 'operator',
+    roleKey,
   }
 }
 

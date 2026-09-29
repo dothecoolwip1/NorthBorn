@@ -1,3 +1,4 @@
+import { useModalFocus } from './use-modal-focus'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import { localDate } from './reporting'
@@ -6,6 +7,7 @@ import { nonNegativeAmount } from './billing-math'
 type Entry={id:string;kind:string;amount:number|string;effective_date:string;reference:string|null;note:string;reverses_id:string|null;is_opening_balance:boolean;created_at:string}
 export default function InvoiceSettlements({organizationId,invoice,onClose,onSaved}:{organizationId:string;invoice:{id:string;invoice_number:string;currency_code:string};onClose:()=>void;onSaved:()=>Promise<void>}){
  const [rows,setRows]=useState<Entry[]>([]),[kind,setKind]=useState('payment'),[amount,setAmount]=useState(''),[date,setDate]=useState(localDate),[reference,setReference]=useState(''),[note,setNote]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[revision,setRevision]=useState(0),[requestId,setRequestId]=useState(()=>crypto.randomUUID())
+ const modalRef=useModalFocus(onClose,busy)
  const db=supabase as any
  const money=(v:number|string)=>new Intl.NumberFormat('en-CA',{style:'currency',currency:invoice.currency_code}).format(Number(v))
  useEffect(()=>{let active=true;setLoading(true);void db.from('invoice_settlements').select('*').eq('organization_id',organizationId).eq('invoice_id',invoice.id).order('created_at',{ascending:false}).then(({data,error}:any)=>{if(!active)return;if(error)setError(error.message);else setRows(data||[]);setLoading(false)});return()=>{active=false}},[organizationId,invoice.id,revision,db])
@@ -20,12 +22,12 @@ export default function InvoiceSettlements({organizationId,invoice,onClose,onSav
    setRequestId(crypto.randomUUID());setAmount('');setNote('');setReference('');setRevision(n=>n+1);await onSaved()
   }catch(e){setError(e instanceof Error?e.message:String((e as {message?:string})?.message||e))}finally{setBusy(false)}
  }
- return <div className="invoice-v2-editor-backdrop"><section className="invoice-v2-editor" role="dialog" aria-modal="true" aria-labelledby="settlement-title"><header><h2 id="settlement-title">Payments and credits · {invoice.invoice_number}</h2><button type="button" aria-label="Close payment history" disabled={busy} onClick={onClose}>Close</button></header><div className="invoice-v2-editor-body">
+ return <div className="invoice-v2-editor-backdrop"><section ref={modalRef} tabIndex={-1} className="invoice-v2-editor" role="dialog" aria-modal="true" aria-labelledby="settlement-title"><header><h2 id="settlement-title">Payments and credits · {invoice.invoice_number}</h2><button type="button" aria-label="Close payment history" disabled={busy} onClick={onClose}>Close</button></header><div className="invoice-v2-editor-body">
  {error&&<p className="invoice-v2-error" role="alert">{error}</p>}
  <p>Payments record money received. Credits reduce the amount owed without recording cash. Entries stay in history; corrections use a reversal.</p>
  <form onSubmit={e=>{e.preventDefault();void save()}}><div className="invoice-v2-grid">
  <label>Entry type<select value={kind} onChange={e=>setKind(e.target.value)}><option value="payment">Payment received</option><option value="credit">Credit adjustment</option></select></label>
- <label>Amount ({invoice.currency_code})<input autoFocus type="number" min="0.01" step="0.01" required value={amount} onChange={e=>setAmount(e.target.value)}/></label>
+ <label>Amount ({invoice.currency_code})<input type="number" min="0.01" step="0.01" required value={amount} onChange={e=>setAmount(e.target.value)}/></label>
  <label>Effective date<input type="date" required max={localDate()} value={date} onChange={e=>setDate(e.target.value)}/></label>
  <label>Reference<input value={reference} onChange={e=>setReference(e.target.value)} placeholder="Receipt, transfer or credit reference"/></label>
  <label className="wide">Note / reversal reason<textarea required value={note} onChange={e=>setNote(e.target.value)}/></label>

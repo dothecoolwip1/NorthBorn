@@ -87,3 +87,59 @@ test('draft approval actions progress from submission to approved issuance',asyn
  await expect(page.getByRole('button',{name:'Issue invoice',exact:true})).toBeVisible()
  expect(approval).toBe('approved')
 })
+
+test('combined supervisor and accounting dashboard includes billing queries',async({page})=>{
+ const requested=await fixture(page,['supervisor','accounting']);await page.goto('/')
+ await expect(page.getByText('COMMAND CENTRE',{exact:true})).toBeVisible()
+ expect(requested).toContain('invoices')
+ expect(requested).toContain('jobs')
+})
+
+test('accounting plus operator preserves ticket and time submission',async({page})=>{
+ await fixture(page,['accounting','operator']);await page.goto('/tickets')
+ await expect(page.getByRole('button',{name:'New ticket',exact:true})).toBeVisible()
+ await page.goto('/timesheets')
+ await expect(page.getByRole('button',{name:'Add time',exact:true})).toBeVisible()
+})
+
+test('payment dialog traps keyboard focus and restores the opening button',async({page})=>{
+ await fixture(page);await page.goto('/invoices')
+ const opener=page.getByRole('button',{name:'Record payment / credit'});await opener.click()
+ const dialog=page.getByRole('dialog')
+ const close=dialog.getByRole('button',{name:'Close payment history'})
+ await expect(close).toBeFocused()
+ await page.keyboard.press('Shift+Tab')
+ await expect(dialog.getByRole('button',{name:'Record entry',exact:true})).toBeFocused()
+ await page.keyboard.press('Tab');await expect(close).toBeFocused()
+ await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(opener).toBeFocused()
+})
+
+test('invoice editor exposes accessible fields and supports escape',async({page})=>{
+ await fixture(page);await page.goto('/invoices');await page.getByRole('button',{name:'New invoice',exact:true}).click()
+ const dialog=page.getByRole('dialog',{name:'Invoice editor'})
+ await expect(dialog.getByLabel('Line description')).toBeVisible()
+ await expect(dialog.getByLabel('Line rate')).toBeVisible()
+ await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0)
+})
+
+test('internal screens render at phone and desktop widths without runtime errors',async({page})=>{
+ test.setTimeout(60000)
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await fixture(page)
+ for(const path of ['/','/dispatch','/calendar','/jobs','/customers','/employees','/fleet','/maintenance','/safety','/tickets','/timesheets','/invoices','/pricing','/reports','/team-access']){
+  await page.goto(path)
+  await expect(page.locator('h1').first(),path+' heading').toBeVisible()
+  for(const width of [390,768,1440]){
+   await page.setViewportSize({width,height:900})
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),path+' overflow at '+width).toBe(true)
+  }
+ }
+ expect(errors).toEqual([])
+})
+
+test('field ticket editor has named controls and returns keyboard focus',async({page})=>{
+ await fixture(page);await page.goto('/tickets')
+ const opener=page.getByRole('button',{name:'New ticket',exact:true});await opener.click()
+ const dialog=page.getByRole('dialog',{name:'Field ticket editor'})
+ await expect(dialog.getByLabel('Service quantity')).toBeVisible()
+ await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(opener).toBeFocused()
+})

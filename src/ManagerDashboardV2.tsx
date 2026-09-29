@@ -1,3 +1,4 @@
+import { hasAnyRole } from './role-access'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, Navigate } from 'react-router-dom'
 import {
@@ -34,6 +35,7 @@ type WorkOrder={id:string;vehicle_id:string;work_order_number:string;title:strin
 type Workspace={
   organization:Organization|null
   roleKey:string
+  roleKeys:string[]
   customers:Customer[]
   employees:Employee[]
   jobs:Job[]
@@ -48,7 +50,7 @@ type Workspace={
   workOrders:WorkOrder[]
 }
 
-const EMPTY:Workspace={organization:null,roleKey:'',customers:[],employees:[],jobs:[],assignments:[],vehicles:[],tickets:[],invoices:[],timesheets:[],programs:[],maintenanceAssignments:[],defects:[],workOrders:[]}
+const EMPTY:Workspace={organization:null,roleKey:'',roleKeys:[],customers:[],employees:[],jobs:[],assignments:[],vehicles:[],tickets:[],invoices:[],timesheets:[],programs:[],maintenanceAssignments:[],defects:[],workOrders:[]}
 const num=(value:unknown)=>Number(value||0)
 const currency=(value:number)=>new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD',maximumFractionDigits:0}).format(value)
 const label=(value:string)=>value.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())
@@ -84,16 +86,16 @@ export default function ManagerDashboardV2(){
       if(!user){setWorkspace(EMPTY);setLoading(false);return}
       const access=await resolveWorkspaceAccess(user.id)
       if(access.kind!=='internal'){setWorkspace(EMPTY);setLoading(false);return}
-      const roleKey=access.roleKey
+      const roleKey=access.roleKey,roleKeys=access.roleKeys
       const organization:Organization={id:access.organizationId,name:access.organizationName}
       if(roleKey==='operator'){setWorkspace({...EMPTY,organization,roleKey});setLoading(false);return}
 
       const noQuery=()=>Promise.resolve({data:[],error:null})
-      const wantsOps=OPS_ROLES.has(roleKey)
-      const wantsFleet=FLEET_ROLES.has(roleKey)
-      const wantsBilling=BILLING_ROLES.has(roleKey)
-      const wantsTicketReview=TICKET_REVIEW_ROLES.has(roleKey)||roleKey==='safety'
-      const wantsTimesheets=TIMESHEET_MANAGE_ROLES.has(roleKey)||['dispatcher','safety'].includes(roleKey)
+      const wantsOps=hasAnyRole(roleKeys,OPS_ROLES)
+      const wantsFleet=hasAnyRole(roleKeys,FLEET_ROLES)
+      const wantsBilling=hasAnyRole(roleKeys,BILLING_ROLES)
+      const wantsTicketReview=hasAnyRole(roleKeys,TICKET_REVIEW_ROLES)||roleKeys.includes('safety')
+      const wantsTimesheets=hasAnyRole(roleKeys,TIMESHEET_MANAGE_ROLES)||roleKeys.some(role=>['dispatcher','safety'].includes(role))
 
       const [customers,employees,jobs,assignments,vehicles,tickets,invoices,timesheets,programs,maintenanceAssignments,defects,workOrders]=await Promise.all([
         db.from('customers').select('id,name').eq('organization_id',organization.id).neq('status','archived').order('name'),
@@ -113,7 +115,7 @@ export default function ManagerDashboardV2(){
       const results=[customers,employees,jobs,assignments,vehicles,tickets,invoices,timesheets,programs,maintenanceAssignments,defects,workOrders]
       const firstError=results.find(result=>result.error)?.error
       if(firstError)setError(firstError.message)
-      setWorkspace({organization,roleKey,customers:(customers.data||[]) as Customer[],employees:(employees.data||[]) as Employee[],jobs:(jobs.data||[]) as Job[],assignments:(assignments.data||[]) as Assignment[],vehicles:(vehicles.data||[]) as Vehicle[],tickets:(tickets.data||[]) as Ticket[],invoices:(invoices.data||[]) as Invoice[],timesheets:(timesheets.data||[]) as Timesheet[],programs:(programs.data||[]) as Program[],maintenanceAssignments:(maintenanceAssignments.data||[]) as MaintenanceAssignment[],defects:(defects.data||[]) as Defect[],workOrders:(workOrders.data||[]) as WorkOrder[]})
+      setWorkspace({organization,roleKey,roleKeys,customers:(customers.data||[]) as Customer[],employees:(employees.data||[]) as Employee[],jobs:(jobs.data||[]) as Job[],assignments:(assignments.data||[]) as Assignment[],vehicles:(vehicles.data||[]) as Vehicle[],tickets:(tickets.data||[]) as Ticket[],invoices:(invoices.data||[]) as Invoice[],timesheets:(timesheets.data||[]) as Timesheet[],programs:(programs.data||[]) as Program[],maintenanceAssignments:(maintenanceAssignments.data||[]) as MaintenanceAssignment[],defects:(defects.data||[]) as Defect[],workOrders:(workOrders.data||[]) as WorkOrder[]})
       setRefreshedAt(new Date())
     }catch(caught){setError(readError(caught))}finally{setLoading(false)}
   },[])
@@ -160,12 +162,12 @@ export default function ManagerDashboardV2(){
   if(!workspace.organization)return <Navigate to="/login" replace/>
   if(workspace.roleKey==='operator')return <Navigate to="/" replace/>
 
-  const canBilling=BILLING_ROLES.has(workspace.roleKey)
-  const canTicketReview=TICKET_REVIEW_ROLES.has(workspace.roleKey)
-  const canTimesheetReview=TIMESHEET_MANAGE_ROLES.has(workspace.roleKey)
-  const canOps=OPS_ROLES.has(workspace.roleKey)
-  const canDispatch=DISPATCH_ROLES.has(workspace.roleKey)
-  const canFleet=FLEET_ROLES.has(workspace.roleKey)
+  const canBilling=hasAnyRole(workspace.roleKeys,BILLING_ROLES)
+  const canTicketReview=hasAnyRole(workspace.roleKeys,TICKET_REVIEW_ROLES)
+  const canTimesheetReview=hasAnyRole(workspace.roleKeys,TIMESHEET_MANAGE_ROLES)
+  const canOps=hasAnyRole(workspace.roleKeys,OPS_ROLES)
+  const canDispatch=hasAnyRole(workspace.roleKeys,DISPATCH_ROLES)
+  const canFleet=hasAnyRole(workspace.roleKeys,FLEET_ROLES)
   const hour=new Date().getHours(),greeting=hour<12?'Good morning':hour<18?'Good afternoon':'Good evening'
   const attention=[
     ...(canDispatch&&metrics.needsDispatch.length?[{key:'dispatch',level:'urgent' as const,icon:Users,title:`${metrics.needsDispatch.length} job${metrics.needsDispatch.length===1?'':'s'} need resources`,copy:'Crew or unit assignments are incomplete.',to:'/dispatch'}]:[]),

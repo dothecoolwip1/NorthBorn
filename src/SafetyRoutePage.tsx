@@ -99,7 +99,7 @@ export default function SafetyRoutePage() {
       }
       const roleKeys=(roleResult.data||[]).map((row:any)=>(row.role as {key?:string}|null)?.key).filter(Boolean) as string[]
       const precedence=['owner','admin','safety','supervisor','dispatcher','mechanic','accounting','operator']
-      const roleKey=precedence.find(key=>roleKeys.includes(key))||roleKeys[0]||''
+      const roleKey=precedence.find(key=>roleKeys.includes(key)&&SAFETY_ROLES.has(key))||''
       const organization = membership.data.organization as unknown as { name?: string } | null
       setContext({
         organizationId: membership.data.organization_id,

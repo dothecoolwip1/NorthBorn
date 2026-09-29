@@ -37,9 +37,9 @@ export default function FleetRoutePage(){
         if(access.kind!=='internal'){setAccessState('no-membership');setLoading(false);return}
 
         setRoleKey(access.roleKey)
-        if(access.roleKey==='operator'){
+        if(access.roleKeys.includes('operator')&&!canAccessInternalRoute(access.roleKeys.filter(role=>role!=='operator'),'/fleet')){
           setOperator({organizationId:access.organizationId,organizationName:access.organizationName})
-        }else if(canAccessInternalRoute(access.roleKey,'/fleet')){
+        }else if(canAccessInternalRoute(access.roleKeys,'/fleet')){
           setManager(true)
         }else{
           setAccessState('no-membership')

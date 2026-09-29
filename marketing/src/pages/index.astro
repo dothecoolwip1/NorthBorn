@@ -1,0 +1,188 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import JobJourney from '../components/JobJourney.astro'
+import RoleExplorer from '../components/RoleExplorer'
+import FieldTerrain from '../components/FieldTerrain'
+
+const appUrl = (import.meta.env.PUBLIC_APP_URL || 'https://dothecoolwip1.github.io/NorthBorn/').replace(/\/?$/, '/')
+const clientUrl = new URL('client-join', appUrl).toString()
+
+const systems = [
+  ['01', 'Dispatch', 'Build the day around the people and equipment that can actually do the work.'],
+  ['02', 'Jobs', 'Keep customer, site, scope, schedule, crew, unit and status on one operating record.'],
+  ['03', 'Field', 'Put safety, tickets, time and job details in the operator’s hand without office clutter.'],
+  ['04', 'Fleet', 'Tie availability, defects, inspections, maintenance and downtime back to operations.'],
+  ['05', 'Billing', 'Move approved work toward pricing, invoicing, delivery and payment without re-entry.'],
+  ['06', 'Clients', 'Give customers a clean portal for their jobs, signed tickets and account activity.'],
+]
+
+const realities = [
+  ['Weak service', 'Field work does not stop because the signal bar disappeared.'],
+  ['Dirty hands', 'Important actions need to be obvious, large and fast to hit.'],
+  ['Last-minute changes', 'Dispatch needs to change without breaking the rest of the record.'],
+  ['Different jobs', 'A hydrovac day does not run exactly like water hauling, steaming or environmental work.'],
+]
+---
+
+<BaseLayout>
+  <div class="site-shell">
+    <header class="site-nav">
+      <a class="brand" href="#top" aria-label="Northborn home">
+        <b>N</b>
+        <span><strong>NORTHBORN</strong><small>FIELD OPERATIONS</small></span>
+      </a>
+      <nav aria-label="Public navigation">
+        <a href="#journey">Workflow</a>
+        <a href="#roles">Product</a>
+        <a href="#system">Platform</a>
+        <a href="#field">Built for the field</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="nav-client" href={clientUrl}>Client portal</a>
+        <a class="button small" href={appUrl}>Open Northborn <span>↗</span></a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="top">
+        <div class="hero-copy">
+          <div class="eyebrow"><span>01</span> BUILT FOR FIELD OPERATIONS</div>
+          <h1>THE FIELD<br/>DOESN’T RUN<br/><em>FROM A DESK.</em></h1>
+          <div class="hero-bottom">
+            <p>Neither should your software. Northborn connects dispatch, crews, trucks, field paperwork, clients and billing around the work that is actually happening.</p>
+            <div class="hero-actions">
+              <a class="button" href={appUrl}>Open Northborn <span>↗</span></a>
+              <a class="text-link" href="#journey">Watch a job move <span>↓</span></a>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-visual" aria-label="Northborn live operations visual">
+          <FieldTerrain client:visible />
+          <div class="hero-coordinate top">52.2681° N · 113.8112° W</div>
+          <div class="hero-coordinate bottom">CENTRAL ALBERTA · FIELD OPS</div>
+          <div class="hero-crosshair" aria-hidden="true"><span></span><span></span></div>
+
+          <div class="hero-operation">
+            <div class="operation-top">
+              <span>LIVE OPERATION</span>
+              <i></i>
+              <strong>NB-1048</strong>
+            </div>
+            <div class="operation-status">
+              <small>07:03</small>
+              <strong>Hydrovac daylighting</strong>
+              <span>RED DEER COUNTY · UNIT 214</span>
+            </div>
+            <div class="operation-crew">
+              <div><small>CREW</small><strong>Cody · Mark</strong></div>
+              <div><small>STATUS</small><strong class="live">ON SITE</strong></div>
+            </div>
+            <div class="operation-track">
+              <span class="done">REQUEST</span><i></i>
+              <span class="done">DISPATCH</span><i></i>
+              <span class="active">FIELD</span><i></i>
+              <span>SIGNED</span><i></i>
+              <span>BILLING</span>
+            </div>
+          </div>
+
+          <div class="hero-stamp">
+            <span>FIELD-BUILT</span>
+            <strong>NORTHBORN</strong>
+            <small>OPS SYSTEM · 2026</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="manifesto">
+        <p>Most field companies do not have an information problem.</p>
+        <h2>They have a <em>handoff</em> problem.</h2>
+        <div class="manifesto-line">
+          <span>CALL</span><i></i><span>DISPATCH</span><i></i><span>FIELD</span><i></i><span>PAPERWORK</span><i></i><span>BILLING</span>
+        </div>
+      </section>
+
+      <JobJourney />
+
+      <section class="roles-section" id="roles">
+        <div class="section-index"><span>02</span><b>PRODUCT VIEWS</b></div>
+        <div class="section-heading split">
+          <h2>One operation.<br/><em>Different jobs to do.</em></h2>
+          <p>A manager, an operator and a client should not be forced through the same dashboard. Northborn changes the interface around the person using it.</p>
+        </div>
+        <RoleExplorer client:visible />
+      </section>
+
+      <section class="system-section" id="system">
+        <div class="system-intro">
+          <div class="section-index"><span>03</span><b>THE SYSTEM</b></div>
+          <h2>NOT SIX APPS.<br/><em>ONE OPERATING RECORD.</em></h2>
+          <p>The point is not to give the company more software. The point is to stop the same job from being recreated every time it changes hands.</p>
+        </div>
+
+        <div class="system-map">
+          <div class="system-spine" aria-hidden="true"><span>N</span></div>
+          <div class="system-list">
+            {systems.map(([number, title, body]) => (
+              <article>
+                <span>{number}</span>
+                <h3>{title}</h3>
+                <p>{body}</p>
+                <b>CONNECTED</b>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="field-section" id="field">
+        <div class="field-title">
+          <div class="section-index light"><span>04</span><b>BUILT FOR THE REAL CONDITIONS</b></div>
+          <h2>SHOP.<br/>TRUCK.<br/>FIELD.<br/><em>OFFICE.</em></h2>
+        </div>
+
+        <div class="field-reality">
+          <p class="field-lead">Northborn is being built around industrial service work, where software has to survive the operation instead of asking the operation to become cleaner.</p>
+          <div class="reality-list">
+            {realities.map(([title, body], index) => (
+              <article>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <div><h3>{title}</h3><p>{body}</p></div>
+              </article>
+            ))}
+          </div>
+          <div class="industry-run">
+            <span>HYDROVAC</span><span>VACUUM</span><span>STEAMING</span><span>WATER</span><span>TRUCKING</span><span>ENVIRONMENTAL</span><span>CONSTRUCTION</span><span>OILFIELD</span><span>INDUSTRIAL</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing">
+        <div class="closing-copy">
+          <span>FIELD OPERATIONS · ONE PLACE</span>
+          <h2>RUN THE WORK.<br/><em>NOT THE PAPER CHASE.</em></h2>
+        </div>
+        <div class="closing-actions">
+          <p>Open Northborn, create your workspace, or enter through the customer portal.</p>
+          <a class="button inverse" href={appUrl}>Open Northborn <span>↗</span></a>
+          <a class="closing-client" href={clientUrl}>Client portal <span>→</span></a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="#top">
+        <b>N</b>
+        <span><strong>NORTHBORN</strong><small>FIELD OPERATIONS</small></span>
+      </a>
+      <p>Field operations, built from the field.</p>
+      <div><a href="#journey">Workflow</a><a href="#roles">Product</a><a href="#system">Platform</a><a href={appUrl}>Sign in</a></div>
+    </footer>
+
+    <div class="mobile-dock">
+      <div><strong>NORTHBORN</strong><span>FIELD OPERATIONS</span></div>
+      <a href={appUrl}>OPEN <span>↗</span></a>
+    </div>
+  </div>
+</BaseLayout>

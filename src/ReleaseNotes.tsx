@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.14':[
+    'Cleaned up desktop navigation so pages with a left sidebar no longer show a duplicate top-right hamburger.',
+    'Moved the functional test switcher to the lower-left rail so it stays out of operational controls.',
+    'Rebuilt client job cards to prevent job numbers, dates and statuses from colliding in narrow layouts.',
+  ],
   '0.9.13':[
     'Completed the Pack 2D calendar and dashboard checkpoint with week and month planning, unscheduled work and role-aware navigation.',
     'Expanded calendar filtering across dispatch stage, lifecycle status, customer and free-text searches for jobs, sites, crew and units.',

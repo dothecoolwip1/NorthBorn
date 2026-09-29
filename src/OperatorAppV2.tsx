@@ -317,9 +317,9 @@ function HomePage({ data, organizationId, organizationName, onOpen, onRefresh }:
       <div className="operator-today-quick-actions" role="group" aria-label="Job quick actions">
         {mapsHref?<a href={mapsHref} target="_blank" rel="noreferrer"><Navigation size={19}/><span>Directions</span></a>:<button type="button" disabled><Navigation size={19}/><span>Directions</span></button>}
         {focus.dispatch_contact_phone?<a href={`tel:${focus.dispatch_contact_phone}`}><Phone size={19}/><span>Dispatch</span></a>:<button type="button" disabled><Phone size={19}/><span>Dispatch</span></button>}
-        <NavLink to="/safety"><ShieldCheck size={19}/><span>Safety</span></NavLink>
-        <NavLink to="/tickets"><ClipboardCheck size={19}/><span>Ticket</span></NavLink>
-        <NavLink to="/timesheets"><Clock3 size={19}/><span>Time</span></NavLink>
+        <NavLink to={`/safety?job=${encodeURIComponent(focus.id)}`}><ShieldCheck size={19}/><span>Safety</span></NavLink>
+        <NavLink to={`/tickets?new=1&job=${encodeURIComponent(focus.id)}`}><ClipboardCheck size={19}/><span>Ticket</span></NavLink>
+        <NavLink to={`/timesheets?new=1&job=${encodeURIComponent(focus.id)}`}><Clock3 size={19}/><span>Time</span></NavLink>
       </div>
 
       <button className="operator-today-details" type="button" onClick={()=>onOpen(focus.id)}>Full job details <ChevronRight size={18}/></button>

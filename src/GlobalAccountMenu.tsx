@@ -139,7 +139,7 @@ export default function GlobalAccountMenu() {
     : isOperator
       ? operatorMobileNavigation
       : managerMobileCandidates.filter(([,path])=>allowedManagerPaths.includes(path)).slice(0,4)
-  const mobilePrimaryPaths = useMemo(() => new Set(mobileNavigation.map(([,path])=>path)), [mobileNavigation])
+  const mobilePrimaryPaths = new Set<string>(mobileNavigation.map(([,path])=>path))
 
   useEffect(() => {
     let active = true
@@ -334,6 +334,7 @@ export default function GlobalAccountMenu() {
     return location.pathname === path && !location.hash
   }
   const moreIsActive = open || !mobileNavigation.some(([,path])=>isNavigationActive(path))
+  const isPrintRoute = ['/ticket-print','/timesheet-print','/client-ticket-print'].some(path=>location.pathname===path||location.pathname.startsWith(path+'/'))
 
   return <div className={localDemo ? 'northborn-account-menu demo-mode' : 'northborn-account-menu'}>
     {toast && <div className="northborn-notification-toast">
@@ -403,11 +404,11 @@ export default function GlobalAccountMenu() {
 
     <button className="northborn-account-trigger" type="button" onClick={() => { setOpen(value => !value); if (open) setPanel('main') }} aria-expanded={open} aria-label={open ? 'Close Northborn menu' : 'Open Northborn menu'}>{open ? <X size={22}/> : <Menu size={23}/>} {unreadCount > 0 && <span className="northborn-account-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}</button>
 
-    <nav className="northborn-mobile-tabs" aria-label="Primary navigation">
+    {!isPrintRoute&&<nav className="northborn-mobile-tabs" aria-label="Primary navigation">
       {mobileNavigation.map(([name,path,Icon])=><button key={path} type="button" aria-current={isNavigationActive(path)?'page':undefined} className={isNavigationActive(path)?'active':''} onClick={()=>go(path)}><Icon size={21}/><span>{name}</span></button>)}
       <button type="button" className={moreIsActive?'active':''} aria-label="More navigation" aria-expanded={open} onClick={()=>{setPanel('main');setOpen(value=>!value)}}>
         {open?<X size={21}/>:<Menu size={21}/>}<span>More</span>{unreadCount>0&&<b>{unreadCount>9?'9+':unreadCount}</b>}
       </button>
-    </nav>
+    </nav>}
   </div>
 }

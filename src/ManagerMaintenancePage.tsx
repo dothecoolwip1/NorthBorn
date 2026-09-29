@@ -24,6 +24,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import FleetWorkOrderItems from './FleetWorkOrderItems'
 import './manager-maintenance.css'
 
 const db = supabase as any
@@ -336,7 +337,9 @@ export default function ManagerMaintenancePage() {
 
     const organization = membership.data.organization as Organization
     const roleRows = await db.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id)
-    const roleKey = roleRows.data?.[0]?.role?.key || ''
+    const roleKeys=(roleRows.data||[]).map((row:any)=>row.role?.key).filter(Boolean)
+    const precedence=['owner','admin','supervisor','mechanic','dispatcher','safety','accounting','operator']
+    const roleKey=precedence.find(key=>roleKeys.includes(key))||roleKeys[0]||''
     if (roleKey === 'operator') {
       setWs({ ...EMPTY, organization, roleKey })
       setLoading(false)
@@ -923,12 +926,14 @@ function WorkOrderEditor({ work, ws, onClose, onSaved }: { work: WorkOrder | nul
       <div className="editor-section">
         <strong>Cost and downtime</strong>
         <div className="four">
-          <label>Labour $<input type="number" min="0" step="0.01" value={form.labour} onChange={e => setForm({ ...form, labour: e.target.value })}/></label>
-          <label>Parts $<input type="number" min="0" step="0.01" value={form.parts} onChange={e => setForm({ ...form, parts: e.target.value })}/></label>
-          <label>External $<input type="number" min="0" step="0.01" value={form.external} onChange={e => setForm({ ...form, external: e.target.value })}/></label>
+          <label>Labour total<input type="text" value={money(dollarsToCents(form.labour))} readOnly/></label>
+          <label>Parts total<input type="text" value={money(dollarsToCents(form.parts))} readOnly/></label>
+          <label>External total<input type="text" value={money(dollarsToCents(form.external))} readOnly/></label>
           <label>Downtime min<input type="number" min="0" value={form.downtime_minutes} onChange={e => setForm({ ...form, downtime_minutes: e.target.value })}/></label>
         </div>
+        {!work?.id&&<span>Save this work order once, then reopen it to add itemized parts and labour.</span>}
       </div>
+      {work?.id&&<FleetWorkOrderItems organizationId={ws.organization!.id} workOrderId={work.id} disabled={work.status==='completed'} onError={setError} onChanged={onSaved}/>} 
       <label>Completion notes<textarea value={form.completion_notes} onChange={e => setForm({ ...form, completion_notes: e.target.value })} placeholder="Work completed, parts changed, follow-up notes…"/></label>
       <Actions busy={busy} onCancel={onClose}/>
     </form>

@@ -206,3 +206,10 @@
   .ops-calendar-controls button{min-width:44px;min-height:44px}
   .ops-calendar-controls strong{flex:1;text-align:center}
 }
+
+/* Desktop pages with a persistent left rail use that rail as the primary navigation. */
+@media(min-width:981px){
+  body:has(aside[class*="sidebar"]) .northborn-account-trigger{display:none!important}
+  body:has(aside[class*="sidebar"]) aside[class*="sidebar"]{padding-bottom:72px!important}
+  body:has(aside[class*="sidebar"]) aside[class*="sidebar"] nav{overflow-y:auto}
+}

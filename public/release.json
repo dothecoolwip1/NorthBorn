@@ -1,11 +1,14 @@
 {
-  "version": "0.17.2",
-  "title": "Operator timesheet privacy",
+  "version": "0.18.0",
+  "title": "Mobile foundation — Pack 1",
   "notes": [
-    "Operators now load and display only their own timesheet entries.",
-    "The employee filter is hidden for operators; managers, admins, supervisors and accounting retain company-wide review access.",
-    "Timesheet summary metrics for operators are calculated only from their own entries.",
-    "Existing Supabase row-level security already restricts operators to timesheets.self.view; the UI now matches that database security model.",
-    "Added browser regression coverage to prevent operator timesheet visibility from leaking across employees."
+    "Introduce one Northborn design-token system for typography, spacing, surfaces, borders, semantic colours, radii, focus states and motion.",
+    "Standardize mobile field readability at 16px body text, 14px secondary text and a 12px minimum compact-metadata size.",
+    "Standardize mobile touch targets at 48px with 52px primary actions.",
+    "Add shared Northborn Button, Surface, Status, EmptyState, Skeleton and Sheet primitives for future screen migrations.",
+    "Map legacy primary/secondary controls, fields, surfaces, status pills, empty states and modal sheets onto the new design foundation.",
+    "Migrate the account menu, Northborn dropdown, date/time picker, signature pad, attachments and authentication controls onto shared tokens.",
+    "Replace the old QA micro-font sheet with design-system readability guardrails and remove legacy 10px/sub-48px baselines from the global override layer.",
+    "Add reduced-motion handling and documented standards so future packs build on one visual language instead of adding more CSS patches."
   ]
 }

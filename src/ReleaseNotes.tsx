@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.13':[
+    'Completed the Pack 2D calendar and dashboard checkpoint with week and month planning, unscheduled work and role-aware navigation.',
+    'Expanded calendar filtering across dispatch stage, lifecycle status, customer and free-text searches for jobs, sites, crew and units.',
+    'Removed dashboard and calendar links that sent restricted roles into modules they do not have permission to use.',
+  ],
   '0.9.12':[
     'Completed the Pack 2C operator workflow checkpoint from dispatch acknowledgement through field completion.',
     'Operators can only complete a job after work has actually started, matching the server-enforced field progression.',

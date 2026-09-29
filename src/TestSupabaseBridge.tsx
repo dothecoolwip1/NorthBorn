@@ -119,6 +119,21 @@ function writeJobMeta(value:Record<string,any>){localStorage.setItem(TEST_CLIENT
 function operatorNameForJob(jobId:string){const data=readTestLabData();const employeeIds=data.assignments.filter(a=>a.job_id===jobId&&a.employee_id).map(a=>a.employee_id);return data.employees.find(e=>employeeIds.includes(e.id)&&e.position?.toLowerCase()==='operator')||data.employees.find(e=>employeeIds.includes(e.id))||null}
 function portalJobs(customerId:string){const data=readTestLabData();const contacts=readTestClientContacts();const meta=readJobMeta();return data.jobs.filter(j=>j.customer_id===customerId).map(j=>{const operator=operatorNameForJob(j.id),m=meta[j.id]||{},contact=contacts.find(c=>c.id===m.contact_id)||null;return {job_id:j.id,job_number:j.job_number,title:j.title,site_name:j.site_name,site_address:j.site_address,scheduled_start:j.onsite_time||j.scheduled_start,scheduled_end:j.scheduled_end,status:j.status,completed_at:j.completed_at||null,onsite_contact_id:contact?.id||null,onsite_contact_name:contact?.name||null,onsite_contact_title:contact?.title||null,onsite_contact_phone:contact?.phone||null,onsite_contact_email:contact?.email||null,operator_name:operator?`${operator.first_name} ${operator.last_name}`:null,operator_phone:operator?.phone||null,dispatch_phone:'403-555-0101',emergency_phone:'403-555-0191',client_notes:m.notes||null}})}
 
+function portalTickets(customerId:string){
+  const data=readTestLabData(),tickets=readGeneric('field_tickets')
+  return tickets.filter((ticket:any)=>ticket.customer_id===customerId&&ticket.status==='approved').map((ticket:any)=>{
+    const job=data.jobs.find((row:any)=>row.id===ticket.job_id)
+    return {ticket_id:ticket.id,ticket_number:ticket.ticket_number,ticket_type:ticket.ticket_type,work_date:ticket.work_date,job_id:ticket.job_id||null,job_number:job?.job_number||null,job_title:job?.title||null,site_name:ticket.site_name||job?.site_name||null,site_address:ticket.site_address||job?.site_address||null,work_description:ticket.work_description||null,travel_hours:ticket.travel_hours||0,work_hours:ticket.work_hours||0,standby_hours:ticket.standby_hours||0,quantity:ticket.quantity??null,quantity_unit:ticket.quantity_unit||null,customer_signed_by:ticket.customer_signed_by||null,customer_signed_at:ticket.customer_signed_at||null,approved_at:ticket.reviewed_at||null}
+  })
+}
+function portalTicketDetail(customerId:string,ticketId:string){
+  const data=readTestLabData(),ticket=readGeneric('field_tickets').find((row:any)=>row.id===ticketId&&row.customer_id===customerId&&row.status==='approved')
+  if(!ticket)return null
+  const job=data.jobs.find((row:any)=>row.id===ticket.job_id),employee=data.employees.find((row:any)=>row.id===ticket.primary_employee_id),vehicle=data.vehicles.find((row:any)=>row.id===ticket.vehicle_id),customer=data.customers.find((row:any)=>row.id===customerId)
+  const items=readGeneric('field_ticket_items').filter((row:any)=>row.ticket_id===ticketId).sort((a:any,b:any)=>(a.sort_order||0)-(b.sort_order||0))
+  return {ticket:{...ticket,ticket_id:ticket.id,job_number:job?.job_number||null,job_title:job?.title||null,site_name:ticket.site_name||job?.site_name||null,site_address:ticket.site_address||job?.site_address||null,approved_at:ticket.reviewed_at||null,customer_name:customer?.name||null,customer_address:customer?.address||null,operator_name:employee?`${employee.first_name} ${employee.last_name}`:null,unit_number:vehicle?.unit_number||null,unit_name:vehicle?.name||null,vehicle_type:vehicle?.vehicle_type||null,organization_name:TEST_ORG.name,seller_name:TEST_ORG.name,seller_address:'Central Alberta',seller_phone:'403-555-2000',seller_email:'billing@northborn.example'},line_items:items.map((item:any)=>({item_id:item.id,category:item.category,description:item.description,quantity:item.quantity,unit:item.unit,sort_order:item.sort_order||0}))}
+}
+
 async function fakeRpc(name:string,args:any={}){
   const ctx=testClientContext();const data=readTestLabData()
   switch(name){
@@ -130,6 +145,8 @@ async function fakeRpc(name:string,args:any={}){
     case 'upsert_my_customer_contact': {const contacts=readTestClientContacts(),id=args._contact_id||uid(),next={id,name:args._name,title:args._title||null,phone:args._phone||null,email:args._email||null,contact_type:args._contact_type,status:'active',updated_at:now()},index=contacts.findIndex(c=>c.id===id);if(index>=0)contacts[index]=next;else contacts.push(next);writeTestClientContacts(contacts);return {data:id,error:null}}
     case 'archive_my_customer_contact': {writeTestClientContacts(readTestClientContacts().map(c=>c.id===args._contact_id?{...c,status:'archived',updated_at:now()}:c));return {data:true,error:null}}
     case 'get_my_customer_jobs': return {data:portalJobs(args._customer_id),error:null}
+    case 'get_my_customer_field_tickets': return {data:portalTickets(args._customer_id),error:null}
+    case 'get_my_customer_field_ticket_detail': {const detail=portalTicketDetail(args._customer_id,args._ticket_id);return detail?{data:detail,error:null}:{data:null,error:{message:'Field ticket not found'}}}
     case 'get_my_customer_job_requests': return {data:readRequests(),error:null}
     case 'save_my_customer_job_note': {const meta=readJobMeta();meta[args._job_id]={...(meta[args._job_id]||{}),notes:args._notes||''};writeJobMeta(meta);return {data:true,error:null}}
     case 'set_my_customer_job_contact': {const meta=readJobMeta();meta[args._job_id]={...(meta[args._job_id]||{}),contact_id:args._contact_id||null};writeJobMeta(meta);return {data:true,error:null}}
@@ -143,6 +160,11 @@ async function fakeRpc(name:string,args:any={}){
       return {data:jobs.find((j:any)=>j.id===args._job_id)||null,error:null}
     }
     case 'get_my_customer_invoices': return {data:JSON.parse(localStorage.getItem('northborn_test_invoices_v1')||'[]'),error:null}
+    case 'get_my_customer_invoice_detail': {
+      const invoices=JSON.parse(localStorage.getItem('northborn_test_invoices_v1')||'[]') as any[],invoice=invoices.find((row:any)=>row.id===args._invoice_id&&row.customer_id===args._customer_id)
+      if(!invoice)return {data:null,error:{message:'Invoice not found'}}
+      return {data:{invoice:{...invoice,invoice_id:invoice.id},line_items:(invoice.line_items||[]).map((line:any,index:number)=>({...line,line_item_id:line.id||String(index)})),field_tickets:portalTickets(args._customer_id).filter((ticket:any)=>readGeneric('field_tickets').some((row:any)=>row.id===ticket.ticket_id&&row.invoice_id===args._invoice_id))},error:null}
+    }
     case 'get_my_customer_invoice_line_items': return {data:[],error:null}
     case 'revoke_organization_invite': {const rows=readGeneric('organization_invites').map(r=>r.id===args._invite_id?{...r,status:'revoked'}:r);writeGeneric('organization_invites',rows);return {data:true,error:null}}
     case 'find_similar_fleet_defect': {const rows=readGeneric('fleet_defects').filter(r=>r.vehicle_id===args._vehicle_id&&!['resolved','dismissed'].includes(r.status));const found=rows.find(r=>String(r.title).toLowerCase()===String(args._title).toLowerCase());return {data:found?[{defect_id:found.id,title:found.title,description:found.description||null,severity:found.severity||'medium',out_of_service:Boolean(found.out_of_service),report_count:found.report_count||1,similarity_score:1}]:[],error:null}}

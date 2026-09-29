@@ -171,12 +171,12 @@ export function createRichDemoBundle(core:CoreData,orgId:string,users:DemoUsers)
       work_hours:8+(index%3===1?1:0),standby_hours:index%4===0?0.5:0,quantity:8,quantity_unit:'hour',
       disposal_location:index%3===1?'Central Alberta Disposal Facility':null,disposal_manifest:index%3===1?'DM-' + String(8300+index):null,
       work_description:job.title + ' completed as requested.',operator_notes:index%4===0?'Site conditions wet. Extra setup time recorded.':'No operational issues.',
-      customer_signed_by:['Chris Taylor','Morgan Bell','Jamie Ross','Pat Singh'][index%4],customer_signature_data:'demo-signature',
+      customer_signed_by:['Chris Taylor','Morgan Bell','Jamie Ross','Pat Singh'][index%4],customer_signature_data:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='120' viewBox='0 0 420 120'%3E%3Crect width='420' height='120' fill='white'/%3E%3Cpath d='M22 81 C58 28 74 103 108 58 S154 78 178 49 C200 23 201 93 229 61 C250 37 263 78 292 52 C315 30 323 73 351 58 C370 48 383 56 398 49' fill='none' stroke='%23182732' stroke-width='4' stroke-linecap='round'/%3E%3Ctext x='240' y='103' font-family='cursive' font-size='15' fill='%23515b66'%3EClient Signature%3C/text%3E%3C/svg%3E",
       customer_signed_at:at(-Math.max(2,108-index*10),16),status:ticketStatuses[index]||'approved',
       submitted_at:at(-Math.max(2,108-index*10),17),reviewed_at:ticketStatuses[index]==='approved'?at(-Math.max(1,107-index*10),9):null,
       reviewed_by:ticketStatuses[index]==='approved'?users.manager.id:null,review_note:null,created_by:users.operator.id,
       created_at:at(-Math.max(2,109-index*10),16),updated_at:at(-Math.max(1,107-index*10),9),template_id:'demo-template-field-ticket',template_version:3,
-      custom_answers:{ground_disturbance_complete:true,utility_owner:index%2===0?'Prairie Utility Locate':'Client supplied'},operator_signature_data:'demo-operator-signature',operator_signed_at:at(-Math.max(2,108-index*10),16)
+      custom_answers:{ground_disturbance_complete:true,utility_owner:index%2===0?'Prairie Utility Locate':'Client supplied'},operator_signature_data:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='120' viewBox='0 0 420 120'%3E%3Crect width='420' height='120' fill='white'/%3E%3Cpath d='M22 81 C58 28 74 103 108 58 S154 78 178 49 C200 23 201 93 229 61 C250 37 263 78 292 52 C315 30 323 73 351 58 C370 48 383 56 398 49' fill='none' stroke='%23182732' stroke-width='4' stroke-linecap='round'/%3E%3Ctext x='240' y='103' font-family='cursive' font-size='15' fill='%23515b66'%3EClient Signature%3C/text%3E%3C/svg%3E",operator_signed_at:at(-Math.max(2,108-index*10),16)
     }
   })
   const fieldTicketItems=fieldTickets.flatMap((ticket:any,index:number)=>[
@@ -192,7 +192,7 @@ export function createRichDemoBundle(core:CoreData,orgId:string,users:DemoUsers)
     assigned.forEach((assignment:any,crewIndex:number)=>{
       const status=index>=9&&crewIndex===1?'submitted':index===11&&crewIndex===0?'draft':'approved'
       timesheets.push({
-        id:id('timesheet',timesheets.length+1),organization_id:orgId,employee_id:assignment.employee_id,job_id:job.id,
+        id:id('timesheet',timesheets.length+1),organization_id:orgId,employee_id:assignment.employee_id,job_id:index===2&&crewIndex===1?null:job.id,reference_number:index===2&&crewIndex===1?'EXT-JOB-55218':index===5&&crewIndex===0?'INV-2026-1007':null,
         work_date:String(job.scheduled_start).slice(0,10),start_time:'06:30',end_time:index%3===0?'18:00':'17:00',break_minutes:30,
         regular_hours:8,overtime_hours:index%3===0?3:1.5,notes:index%4===0?'Travel and site setup included.':null,status,
         submitted_at:status==='draft'?null:at(-Math.max(0,40-index*4),18),reviewed_at:status==='approved'?at(-Math.max(0,39-index*4),9):null,

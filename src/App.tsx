@@ -75,7 +75,7 @@ type AppProps = {
 }
 
 export default function App({ resolvedSession, authResolved = false }: AppProps) {
-  const [session, setSession] = useState<Session | null>(resolvedSession ?? null); const [testMode, setTestMode] = useState(() => localStorage.getItem(TEST_MODE_KEY) === '1')
+  const [session, setSession] = useState<Session | null>(resolvedSession ?? null); const [testMode, setTestMode] = useState(() => !resolvedSession && localStorage.getItem(TEST_MODE_KEY) === '1')
   const [organization, setOrganization] = useState<Organization | null>(testMode ? TEST_ORGANIZATION : null); const [data, setData] = useState<AppData>(() => testMode ? readTestData() : EMPTY_DATA)
   const [loading, setLoading] = useState(!authResolved); const [dataLoading, setDataLoading] = useState(false); const [online, setOnline] = useState(navigator.onLine); const [mobileOpen, setMobileOpen] = useState(false)
   const [roleKey, setRoleKey] = useState(testMode ? 'owner' : ''); const [testView, setTestView] = useState<DashboardView>('manager')
@@ -144,7 +144,7 @@ export default function App({ resolvedSession, authResolved = false }: AppProps)
     resetTestData: () => { const fresh = createDemoData(); localStorage.setItem(TEST_DATA_KEY, JSON.stringify(fresh)); setData(fresh) },
   }
 
-  const signOut = async () => { if (testMode) { localStorage.removeItem(TEST_MODE_KEY); setTestMode(false); setOrganization(null); setData(EMPTY_DATA); return } await supabase.auth.signOut() }
+  const signOut = async () => { if (testMode) { localStorage.removeItem(TEST_MODE_KEY); setTestMode(false); setOrganization(null); setData(EMPTY_DATA); window.location.replace(new URL(import.meta.env.BASE_URL, window.location.origin).toString()); return } await supabase.auth.signOut() }
   if (loading) return <div className="center-screen">Loading Northborn…</div>
   if (!session && !testMode) return <AuthScreen onTestLogin={() => { localStorage.setItem(TEST_MODE_KEY, '1'); setTestMode(true); setOrganization(TEST_ORGANIZATION); setData(readTestData()) }} />
   if (!organization) return <OrganizationSetup userId={session!.user.id} onCreated={setOrganization} />

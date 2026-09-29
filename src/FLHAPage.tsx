@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -53,6 +53,8 @@ function riskClass(value: Risk) { return `flha-risk ${value.toLowerCase()}` }
 function labelVehicle(vehicle: Vehicle) { return `${vehicle.unit_number}${vehicle.name ? ` · ${vehicle.name}` : ''}` }
 
 export default function FLHAPage({ organizationId, userId, roleKey, organizationName }: Props) {
+  const [searchParams] = useSearchParams()
+  const requestedJobId = searchParams.get('job') || ''
   const canManage = ['owner', 'admin', 'safety', 'supervisor'].includes(roleKey)
   const [data,setData]=useState<Data>(EMPTY),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState(''),[jobId,setJobId]=useState(''),[workArea,setWorkArea]=useState(''),[task,setTask]=useState(''),[weather,setWeather]=useState(''),[temperature,setTemperature]=useState(''),[visibility,setVisibility]=useState('Good'),[groundConditions,setGroundConditions]=useState(''),[crewInput,setCrewInput]=useState(''),[crew,setCrew]=useState<CrewSignoff[]>([]),[ppe,setPpe]=useState<string[]>(['FR coveralls','Hard hat','Safety glasses','Gloves','CSA boots']),[permits,setPermits]=useState<string[]>([]),[hazards,setHazards]=useState<HazardRow[]>([blankHazard()]),[emergencyPlan,setEmergencyPlan]=useState(''),[musterPoint,setMusterPoint]=useState(''),[nearestMedical,setNearestMedical]=useState(''),[communications,setCommunications]=useState(''),[otherNotes,setOtherNotes]=useState(''),[certified,setCertified]=useState(false),[submitted,setSubmitted]=useState<Submission|null>(null),[reassessing,setReassessing]=useState<Submission|null>(null)
 
@@ -71,6 +73,7 @@ export default function FLHAPage({ organizationId, userId, roleKey, organization
     setData({employee:employeeResult.data as Employee|null,jobs:(jobsResult.data??[]) as Job[],assignments:(assignmentsResult.data??[]) as Assignment[],vehicles:(vehiclesResult.data??[]) as Vehicle[],submissions:(submissionsResult.data??[]) as Submission[],reassessments:(reassessmentsResult.data??[]) as Reassessment[]});setLoading(false)
   },[organizationId,userId])
   useEffect(()=>{void load()},[load])
+  useEffect(()=>{if(!jobId&&requestedJobId&&data.jobs.some(job=>job.id===requestedJobId))setJobId(requestedJobId)},[data.jobs,jobId,requestedJobId])
   useEffect(()=>{if(!data.employee||crew.length)return;setCrew([{id:uid(),name:`${data.employee.first_name} ${data.employee.last_name}`,acknowledgedAt:new Date().toISOString()}])},[data.employee,crew.length])
 
   const selectedJob=useMemo(()=>data.jobs.find(job=>job.id===jobId)??null,[data.jobs,jobId])

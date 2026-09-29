@@ -2,7 +2,8 @@ import { chromium } from '@playwright/test'
 import fs from 'node:fs/promises'
 const version=JSON.parse(await fs.readFile(new URL('../package.json',import.meta.url),'utf8')).version
 const base=process.env.NORTHBORN_BASE_URL||'https://dothecoolwip1.github.io/NorthBorn/'
-const appUrl=path=>new URL(String(path||'').replace(/^\\/+/,''),base)\nlet release
+const appUrl=path=>new URL(String(path||'').replace(/^\/+/,''),base)
+let release
 for(let attempt=0;attempt<45;attempt++){
  const response=await fetch(appUrl('release.json?verify='+Date.now())).catch(()=>null)
  if(response?.ok){release=await response.json().catch(()=>null);if(release?.version===version)break}

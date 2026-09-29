@@ -59,12 +59,12 @@ jobs:
           cat /tmp/northborn-preview.log
           exit 1
 
-      - name: Run role, auth, navigation and mobile browser QA
+      - name: Run segmented browser QA
         env:
           NORTHBORN_BASE_URL: http://127.0.0.1:4173
         run: |
           export NORTHBORN_VERSION="$(node -p "require('./package.json').version")"
-          npx playwright test tests/e2e/production-smoke.spec.mjs --workers=1 --reporter=line --timeout=120000
+          node scripts/run-browser-qa-groups.mjs
 
       - name: Upload browser failure evidence
         if: failure()

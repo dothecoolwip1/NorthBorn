@@ -182,36 +182,89 @@ export default function ManagerDashboardV2(){
     ...(canFleet&&metrics.maintenanceDue.length?[{key:'maint',level:'warn' as const,icon:Wrench,title:`${metrics.maintenanceDue.length} maintenance item${metrics.maintenanceDue.length===1?'':'s'} overdue`,copy:`${metrics.maintenanceSoon.length} more approaching their warning window.`,to:'/maintenance'}]:[]),
   ]
 
-  return <main className="manager-home-page">
-    <section className="manager-home-top"><div><span>COMMAND CENTRE</span><h1>{greeting}.</h1><p>{workspace.organization.name} · {label(workspace.roleKey)} workspace</p></div><button type="button" onClick={()=>void load()}><RefreshCw size={16}/>Refresh</button></section>
-    {error&&<div className="manager-home-message"><AlertTriangle size={16}/>{error}</div>}
+  const priority=attention[0]
+  const PriorityIcon=priority?.icon||CheckCircle2
+  const urgentCount=attention.filter(item=>item.level==='urgent').length
+  const dateLabel=new Intl.DateTimeFormat('en-CA',{weekday:'long',month:'long',day:'numeric'}).format(new Date())
 
-    <section className="manager-home-kpis">
-      {canOps&&<Kpi to={canDispatch?"/dispatch":"/calendar"} icon={CalendarDays} label="Jobs today" value={String(metrics.todayJobs.length)} detail={`${metrics.fieldActive.length} active in field`} attention={canDispatch&&(metrics.needsDispatch.length>0||metrics.overdueFieldStart.length>0)}/>} 
-      {canDispatch&&<Kpi to="/dispatch" icon={Users} label="Ready to send" value={String(metrics.readyToSend.length)} detail={`${metrics.waitingAcknowledgement.length} awaiting acknowledgement`} attention={metrics.readyToSend.length>0||metrics.waitingAcknowledgement.length>0}/>} 
-      {canOps&&<Kpi to="/calendar" icon={Clock3} label="Unscheduled work" value={String(metrics.unscheduledJobs.length)} detail={`${metrics.overdueFieldStart.length} past on-site time`} attention={metrics.unscheduledJobs.length>0||metrics.overdueFieldStart.length>0}/>} 
-      {canTicketReview&&<Kpi to="/tickets" icon={ClipboardCheck} label="Tickets to review" value={String(metrics.ticketsWaiting.length)} detail={`${metrics.readyToBill.length} approved and unbilled`} attention={metrics.ticketsWaiting.length>0}/>} 
-      {canBilling&&<Kpi to="/billing" icon={ReceiptText} label="Ready to bill" value={String(metrics.readyToBill.length)} detail="Approved field tickets" attention={metrics.readyToBill.length>0}/>} 
-      {canBilling&&<Kpi to="/invoices" icon={Banknote} label="A/R outstanding" value={currency(metrics.outstandingBalance)} detail={`${metrics.overdueInvoices.length} overdue`} attention={metrics.overdueInvoices.length>0}/>} 
-      {canFleet&&<Kpi to="/fleet" icon={Truck} label="Available units" value={`${metrics.availableVehicles.length}/${workspace.vehicles.length}`} detail={`${metrics.outOfService.length} out of service`} attention={metrics.outOfService.length>0}/>} 
-      {canFleet&&<Kpi to="/maintenance" icon={Wrench} label="Maintenance due" value={String(metrics.maintenanceDue.length)} detail={`${metrics.openWorkOrders.length} open work orders`} attention={metrics.maintenanceDue.length>0}/>} 
-      {canTimesheetReview&&<Kpi to="/timesheets" icon={FileClock} label="Hours to approve" value={String(metrics.submittedTimesheets.length)} detail="Submitted timesheets" attention={metrics.submittedTimesheets.length>0}/>} 
+  return <main className="manager-home-page">
+    <section className="manager-home-top">
+      <div className="manager-home-intro">
+        <span className="manager-home-date">{dateLabel}</span>
+        <h1>{greeting}. <em>Here’s the day.</em></h1>
+        <p>{workspace.organization.name} · {label(workspace.roleKey)} workspace</p>
+      </div>
+      <div className="manager-home-top-actions">
+        {canDispatch&&<NavLink className="manager-home-primary-action" to="/dispatch"><CalendarDays size={18}/>Open dispatch</NavLink>}
+        {canOps&&<NavLink className="manager-home-secondary-action" to="/jobs"><BriefcaseBusiness size={18}/>Jobs</NavLink>}
+        <button className="manager-home-refresh" type="button" onClick={()=>void load()} aria-label="Refresh dashboard"><RefreshCw size={18}/><span>Refresh</span></button>
+      </div>
+    </section>
+
+    {error&&<div className="manager-home-message"><AlertTriangle size={18}/>{error}</div>}
+
+    <section className={'manager-home-start priority-'+(priority?.level||'clear')}>
+      <div className="manager-home-start-icon"><PriorityIcon size={24}/></div>
+      <div className="manager-home-start-copy">
+        <span>START HERE</span>
+        <h2>{priority?priority.title:'You are caught up on urgent work'}</h2>
+        <p>{priority?priority.copy:canOps?String(metrics.todayJobs.length)+' job'+(metrics.todayJobs.length===1?'':'s')+' scheduled today. Use the dashboard below to stay ahead of the next move.':'Nothing urgent is waiting in the areas available to your role.'}</p>
+      </div>
+      {priority
+        ?<NavLink className="manager-home-start-action" to={priority.to}>Open next item <ArrowRight size={18}/></NavLink>
+        :canOps?<NavLink className="manager-home-start-action" to={canDispatch?"/dispatch":"/calendar"}>View today’s work <ArrowRight size={18}/></NavLink>:null}
+    </section>
+
+    {canDispatch&&<section className="manager-home-flow">
+      <div className="manager-home-section-heading">
+        <div><span>TODAY’S FLOW</span><h2>Dispatch pipeline</h2></div>
+        <NavLink to="/dispatch">Open board <ArrowRight size={16}/></NavLink>
+      </div>
+      <div className="manager-home-flow-grid">
+        <NavLink to="/dispatch" className={metrics.needsDispatch.length?'flow-step attention':'flow-step'}><span>1</span><div><strong>{metrics.needsDispatch.length}</strong><b>Needs resources</b><small>Crew or unit missing</small></div></NavLink>
+        <NavLink to="/dispatch" className={metrics.readyToSend.length?'flow-step attention':'flow-step'}><span>2</span><div><strong>{metrics.readyToSend.length}</strong><b>Ready to send</b><small>Assignments complete</small></div></NavLink>
+        <NavLink to="/dispatch" className={metrics.waitingAcknowledgement.length?'flow-step waiting':'flow-step'}><span>3</span><div><strong>{metrics.waitingAcknowledgement.length}</strong><b>Awaiting reply</b><small>Sent to the field</small></div></NavLink>
+        <NavLink to="/dispatch" className="flow-step active"><span>4</span><div><strong>{metrics.fieldActive.length}</strong><b>Active in field</b><small>Acknowledged or underway</small></div></NavLink>
+      </div>
+    </section>}
+
+    <section className="manager-home-overview">
+      <div className="manager-home-section-heading manager-home-overview-heading">
+        <div><span>AT A GLANCE</span><h2>What is moving right now</h2></div>
+        <p>{attention.length?String(attention.length)+' item'+(attention.length===1?'':'s')+' need attention'+(urgentCount?', '+urgentCount+' urgent':''):'No urgent workflow gaps'}</p>
+      </div>
+      <div className="manager-home-kpis">
+        {canOps&&<Kpi to={canDispatch?"/dispatch":"/calendar"} icon={CalendarDays} label="Jobs today" value={String(metrics.todayJobs.length)} detail={String(metrics.fieldActive.length)+' active in field'} attention={canDispatch&&(metrics.needsDispatch.length>0||metrics.overdueFieldStart.length>0)}/>}
+        {canDispatch&&<Kpi to="/dispatch" icon={Users} label="Ready to send" value={String(metrics.readyToSend.length)} detail={String(metrics.waitingAcknowledgement.length)+' awaiting acknowledgement'} attention={metrics.readyToSend.length>0||metrics.waitingAcknowledgement.length>0}/>}
+        {canTicketReview&&<Kpi to="/tickets" icon={ClipboardCheck} label="Tickets to review" value={String(metrics.ticketsWaiting.length)} detail={String(metrics.readyToBill.length)+' approved and unbilled'} attention={metrics.ticketsWaiting.length>0}/>}
+        {canBilling&&<Kpi to="/invoices" icon={Banknote} label="A/R outstanding" value={currency(metrics.outstandingBalance)} detail={String(metrics.overdueInvoices.length)+' overdue'} attention={metrics.overdueInvoices.length>0}/>}
+        {canFleet&&<Kpi to="/fleet" icon={Truck} label="Available units" value={String(metrics.availableVehicles.length)+'/'+String(workspace.vehicles.length)} detail={String(metrics.outOfService.length)+' out of service'} attention={metrics.outOfService.length>0}/>}
+        {canTimesheetReview&&<Kpi to="/timesheets" icon={FileClock} label="Hours to approve" value={String(metrics.submittedTimesheets.length)} detail="Submitted timesheets" attention={metrics.submittedTimesheets.length>0}/>}
+      </div>
     </section>
 
     <section className="manager-home-columns">
-      <div className="manager-home-panel attention-panel"><PanelHeading eyebrow="NEEDS ATTENTION" title="What should happen next"/><div className="attention-list">{attention.length?attention.map(({key,...item})=><AttentionRow key={key} {...item}/>):<div className="manager-home-clear"><CheckCircle2 size={27}/><div><strong>No urgent workflow gaps</strong><span>Northborn has nothing critical waiting in the areas available to your role.</span></div></div>}</div></div>
-
-      {canOps&&<div className="manager-home-panel"><PanelHeading eyebrow="TODAY" title="Today's work" link={canDispatch?"/dispatch":"/calendar"}/><div className="today-job-list">{metrics.todayJobs.length?metrics.todayJobs.slice(0,8).map(job=><TodayJob key={job.id} job={job} workspace={workspace} dispatchAccess={canDispatch}/>):<EmptyBlock icon={CalendarDays} title="No jobs scheduled today" copy="Upcoming jobs will appear here once they have a shop, onsite or scheduled time."/>}</div></div>}
+      {canOps&&<div className="manager-home-panel today-panel"><PanelHeading eyebrow="TODAY" title="Today’s work" link={canDispatch?"/dispatch":"/calendar"}/><div className="today-job-list">{metrics.todayJobs.length?metrics.todayJobs.slice(0,8).map(job=><TodayJob key={job.id} job={job} workspace={workspace} dispatchAccess={canDispatch}/>):<EmptyBlock icon={CalendarDays} title="No jobs scheduled today" copy="Upcoming jobs will appear here once they have a shop, onsite or scheduled time."/ >}</div></div>}
+      <div className="manager-home-panel attention-panel"><PanelHeading eyebrow="NEEDS ATTENTION" title="What should happen next"/><div className="attention-list">{attention.length?attention.slice(0,7).map(({key,...item})=><AttentionRow key={key} {...item}/>):<div className="manager-home-clear"><CheckCircle2 size={28}/><div><strong>No urgent workflow gaps</strong><span>Nothing critical is waiting in the areas available to your role.</span></div></div>}</div></div>
     </section>
 
     <section className="manager-home-columns lower">
-      {canOps&&<div className="manager-home-panel"><PanelHeading eyebrow="UPCOMING" title="Next scheduled work" link="/calendar"/><div className="today-job-list">{metrics.upcomingJobs.length?metrics.upcomingJobs.slice(0,8).map(job=><TodayJob key={job.id} job={job} workspace={workspace} withDate dispatchAccess={canDispatch}/>):<EmptyBlock icon={CalendarDays} title="No upcoming work scheduled" copy="Future scheduled jobs will appear here as soon as a shop or on-site time is set."/>}</div></div>}
-      {canBilling&&<div className="manager-home-panel"><PanelHeading eyebrow="BILLING" title="Cash & paperwork" link="/billing"/><div className="manager-home-stat-list"><StatRow label="Approved tickets ready to invoice" value={String(metrics.readyToBill.length)} tone={metrics.readyToBill.length?'warn':'normal'}/><StatRow label="Outstanding invoices" value={String(metrics.outstandingInvoices.length)}/><StatRow label="Outstanding balance" value={currency(metrics.outstandingBalance)}/><StatRow label="Overdue invoices" value={String(metrics.overdueInvoices.length)} tone={metrics.overdueInvoices.length?'danger':'normal'}/></div></div>}
-      {canFleet&&<div className="manager-home-panel"><PanelHeading eyebrow="FLEET HEALTH" title="Units & maintenance" link="/maintenance"/><div className="manager-home-stat-list"><StatRow label="Available units" value={`${metrics.availableVehicles.length} of ${workspace.vehicles.length}`}/><StatRow label="Open defects" value={String(metrics.openDefects.length)} tone={metrics.openDefects.length?'warn':'normal'}/><StatRow label="Out of service" value={String(metrics.outOfService.length)} tone={metrics.outOfService.length?'danger':'normal'}/><StatRow label="Maintenance overdue" value={String(metrics.maintenanceDue.length)} tone={metrics.maintenanceDue.length?'danger':'normal'}/><StatRow label="Due soon" value={String(metrics.maintenanceSoon.length)} tone={metrics.maintenanceSoon.length?'warn':'normal'}/></div></div>}
-      {!canBilling&&!canFleet&&<div className="manager-home-panel"><PanelHeading eyebrow="WORKSPACE" title="Your Northborn view"/><EmptyBlock icon={Gauge} title="Role-aware dashboard" copy="This dashboard only shows operational areas your current role is expected to work with."/></div>}
+      {canOps&&<div className="manager-home-panel"><PanelHeading eyebrow="UPCOMING" title="Next scheduled work" link="/calendar"/><div className="today-job-list">{metrics.upcomingJobs.length?metrics.upcomingJobs.slice(0,5).map(job=><TodayJob key={job.id} job={job} workspace={workspace} withDate dispatchAccess={canDispatch}/>):<EmptyBlock icon={CalendarDays} title="No upcoming work scheduled" copy="Future scheduled jobs will appear here as soon as a shop or on-site time is set."/ >}</div></div>}
+      {canBilling&&<div className="manager-home-panel"><PanelHeading eyebrow="BILLING" title="Cash and paperwork" link="/billing"/><div className="manager-home-stat-list"><StatRow label="Approved tickets ready to invoice" value={String(metrics.readyToBill.length)} tone={metrics.readyToBill.length?'warn':'normal'}/><StatRow label="Outstanding invoices" value={String(metrics.outstandingInvoices.length)}/><StatRow label="Outstanding balance" value={currency(metrics.outstandingBalance)}/><StatRow label="Overdue invoices" value={String(metrics.overdueInvoices.length)} tone={metrics.overdueInvoices.length?'danger':'normal'}/></div></div>}
+      {canFleet&&<div className="manager-home-panel"><PanelHeading eyebrow="FLEET HEALTH" title="Units and maintenance" link="/maintenance"/><div className="manager-home-stat-list"><StatRow label="Available units" value={String(metrics.availableVehicles.length)+' of '+String(workspace.vehicles.length)}/><StatRow label="Open defects" value={String(metrics.openDefects.length)} tone={metrics.openDefects.length?'warn':'normal'}/><StatRow label="Out of service" value={String(metrics.outOfService.length)} tone={metrics.outOfService.length?'danger':'normal'}/><StatRow label="Maintenance overdue" value={String(metrics.maintenanceDue.length)} tone={metrics.maintenanceDue.length?'danger':'normal'}/><StatRow label="Due soon" value={String(metrics.maintenanceSoon.length)} tone={metrics.maintenanceSoon.length?'warn':'normal'}/></div></div>}
+      {!canOps&&!canBilling&&!canFleet&&<div className="manager-home-panel"><PanelHeading eyebrow="WORKSPACE" title="Your Northborn view"/><EmptyBlock icon={Gauge} title="Role-aware dashboard" copy="This dashboard only shows operational areas your current role is expected to work with."/></div>}
     </section>
 
-    <section className="manager-home-shortcuts">{canOps&&<NavLink to="/jobs"><BriefcaseBusiness size={18}/><span><strong>Jobs</strong><small>Plan and manage work</small></span><ArrowRight size={16}/></NavLink>}<NavLink to="/employees"><Users size={18}/><span><strong>Employees</strong><small>People and access</small></span><ArrowRight size={16}/></NavLink>{canFleet&&<NavLink to="/fleet"><Truck size={18}/><span><strong>Fleet</strong><small>Units and availability</small></span><ArrowRight size={16}/></NavLink>}{canBilling&&<NavLink to="/invoices"><ReceiptText size={18}/><span><strong>Invoices</strong><small>Billing and collections</small></span><ArrowRight size={16}/></NavLink>}</section>
+    <section className="manager-home-quick">
+      <div className="manager-home-section-heading"><div><span>QUICK ACCESS</span><h2>Jump back into the work</h2></div></div>
+      <div className="manager-home-shortcuts">
+        {canDispatch&&<NavLink to="/dispatch"><CalendarDays size={20}/><span><strong>Dispatch</strong><small>Run today’s board</small></span><ArrowRight size={18}/></NavLink>}
+        {canOps&&<NavLink to="/jobs"><BriefcaseBusiness size={20}/><span><strong>Jobs</strong><small>Plan and manage work</small></span><ArrowRight size={18}/></NavLink>}
+        <NavLink to="/employees"><Users size={20}/><span><strong>Employees</strong><small>People and access</small></span><ArrowRight size={18}/></NavLink>
+        {canFleet&&<NavLink to="/fleet"><Truck size={20}/><span><strong>Fleet</strong><small>Units and availability</small></span><ArrowRight size={18}/></NavLink>}
+        {canBilling&&<NavLink to="/invoices"><ReceiptText size={20}/><span><strong>Invoices</strong><small>Billing and collections</small></span><ArrowRight size={18}/></NavLink>}
+      </div>
+    </section>
 
     <footer className="manager-home-footer">Last refreshed {refreshedAt?new Intl.DateTimeFormat('en-CA',{hour:'numeric',minute:'2-digit'}).format(refreshedAt):'just now'}</footer>
   </main>

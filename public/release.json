@@ -1,14 +1,13 @@
 {
-  "version": "0.23.0",
-  "title": "Mobile Public Homepage",
+  "version": "0.24.0",
+  "title": "Astro Marketing Foundation",
   "notes": [
-    "Rebuild the pre-sign-in Northborn homepage mobile-first around real product presentation instead of stacked marketing sections.",
-    "Lead with a compact outcome-focused hero and layered desktop/phone product composition that visibly demonstrates Northborn.",
-    "Add interactive Manager, Operator and Client product previews so visitors can understand role-specific workspaces directly on the homepage.",
-    "Convert the request-to-billing workflow into a touch-friendly horizontal flow on phones.",
-    "Convert platform modules and industry chips into mobile horizontal browsing patterns instead of long vertical card walls.",
-    "Add an unobtrusive mobile action dock for fast access to Northborn while scrolling.",
-    "Strengthen the industrial field-built visual identity and reduce generic SaaS styling.",
-    "Maintain production readability with no tiny interface labels in public homepage previews."
+    "Add a standalone Astro marketing frontend under /marketing while preserving the existing React/Vite operations application.",
+    "Build a custom industrial Northborn visual system instead of a generic SaaS card-template homepage.",
+    "Add a GSAP ScrollTrigger request-to-revenue story that follows one job through request, dispatch, field, signed ticket and billing.",
+    "Add React + Motion Manager, Operator and Client product views with real interactive state transitions.",
+    "Add a selective Three.js desktop field-network visual with reduced-motion and mobile fallbacks.",
+    "Add an independent marketing CI workflow for Astro type checking and static production builds.",
+    "Keep the marketing frontend ready for a future custom Rive asset without loading a generic stock animation."
   ]
 }

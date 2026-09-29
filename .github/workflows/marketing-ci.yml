@@ -1,0 +1,48 @@
+name: Northborn Marketing CI
+
+on:
+  pull_request:
+    paths:
+      - 'marketing/**'
+      - '.github/workflows/marketing-ci.yml'
+      - 'vercel.json'
+  push:
+    branches: [main]
+    paths:
+      - 'marketing/**'
+      - '.github/workflows/marketing-ci.yml'
+      - 'vercel.json'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: marketing
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install marketing dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Type-check and build Astro site
+        run: npm run build
+
+      - name: Verify generated homepage
+        run: |
+          test -f dist/index.html
+          grep -q "THE FIELD" dist/index.html
+          grep -q "Northborn" dist/index.html
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run marketing browser QA
+        run: npm run test:browser

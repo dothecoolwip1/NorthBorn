@@ -1,16 +1,13 @@
 {
-  "version": "0.21.0",
-  "title": "Field Forms — Pack 4",
+  "version": "0.22.0",
+  "title": "Public Homepage Experience",
   "notes": [
-    "Replace the operator Safety landing page with a field-first forms hub for Pre-trip, FLHA, Incident, Near Miss and Equipment Inspection workflows.",
-    "Carry the active assigned job from Today into Safety, Field Ticket and Timesheet workflows instead of asking the operator to select the same job again.",
-    "Prefill field context Northborn already knows, including operator, job, customer, site, assigned unit and schedule where available.",
-    "Use one-tap Pass, Defect and N/A inspection controls sized for field use.",
-    "Expand defect details only when Defect is selected, including description, severity, remove-from-service and optional defect photo.",
-    "Store inspection detail inside the existing safety submission record and upload defect photos through the existing safety attachment system.",
-    "Prefill FLHAs from the job passed from Today.",
-    "Restrict operator field-ticket job choices to assigned work and prefill the assigned unit when possible.",
-    "Open timesheets from Today with the assigned job already selected.",
-    "Remove the duplicate legacy operator mobile navigation from Safety so Pack 2's global role-aware navigation remains the single phone navigation system."
+    "Rebuild the public Northborn landing page around the real field-operations workflow instead of a generic feature-card layout.",
+    "Make the Northborn product itself the hero visual with a realistic command-centre preview, Start Here priority, dispatch flow and today’s work.",
+    "Clarify the public navigation and primary paths for sign in, client portal access, workflow exploration and platform information.",
+    "Explain the customer-to-dispatch-to-field-to-billing workflow before listing individual modules.",
+    "Add dedicated manager, operator and client sections so visitors can immediately understand what each role sees.",
+    "Improve mobile typography, spacing, touch targets and product-preview behavior across the public homepage.",
+    "Add clearer public page metadata and a field-operations page title."
   ]
 }

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-const BASE = process.env.NORTHBORN_BASE_URL || 'https://northborn.vercel.app'
+const BASE = process.env.NORTHBORN_BASE_URL || 'https://dothecoolwip1.github.io/NorthBorn/'
 const expectedVersion = process.env.NORTHBORN_VERSION || ''
 const TEST_PASSWORD = 'Adminadmin2026!'
 const TEST_USERS = {
@@ -25,7 +25,7 @@ const INTERNAL_ROLE_MENUS = {
   accounting: { label: 'Accounting', present: ['Customers','Employees','Tickets','Timesheets','Invoices','Billing queue','Reports'], absent: ['Dispatch','Fleet','Maintenance','Safety','Templates'] },
 }
 
-function absolute(path) { return new URL(path, BASE).toString() }
+function absolute(path) { return new URL(String(path || '').replace(/^\\/+/, ''), BASE).toString() }
 
 function monitor(page) {
   const pageErrors = []

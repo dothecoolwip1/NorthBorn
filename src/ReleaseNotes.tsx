@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.11.0':[
+    'Completed employee administration with employment details, emergency contacts, driver licence tracking, supervisors, internal notes and archive-first account removal.',
+    'Added team grouping, multi-role access management, role permission auditing, employee documents, certification and expiry tracking, and assigned equipment visibility.',
+    'Hardened workforce data with tenant-scoped RLS, private employee document storage, cross-organization integrity checks and multi-role-aware management screens.',
+  ],
   '0.10.0':[
     'Completed the customer CRM with reusable sites, billing and PO/AFE defaults, separated internal and client-facing notes, customer documents and recent account history.',
     'Expanded the client portal with shared sites, documents, billing defaults and portal notifications while preserving existing jobs, requests, tickets, invoices, contacts and member roles.',

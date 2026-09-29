@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, ChevronRight, HardHat, Mail, Pencil, Plus, RefreshCw, Send, UserRound, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import RoleAwareApp from './RoleAwareApp'
+import EmployeeAdminRecord from './EmployeeAdminRecord'
 import './manager-employees.css'
 
 const db = supabase as any
@@ -49,7 +50,9 @@ export default function ManagerEmployeesPage() {
     const membership = await db.from('organization_members').select('id,organization_id,organization:organizations(id,name)').eq('user_id',user.id).eq('status','active').limit(1).maybeSingle()
     if (membership.error || !membership.data?.id) { setLoading(false); return }
     const roles = await db.from('membership_roles').select('role:roles(key)').eq('membership_id',membership.data.id)
-    const resolvedRole = roles.data?.[0]?.role?.key || ''
+    const roleKeys=(roles.data||[]).map((row:any)=>row.role?.key).filter(Boolean)
+    const precedence=['owner','admin','supervisor','dispatcher','safety','mechanic','accounting','operator']
+    const resolvedRole = precedence.find(key=>roleKeys.includes(key)) || roleKeys[0] || ''
     setRoleKey(resolvedRole)
     if (resolvedRole === 'operator') { setLoading(false); return }
     const org = membership.data.organization as Organization
@@ -188,47 +191,6 @@ export default function ManagerEmployeesPage() {
   </main>
 }
 
-function EmployeeRecordModal({employee,organization,canManage,busy,onBusy,onNotice,onError,onClose,onSaved,onResend}:{employee:Employee;organization:Organization;canManage:boolean;busy:boolean;onBusy:(value:boolean)=>void;onNotice:(value:string)=>void;onError:(value:string)=>void;onClose:()=>void;onSaved:()=>Promise<void>;onResend:(employee:Employee)=>Promise<void>}){
-  const [edit,setEdit]=useState(false)
-  const [form,setForm]=useState({first_name:employee.first_name,last_name:employee.last_name,email:employee.email||'',phone:employee.phone||'',position:employee.position||'',status:employee.status})
-
-  const save=async(event:React.FormEvent)=>{
-    event.preventDefault();onBusy(true);onError('');onNotice('')
-    try{
-      const result=await db.from('employees').update({
-        first_name:form.first_name.trim(),
-        last_name:form.last_name.trim(),
-        email:form.email.trim().toLowerCase()||null,
-        phone:form.phone.trim()||null,
-        position:form.position.trim()||null,
-        status:form.status,
-      }).eq('id',employee.id).eq('organization_id',organization.id)
-      if(result.error)throw result.error
-      onNotice(`${form.first_name.trim()} ${form.last_name.trim()} was updated.`)
-      setEdit(false)
-      await onSaved()
-    }catch(caught){onError(readError(caught))}
-    finally{onBusy(false)}
-  }
-
-  return <div className="manager-employee-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)onClose()}}><section className="manager-employee-modal manager-employee-record">
-    <header><div><span>EMPLOYEE RECORD</span><h2>{employee.first_name} {employee.last_name}</h2></div><button type="button" onClick={onClose} disabled={busy}><X size={20}/></button></header>
-    {edit ? <form onSubmit={save}>
-      <div className="manager-employee-form">
-        <label>First name<input value={form.first_name} onChange={event=>setForm({...form,first_name:event.target.value})} required/></label>
-        <label>Last name<input value={form.last_name} onChange={event=>setForm({...form,last_name:event.target.value})} required/></label>
-        <label className="wide">Email<input type="email" value={form.email} onChange={event=>setForm({...form,email:event.target.value})}/></label>
-        <label>Phone<input type="tel" value={form.phone} onChange={event=>setForm({...form,phone:event.target.value})}/></label>
-        <label>Position<input value={form.position} onChange={event=>setForm({...form,position:event.target.value})}/></label>
-        <label>Status<select value={form.status} onChange={event=>setForm({...form,status:event.target.value})}><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></label>
-      </div>
-      <footer><button type="button" onClick={()=>setEdit(false)} disabled={busy}>Cancel</button><button className="primary" disabled={busy}>{busy?'Saving…':'Save changes'}</button></footer>
-    </form> : <>
-      <div className="manager-employee-record-body">
-        <div className="manager-employee-record-avatar"><UserRound size={28}/></div>
-        <div className="manager-employee-record-grid"><div><span>Position</span><strong>{employee.position||'Not set'}</strong></div><div><span>Status</span><strong>{employee.status}</strong></div><div><span>Email</span><strong>{employee.email||'Not set'}</strong></div><div><span>Phone</span><strong>{employee.phone||'Not set'}</strong></div><div><span>Northborn account</span><strong>{employee.user_id?'Active':'Setup pending'}</strong></div></div>
-      </div>
-      <footer>{canManage&&!employee.user_id&&employee.email&&employee.status==='active'&&<button type="button" disabled={busy} onClick={()=>void onResend(employee)}><RefreshCw size={16}/>Send access email</button>}{canManage&&<button type="button" className="primary" onClick={()=>setEdit(true)}><Pencil size={16}/>Edit employee</button>}</footer>
-    </>}
-  </section></div>
+function EmployeeRecordModal(props:{employee:Employee;organization:Organization;canManage:boolean;busy:boolean;onBusy:(value:boolean)=>void;onNotice:(value:string)=>void;onError:(value:string)=>void;onClose:()=>void;onSaved:()=>Promise<void>;onResend:(employee:Employee)=>Promise<void>}){
+  return <EmployeeAdminRecord {...props}/>
 }

@@ -3,6 +3,8 @@ import type { Session } from '@supabase/supabase-js'
 import { NavLink } from 'react-router-dom'
 import { ArrowLeft, Check, Copy, Link2, Mail, ShieldCheck, UserPlus, Users, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import TeamMemberAccessManager from './TeamMemberAccessManager'
+import PermissionMatrixPanel from './PermissionMatrixPanel'
 import './team-access.css'
 
 const db = supabase as any
@@ -18,7 +20,7 @@ const TEAM_ROLES = [
 ]
 
 type Workspace = { organizationId:string; organizationName:string; membershipId:string; roleKey:string }
-type Member = { id:string; userId:string; status:string; joinedAt:string; name:string; roleName:string; roleKey:string }
+type Member = { id:string; userId:string; status:string; joinedAt:string; name:string; roleName:string; roleKey:string; roleNames:string[]; roleKeys:string[] }
 type Invite = { id:string; email:string; status:string; expiresAt:string; createdAt:string; roleName:string; roleKey:string }
 
 function readError(error: unknown) {
@@ -32,8 +34,10 @@ async function loadWorkspace(userId: string): Promise<Workspace | null> {
   if (!membership) return null
   const { data: roleRows, error: roleError } = await db.from('membership_roles').select('role:roles(key,name)').eq('membership_id', membership.id)
   if (roleError) throw roleError
-  const role = roleRows?.[0]?.role
-  return { organizationId: membership.organization_id, organizationName: membership.organization?.name || 'Northborn company', membershipId: membership.id, roleKey: role?.key || 'operator' }
+  const roleKeys=(roleRows||[]).map((row:any)=>row.role?.key).filter(Boolean)
+  const precedence=['owner','admin','supervisor','dispatcher','safety','mechanic','accounting','operator']
+  const roleKey=precedence.find(key=>roleKeys.includes(key))||roleKeys[0]||'operator'
+  return { organizationId: membership.organization_id, organizationName: membership.organization?.name || 'Northborn company', membershipId: membership.id, roleKey }
 }
 
 export default function TeamAccessPage() {
@@ -49,6 +53,7 @@ export default function TeamAccessPage() {
   const [roleKey, setRoleKey] = useState('operator')
   const [inviteLink, setInviteLink] = useState('')
   const [copied, setCopied] = useState(false)
+  const [selectedMember, setSelectedMember] = useState<Member|null>(null)
 
   const canManage = Boolean(workspace && ['owner', 'admin'].includes(workspace.roleKey))
 
@@ -67,12 +72,18 @@ export default function TeamAccessPage() {
     const nestedError = profilesResult.error || rolesResult.error || invitesResult.error
     if (nestedError) throw nestedError
     const profileMap = new Map((profilesResult.data || []).map((profile: any) => [profile.user_id, profile]))
-    const roleMap = new Map((rolesResult.data || []).map((row: any) => [row.membership_id, row.role]))
+    const roleMap = new Map<string,any[]>()
+    for (const row of rolesResult.data || []) {
+      const list=roleMap.get((row as any).membership_id)||[]
+      if ((row as any).role) list.push((row as any).role)
+      roleMap.set((row as any).membership_id,list)
+    }
     setMembers(rows.map((row: any) => {
       const profile:any = profileMap.get(row.user_id)
-      const role:any = roleMap.get(row.id)
+      const roles:any[] = roleMap.get(row.id)||[]
       const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
-      return { id:row.id,userId:row.user_id,status:row.status,joinedAt:row.joined_at,name:fullName||profile?.display_name||'Northborn user',roleName:role?.name||'Member',roleKey:role?.key||'member' }
+      const primary=roles.find(role=>role.key==='owner')||roles.find(role=>role.key==='admin')||roles[0]
+      return { id:row.id,userId:row.user_id,status:row.status,joinedAt:row.joined_at,name:fullName||profile?.display_name||'Northborn user',roleName:roles.length>1?`${roles.length} roles`:primary?.name||'Member',roleKey:primary?.key||'member',roleNames:roles.map(role=>role.name),roleKeys:roles.map(role=>role.key) }
     }))
     setInvites((invitesResult.data || []).map((row: any) => ({ id:row.id,email:row.email,status:row.status,expiresAt:row.expires_at,createdAt:row.created_at,roleName:row.role?.name||'Member',roleKey:row.role?.key||'member' })))
   }, [])
@@ -135,8 +146,10 @@ export default function TeamAccessPage() {
     {deliveryMessage && <div className="team-message"><Mail size={18}/>{deliveryMessage}</div>}
     <div className="team-grid">
       <section className="team-card"><div className="team-section-heading"><div><span className="team-eyebrow">INVITE</span><h2>Add a team member</h2></div><UserPlus size={24}/></div><form onSubmit={createInvite} className="team-form"><label>Email address<input type="email" value={email} onChange={event=>setEmail(event.target.value)} placeholder="operator@company.ca" required/></label><label>Northborn role<select value={roleKey} onChange={event=>setRoleKey(event.target.value)}>{TEAM_ROLES.map(role=><option key={role.key} value={role.key}>{role.label}</option>)}</select></label><button className="team-primary" disabled={busy}>{busy?'Sending invite…':'Send invite'}</button></form><p className="team-help">Northborn will email the invitation when email delivery is configured. The secure invite link remains available as a fallback and expires after 7 days.</p>{inviteLink&&<div className="invite-result"><div><Link2 size={18}/><span>{inviteLink}</span></div><button onClick={copyInvite}>{copied?<><Check size={17}/>Copied</>:<><Copy size={17}/>Copy link</>}</button></div>}</section>
-      <section className="team-card"><div className="team-section-heading"><div><span className="team-eyebrow">PEOPLE</span><h2>Current members</h2></div></div><div className="team-list">{members.map(member=><div className="member-row" key={member.id}><div className="member-avatar">{member.name.slice(0,1).toUpperCase()}</div><div className="member-main"><strong>{member.name}{member.userId===session.user.id?' (you)':''}</strong><span>Joined {new Date(member.joinedAt).toLocaleDateString()}</span></div><span className={`role-pill role-${member.roleKey}`}>{member.roleName}</span></div>)}</div></section>
+      <section className="team-card"><div className="team-section-heading"><div><span className="team-eyebrow">PEOPLE</span><h2>Current members</h2></div></div><div className="team-list">{members.map(member=><div className="member-row" key={member.id}><div className="member-avatar">{member.name.slice(0,1).toUpperCase()}</div><div className="member-main"><strong>{member.name}{member.userId===session.user.id?' (you)':''}</strong><span>{member.roleNames.length?member.roleNames.join(' · '):'No roles'} · joined {new Date(member.joinedAt).toLocaleDateString()}</span></div><span className={`role-pill role-${member.roleKey}`}>{member.roleName}</span><button className="member-manage" onClick={()=>setSelectedMember(member)}>Manage</button></div>)}</div></section>
     </div>
     <section className="team-card team-pending"><div className="team-section-heading"><div><span className="team-eyebrow">PENDING</span><h2>Open invitations</h2></div><span>{pendingInvites.length} active</span></div>{pendingInvites.length?<div className="team-list">{pendingInvites.map(invite=><div className="invite-row" key={invite.id}><div><strong>{invite.email}</strong><span>{invite.roleName} · expires {new Date(invite.expiresAt).toLocaleDateString()}</span></div><button className="team-danger" disabled={busy} onClick={()=>void revokeInvite(invite.id)}><X size={16}/>Revoke</button></div>)}</div>:<div className="team-empty">No open invitations.</div>}</section>
+    <PermissionMatrixPanel/>
+    {selectedMember&&<TeamMemberAccessManager organizationId={workspace.organizationId} memberId={selectedMember.id} userId={selectedMember.userId} name={selectedMember.name} isSelf={selectedMember.userId===session.user.id} onClose={()=>setSelectedMember(null)} onSaved={async()=>{await refresh(workspace)}} onError={setError}/>}
   </div></div>
 }

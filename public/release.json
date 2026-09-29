@@ -1,12 +1,11 @@
 {
-  "version": "0.15.3",
-  "title": "Billing controls, reports and access improvements",
+  "version": "0.16.0",
+  "title": "Super Admin and account management",
   "notes": [
-    "Fix attachment policy helper permissions so authenticated safety and form uploads can pass storage checks.",
-    "Invoice and ticket dialogs gain keyboard focus handling and named controls; 15 internal screens checked at phone, tablet and desktop widths.",
-    "Multi-role capability checks now preserve combined dashboard, ticket and timesheet actions and operator fleet access.",
-    "Atomic invoice saves, payment and credit history with reversals, approval before issue, and minimum billing quantities. All four new billing migrations are required before deployment.",
-    "Reports add date/customer/unit filters, paginated data, employee hours, separate currency and credit totals, CSV and print exports.",
-    "Combined-role access, safe PWA update defaults, disabled-by-default test login, lazy routes and isolated CI verification."
+    "Add the Northborn platform super admin console for organizations, users, roles, plans, settings and global audit activity.",
+    "Add secure server-side Supabase Auth user creation, password updates, invitations, enable/disable controls and deletion through the super-admin Edge Function.",
+    "Route authorized platform administrators directly into the super admin console while preserving tenant RLS boundaries.",
+    "Make Sign in and Create account explicit choices and replace generic invalid credential feedback with useful account guidance.",
+    "Deploy the live platform admin database foundation and secure super-admin Edge Function."
   ]
 }

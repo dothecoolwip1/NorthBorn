@@ -34,8 +34,10 @@ async function loadWorkspace(userId: string): Promise<Workspace | null> {
   if (!membership) return null
   const { data: roleRows, error: roleError } = await db.from('membership_roles').select('role:roles(key,name)').eq('membership_id', membership.id)
   if (roleError) throw roleError
-  const role = roleRows?.[0]?.role
-  return { organizationId: membership.organization_id, organizationName: membership.organization?.name || 'Northborn company', membershipId: membership.id, roleKey: role?.key || 'operator' }
+  const roleKeys=(roleRows||[]).map((row:any)=>row.role?.key).filter(Boolean)
+  const precedence=['owner','admin','supervisor','dispatcher','safety','mechanic','accounting','operator']
+  const roleKey=precedence.find(key=>roleKeys.includes(key))||roleKeys[0]||'operator'
+  return { organizationId: membership.organization_id, organizationName: membership.organization?.name || 'Northborn company', membershipId: membership.id, roleKey }
 }
 
 export default function TeamAccessPage() {

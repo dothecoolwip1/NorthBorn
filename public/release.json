@@ -1,9 +1,9 @@
 {
-  "version": "0.9.12",
-  "title": "Pack 2C Operator Workflow",
+  "version": "0.9.13",
+  "title": "Navigation and Client Layout Cleanup",
   "notes": [
-    "Completed the Pack 2C operator workflow checkpoint from dispatch acknowledgement through field completion.",
-    "Operators can only complete a job after work has actually started, matching the server-enforced field progression.",
-    "Rejected field actions now refresh assigned work immediately so removed or changed assignments cannot leave stale operator controls on screen."
+    "Removed the duplicate desktop hamburger on pages that already provide a persistent left navigation rail.",
+    "Moved the functional test switcher to the lower-left area so it no longer crowds operational header controls.",
+    "Reworked client job cards so job numbers, dates, statuses and chevrons remain readable without overlapping."
   ]
 }

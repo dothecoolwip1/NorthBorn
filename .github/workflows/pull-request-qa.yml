@@ -40,3 +40,22 @@ jobs:
 
       - name: Run isolated browser checks
         run: npm run test:browser:isolated
+
+      - name: Start compiled demo preview
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/northborn-demo-preview.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/northborn-demo-preview.log
+          exit 1
+
+      - name: Verify admin demo across real modules
+        env:
+          NORTHBORN_BASE_URL: http://127.0.0.1:4173
+        run: |
+          export NORTHBORN_VERSION="$(node -p "require('./package.json').version")"
+          npx playwright test tests/e2e/production-smoke.spec.mjs --grep "guest and login routes are healthy" --workers=1 --reporter=line --timeout=120000

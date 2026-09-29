@@ -256,7 +256,7 @@ function HomePage({ data, organizationId, organizationName, onOpen, onRefresh }:
   const openJobs=data.jobs.filter(job=>!['completed','cancelled'].includes(job.status))
   const active=openJobs.filter(job=>stageIndex(job.dispatch_stage)>=2&&stageIndex(job.dispatch_stage)<7).sort((a,b)=>stageIndex(b.dispatch_stage)-stageIndex(a.dispatch_stage)||String(jobDayValue(a)||'').localeCompare(String(jobDayValue(b)||'')))
   const todayJobs=openJobs.filter(job=>{const value=jobDayValue(job);return value?localDayKey(value)===todayKey:false}).sort((a,b)=>String(jobDayValue(a)||'').localeCompare(String(jobDayValue(b)||'')))
-  const upcoming=openJobs.filter(job=>bucket(job,now)==='upcoming').sort((a,b)=>String(jobDayValue(a)||'').localeCompare(String(jobDayValue(b)||''))
+  const upcoming=openJobs.filter(job=>bucket(job,now)==='upcoming').sort((a,b)=>String(jobDayValue(a)||'').localeCompare(String(jobDayValue(b)||'')))
   const focus=active[0]||todayJobs[0]||upcoming[0]||null
   const focusIsActive=Boolean(focus&&active.some(job=>job.id===focus.id))
   const focusIsToday=Boolean(focus&&todayJobs.some(job=>job.id===focus.id))

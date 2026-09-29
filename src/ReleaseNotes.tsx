@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.12':[
+    'Completed the Pack 2C operator workflow checkpoint from dispatch acknowledgement through field completion.',
+    'Operators can only complete a job after work has actually started, matching the server-enforced field progression.',
+    'Rejected field actions now refresh assigned work immediately so removed or changed assignments cannot leave stale operator controls on screen.',
+  ],
   '0.9.11':[
     'Completed the Pack 2B Jobs and Dispatch checkpoint with quick client creation available even for brand-new companies with no clients yet.',
     'Hardened multi-crew and multi-unit assignment handling so fleet state stays consistent when units are assigned or removed.',

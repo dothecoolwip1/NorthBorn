@@ -12,7 +12,7 @@ const TEST_TABLE_PREFIX='northborn_test_table_v1_'
 const PRESETS = ['Hydrovac','Combo Vac','Straight Vac','Steamer','Water Truck','Swamper','Disposal','Overtime','Crew Truck','Other']
 const UNITS = ['hour','day','each','km','kg','tonne','load','flat']
 
-type Job = {id:string;customer_id:string;job_number:string;title:string;site_name:string|null;site_address:string|null;status:string;notes:string|null}
+type Job = {id:string;customer_id:string;job_number:string;title:string;site_name:string|null;site_address:string|null;status:string;dispatch_stage:string|null;notes:string|null}
 type Props = {job:Job;organizationId:string;organizationName:string;onCompleted:()=>Promise<unknown>}
 type Line = { id:string; category:string; description:string; quantity:string; unit:string; rate:string }
 type PriceItem={price_item_id:string;name:string;category:string;unit:string;effective_rate:number|string;sort_order?:number}
@@ -47,16 +47,17 @@ export default function OperatorJobCompletionActions({job,organizationId,organiz
   const [priceItems,setPriceItems]=useState<PriceItem[]>([])
   const testMode=localStorage.getItem(TEST_MODE_KEY)==='1'
   const completed=job.status==='completed'
+  const canComplete=job.dispatch_stage==='work_started'
 
   const totals=useMemo(()=>{const subtotal=lines.reduce((sum,line)=>sum+asNumber(line.quantity)*asNumber(line.rate),0);const tax=subtotal*(asNumber(form.tax_rate)/100);return {subtotal,tax,total:subtotal+tax}},[form.tax_rate,lines])
 
   const completeJob=async()=>{
     setBusy(true);setError('');setNotice('')
     try{
-      if(testMode){const data=JSON.parse(localStorage.getItem(TEST_DATA_KEY)||'{}') as {jobs?:Array<Record<string,unknown>>};const jobs=(data.jobs||[]).map(item=>item.id===job.id?{...item,status:'completed',completed_at:new Date().toISOString(),completed_by:'test-operator'}:item);localStorage.setItem(TEST_DATA_KEY,JSON.stringify({...data,jobs}));window.dispatchEvent(new Event('northborn-test-data-changed'))}
+      if(testMode){const data=JSON.parse(localStorage.getItem(TEST_DATA_KEY)||'{}') as {jobs?:Array<Record<string,unknown>>};const now=new Date().toISOString();const jobs=(data.jobs||[]).map(item=>item.id===job.id?{...item,status:'completed',dispatch_stage:'work_completed',completed_at:now,work_completed_at:now,completed_by:'test-operator'}:item);localStorage.setItem(TEST_DATA_KEY,JSON.stringify({...data,jobs}));window.dispatchEvent(new Event('northborn-test-data-changed'))}
       else{const result=await db.rpc('complete_my_assigned_job',{_organization_id:organizationId,_job_id:job.id});if(result.error)throw result.error}
       setConfirming(false);await onCompleted();await openInvoice()
-    }catch(e){setError(readError(e))}finally{setBusy(false)}
+    }catch(e){setError(readError(e));await onCompleted().catch(()=>undefined)}finally{setBusy(false)}
   }
 
   const openInvoice=async()=>{
@@ -116,8 +117,8 @@ export default function OperatorJobCompletionActions({job,organizationId,organiz
   if(job.status==='cancelled')return null
 
   return <div className="operator-completion-actions">
-    {!completed&&!confirming&&<button className="operator-complete-button" type="button" onClick={()=>setConfirming(true)}><CheckCircle2 size={18}/>Complete job</button>}
-    {!completed&&confirming&&<div className="operator-complete-confirm"><div><strong>Mark this job completed?</strong><span>This moves it into job history and unlocks the invoice draft.</span></div><div><button type="button" onClick={()=>setConfirming(false)} disabled={busy}>Cancel</button><button type="button" className="confirm" onClick={()=>void completeJob()} disabled={busy}>{busy?'Completing…':'Yes, complete job'}</button></div></div>}
+    {!completed&&canComplete&&!confirming&&<button className="operator-complete-button" type="button" onClick={()=>setConfirming(true)}><CheckCircle2 size={18}/>Complete job</button>}
+    {!completed&&canComplete&&confirming&&<div className="operator-complete-confirm"><div><strong>Mark this job completed?</strong><span>This moves it into job history and unlocks the invoice draft.</span></div><div><button type="button" onClick={()=>setConfirming(false)} disabled={busy}>Cancel</button><button type="button" className="confirm" onClick={()=>void completeJob()} disabled={busy}>{busy?'Completing…':'Yes, complete job'}</button></div></div>}
     {completed&&<button className="operator-invoice-button" type="button" onClick={()=>void openInvoice()}><ReceiptText size={18}/>Start or continue invoice</button>}
     {error&&!invoiceOpen&&<div className="operator-action-error">{error}</div>}
     {notice&&!invoiceOpen&&<div className="operator-action-success">{notice}</div>}

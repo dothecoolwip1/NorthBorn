@@ -30,7 +30,7 @@ export default function OperatorDispatchProgress({job,organizationId,onChanged}:
         if(result.error)throw result.error
       }
       await onChanged()
-    }catch(e){setError(e instanceof Error?e.message:String((e as any)?.message||e||'Unable to update dispatch.'))}
+    }catch(e){setError(e instanceof Error?e.message:String((e as any)?.message||e||'Unable to update dispatch.'));await onChanged().catch(()=>undefined)}
     finally{setBusy(false)}
   }
 

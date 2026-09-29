@@ -1,10 +1,10 @@
 {
-  "version": "0.16.2",
-  "title": "Demo session routing fix",
+  "version": "0.16.3",
+  "title": "GitHub Pages production hosting",
   "notes": [
-    "Keep the admin / admin demo session active when the login flow redirects from /login to the Northborn dashboard.",
-    "Stop startup code from deleting the demo-session flag.",
-    "Return to the public homepage cleanly when signing out of the demo workspace.",
-    "Prevent a real authenticated session from accidentally inheriting demo mode."
+    "Make GitHub Pages the Northborn production deployment from main.",
+    "Point production smoke tests and browser QA at the GitHub Pages site.",
+    "Make authentication, sign-out, team invites and client invites work under the /NorthBorn/ base path.",
+    "Point Supabase-generated invitation and portal links to GitHub Pages instead of Vercel."
   ]
 }

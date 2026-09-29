@@ -64,6 +64,10 @@ function enhanceAuthCard() {
 
       if (!email || !password) return
 
+      // In production, admin/admin is the local demo workspace handled by AuthScreen.
+      // Let the normal React submit handler receive it instead of enforcing email syntax here.
+      if (!creating && normalized === 'admin' && !FUNCTIONAL_TESTING_ENABLED) return
+
       event.preventDefault()
       event.stopPropagation()
       event.stopImmediatePropagation()

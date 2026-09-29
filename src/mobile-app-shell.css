@@ -1,3 +1,5 @@
+.northborn-account-menu.print-route{display:none!important}
+body:has(.northborn-account-menu.print-route) .northborn-test-role-switcher{display:none!important}
 :root{--nb-mobile-nav-height:72px}
 
 .northborn-mobile-tabs{display:none}

@@ -1,13 +1,14 @@
 {
-  "version": "0.22.0",
-  "title": "Manager Home Experience",
+  "version": "0.23.0",
+  "title": "Northborn Home Experience",
   "notes": [
-    "Rebuild the signed-in manager homepage around a clear daily operating flow instead of equal-weight dashboard cards.",
-    "Add a Start Here priority that surfaces the first urgent or waiting workflow item and links directly to the correct work area.",
-    "Add a live dispatch pipeline for jobs needing resources, ready to send, awaiting acknowledgement and active in the field.",
-    "Reduce the primary KPI set to the highest-value operational signals while preserving role-based visibility and live Supabase data.",
-    "Move today’s jobs ahead of secondary billing and fleet summaries so the daily work is easier to scan.",
-    "Increase dashboard text sizes and touch targets to align with the Northborn mobile design system.",
-    "Improve mobile layouts for the header, priority action, dispatch pipeline, job rows and quick access links without changing existing permissions or workflow logic."
+    "Rebuild the public Northborn landing page around the real field-operations workflow instead of a generic feature-card layout.",
+    "Make the Northborn product itself the hero visual with a realistic command-centre preview, Start Here priority, dispatch flow and today’s work.",
+    "Clarify the public navigation and primary paths for sign in, client portal access, workflow exploration and platform information.",
+    "Explain the full customer-to-dispatch-to-field-to-billing workflow before listing individual modules.",
+    "Add dedicated manager, operator and client sections so visitors can immediately understand what each role sees.",
+    "Improve mobile typography, spacing, touch targets and product-preview behavior across the public homepage.",
+    "Add clearer public page metadata and a field-operations page title.",
+    "Retain the redesigned signed-in manager command centre with priority-first workflow, dispatch pipeline and role-aware operational metrics."
   ]
 }

@@ -1,10 +1,13 @@
 {
-  "version": "0.16.4",
-  "title": "Demo mobile navigation fix",
+  "version": "0.17.0",
+  "title": "Lived-in demo workspace",
   "notes": [
-    "Restore the hamburger and slide-out module navigation for the admin/admin local demo workspace on phones.",
-    "Restore Manager, Operator and Client preview controls in local demo mode on mobile.",
-    "Keep the newer global account menu behavior for real authenticated Supabase accounts.",
-    "Add a mobile browser regression for the demo menu and preview controls."
+    "Turn admin / admin into a realistic multi-month Northborn demo using the actual production module screens.",
+    "Seed multiple clients, employees, fleet units, historical/current/future jobs and linked dispatch assignments.",
+    "Seed completed work with field tickets, timesheets and paid/open/overdue/draft invoices so billing and reports look actively used.",
+    "Seed pre-trip and post-trip inspections, fleet defects, work orders, recurring maintenance and fleet documents.",
+    "Seed safety tickets and orientations, SDS and procedure library documents, FLHAs, incidents, near misses, hazard observations, toolbox talks and equipment inspections.",
+    "Seed price sheets, customer rate overrides, document templates, notifications, contacts, invites and client requests.",
+    "Keep the entire demo isolated in browser-local storage while Manager, Operator and Client views share the same coherent demo history."
   ]
 }

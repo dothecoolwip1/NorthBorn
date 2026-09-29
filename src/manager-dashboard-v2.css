@@ -41,7 +41,7 @@
   gap:var(--nb-space-6);
 }
 .manager-home-intro{min-width:0}
-.manager-home-date,
+.manager-home-eyebrow,
 .manager-home-section-heading span,
 .manager-panel-heading span,
 .manager-home-start-copy>span{
@@ -53,6 +53,7 @@
   text-transform:uppercase;
   color:var(--nb-accent-hover);
 }
+.manager-home-date{display:block;margin-top:6px;color:var(--nb-text-muted);font-size:var(--nb-font-sm);font-weight:700}
 .manager-home-top h1{
   margin:var(--nb-space-2) 0 var(--nb-space-2);
   font-size:clamp(38px,5vw,68px);

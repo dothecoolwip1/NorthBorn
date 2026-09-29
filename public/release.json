@@ -1,16 +1,13 @@
 {
-  "version": "0.21.0",
-  "title": "Field Forms — Pack 4",
+  "version": "0.22.0",
+  "title": "Manager Home Experience",
   "notes": [
-    "Replace the operator Safety landing page with a field-first forms hub for Pre-trip, FLHA, Incident, Near Miss and Equipment Inspection workflows.",
-    "Carry the active assigned job from Today into Safety, Field Ticket and Timesheet workflows instead of asking the operator to select the same job again.",
-    "Prefill field context Northborn already knows, including operator, job, customer, site, assigned unit and schedule where available.",
-    "Use one-tap Pass, Defect and N/A inspection controls sized for field use.",
-    "Expand defect details only when Defect is selected, including description, severity, remove-from-service and optional defect photo.",
-    "Store inspection detail inside the existing safety submission record and upload defect photos through the existing safety attachment system.",
-    "Prefill FLHAs from the job passed from Today.",
-    "Restrict operator field-ticket job choices to assigned work and prefill the assigned unit when possible.",
-    "Open timesheets from Today with the assigned job already selected.",
-    "Remove the duplicate legacy operator mobile navigation from Safety so Pack 2's global role-aware navigation remains the single phone navigation system."
+    "Rebuild the signed-in manager homepage around a clear daily operating flow instead of equal-weight dashboard cards.",
+    "Add a Start Here priority that surfaces the first urgent or waiting workflow item and links directly to the correct work area.",
+    "Add a live dispatch pipeline for jobs needing resources, ready to send, awaiting acknowledgement and active in the field.",
+    "Reduce the primary KPI set to the highest-value operational signals while preserving role-based visibility and live Supabase data.",
+    "Move today’s jobs ahead of secondary billing and fleet summaries so the daily work is easier to scan.",
+    "Increase dashboard text sizes and touch targets to align with the Northborn mobile design system.",
+    "Improve mobile layouts for the header, priority action, dispatch pipeline, job rows and quick access links without changing existing permissions or workflow logic."
   ]
 }

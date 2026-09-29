@@ -10,6 +10,7 @@ import { FUNCTIONAL_TEST_USERS, personaFromSession, switchFunctionalTestPersona,
 import { getTestPersona, isTestMode, setTestPersona, type TestPersona } from './test-lab'
 import { applyNorthbornUpdate, checkForNorthbornUpdate, getPwaUpdateMode, hasInstallPrompt, isNorthbornInstalled, promptNorthbornInstall, setPwaUpdateMode, type NorthbornUpdateMode } from './pwa'
 import './global-account-menu.css'
+import './mobile-app-shell.css'
 
 const db = supabase as any
 const APP_VERSION = packageInfo.version
@@ -52,6 +53,32 @@ const clientNavigation = [
   ['Invoices','/#client-invoices',ReceiptText],
   ['Contacts','/#client-contacts',ContactRound],
   ['Company','/#client-company',Building2],
+] as const
+
+
+const operatorMobileNavigation = [
+  ['Today','/',Gauge],
+  ['Jobs','/jobs',BriefcaseBusiness],
+  ['Time','/timesheets',FileClock],
+  ['Safety','/safety',ShieldCheck],
+] as const
+
+const clientMobileNavigation = [
+  ['Home','/',Building2],
+  ['Jobs','/#client-jobs',BriefcaseBusiness],
+  ['Invoices','/#client-invoices',ReceiptText],
+] as const
+
+const managerMobileCandidates = [
+  ['Home','/',Gauge],
+  ['Schedule','/calendar',CalendarDays],
+  ['Dispatch','/dispatch',Activity],
+  ['Jobs','/jobs',BriefcaseBusiness],
+  ['Customers','/customers',ContactRound],
+  ['Time','/timesheets',FileClock],
+  ['Invoices','/invoices',ReceiptText],
+  ['Fleet','/fleet',Truck],
+  ['Safety','/safety',ShieldCheck],
 ] as const
 
 type Notification = {
@@ -107,6 +134,12 @@ export default function GlobalAccountMenu() {
   const isClient = effectiveRole === 'client'
   const allowedManagerPaths = [...new Set(roleKeys.flatMap(role=>INTERNAL_ROLE_PATHS[role] || []))]
   const navigation = isClient ? clientNavigation : isOperator ? operatorNavigation : managerNavigation.filter(([,path])=>allowedManagerPaths.includes(path))
+  const mobileNavigation = isClient
+    ? clientMobileNavigation
+    : isOperator
+      ? operatorMobileNavigation
+      : managerMobileCandidates.filter(([,path])=>allowedManagerPaths.includes(path)).slice(0,4)
+  const mobilePrimaryPaths = useMemo(() => new Set(mobileNavigation.map(([,path])=>path)), [mobileNavigation])
 
   useEffect(() => {
     let active = true
@@ -300,6 +333,7 @@ export default function GlobalAccountMenu() {
     if (hash) return location.pathname === pathname && location.hash === `#${hash}`
     return location.pathname === path && !location.hash
   }
+  const moreIsActive = open || !mobileNavigation.some(([,path])=>isNavigationActive(path))
 
   return <div className={localDemo ? 'northborn-account-menu demo-mode' : 'northborn-account-menu'}>
     {toast && <div className="northborn-notification-toast">
@@ -333,11 +367,11 @@ export default function GlobalAccountMenu() {
         <div className="northborn-account-section-title">About</div>
         <div className="northborn-version-card"><div className="northborn-version-logo">N</div><div><strong>Northborn</strong><span>Version {APP_VERSION}</span></div></div>
       </> : <>
-        <div className="northborn-account-heading"><UserRound size={18}/><div><strong>{isFunctionalTest || localDemo ? 'Demo workspace' : 'Northborn account'}</strong><span>{persona ? FUNCTIONAL_TEST_USERS[persona].email : session.user.email}</span></div></div>
+        <div className="northborn-account-heading"><UserRound size={18}/><div><strong>{isFunctionalTest || localDemo ? 'Demo workspace' : 'Northborn account'}</strong><span>{persona ? FUNCTIONAL_TEST_USERS[persona].email : session?.user.email}</span></div><button className="northborn-menu-close" type="button" aria-label="Close Northborn menu" onClick={()=>{setOpen(false);setPanel('main')}}><X size={20}/></button></div>
 
         <div className="northborn-account-section-title">Navigation</div>
         <div className="northborn-menu-links northborn-navigation-links">
-          {navigation.map(([name,path,Icon]) => <button type="button" key={path} className={isNavigationActive(path)?'active':''} onClick={()=>go(path)}><Icon size={18}/><span><strong>{name}</strong></span></button>)}
+          {navigation.map(([name,path,Icon]) => <button type="button" key={path} data-mobile-primary={mobilePrimaryPaths.has(path)?'true':'false'} className={isNavigationActive(path)?'active':''} onClick={()=>go(path)}><Icon size={18}/><span><strong>{name}</strong></span></button>)}
         </div>
 
         <button className="northborn-settings-entry" type="button" onClick={() => setPanel('settings')}><Settings size={18}/><span><strong>Settings</strong><small>Install app, updates and version {APP_VERSION}</small></span></button>
@@ -368,5 +402,12 @@ export default function GlobalAccountMenu() {
     </div>}
 
     <button className="northborn-account-trigger" type="button" onClick={() => { setOpen(value => !value); if (open) setPanel('main') }} aria-expanded={open} aria-label={open ? 'Close Northborn menu' : 'Open Northborn menu'}>{open ? <X size={22}/> : <Menu size={23}/>} {unreadCount > 0 && <span className="northborn-account-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}</button>
+
+    <nav className="northborn-mobile-tabs" aria-label="Primary navigation">
+      {mobileNavigation.map(([name,path,Icon])=><button key={path} type="button" aria-current={isNavigationActive(path)?'page':undefined} className={isNavigationActive(path)?'active':''} onClick={()=>go(path)}><Icon size={21}/><span>{name}</span></button>)}
+      <button type="button" className={moreIsActive?'active':''} aria-label="More navigation" aria-expanded={open} onClick={()=>{setPanel('main');setOpen(value=>!value)}}>
+        {open?<X size={21}/>:<Menu size={21}/>}<span>More</span>{unreadCount>0&&<b>{unreadCount>9?'9+':unreadCount}</b>}
+      </button>
+    </nav>
   </div>
 }

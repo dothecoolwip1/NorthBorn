@@ -246,7 +246,7 @@ function NorthbornOnlyChrome() {
     return () => observer.disconnect()
   }, [])
 
-  if ((location.pathname.replace(/\\/+$/, '') || '/') === '/super-admin') return null
+  if ((location.pathname.replace(/\/+$/, '') || '/') === '/super-admin') return null
   return <><GlobalAccountMenu /><TestRoleSwitcher /><ReleaseNotes /></>
 }
 

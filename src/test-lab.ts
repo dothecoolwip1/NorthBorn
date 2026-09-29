@@ -1,3 +1,4 @@
+import { createRichCoreSeed, createRichDemoBundle } from './rich-demo-seed'
 export const TEST_MODE_KEY = 'northborn_test_mode'
 export const TEST_PERSONA_KEY = 'northborn_test_persona'
 export const TEST_DATA_KEY = 'northborn_test_data_v3'
@@ -6,7 +7,7 @@ export const TEST_CLIENT_REQUESTS_KEY = 'northborn_test_client_requests_v1'
 export const TEST_CLIENT_CONTACTS_KEY = 'northborn_test_client_contacts_v1'
 export const TEST_CLIENT_JOB_META_KEY = 'northborn_test_client_job_meta_v1'
 
-const CURRENT_TEST_SCHEMA_VERSION = '3'
+const CURRENT_TEST_SCHEMA_VERSION = '4'
 
 export type TestPersona = 'manager' | 'operator' | 'client'
 
@@ -23,7 +24,7 @@ export const TEST_USERS = {
 
 type TestCustomer = { id:string; organization_id:string; name:string; billing_email:string|null; phone:string|null; address:string|null; notes:string|null; status:string }
 type TestEmployee = { id:string; organization_id:string; user_id?:string|null; first_name:string; last_name:string; email:string|null; phone:string|null; position:string|null; status:string }
-type TestVehicle = { id:string; organization_id:string; unit_number:string; name:string|null; vehicle_type:string; plate:string|null; status:string; odometer_km?:number|null; engine_hours?:number|null }
+type TestVehicle = { id:string; organization_id:string; unit_number:string; name:string|null; vehicle_type:string; plate:string|null; status:string; odometer_km?:number|null; engine_hours?:number|null; year?:number|null; make?:string|null; model?:string|null; color?:string|null; vin?:string|null; primary_operator_id?:string|null; registration_expiry?:string|null; insurance_expiry?:string|null; annual_inspection_expiry?:string|null; notes?:string|null; last_service_date?:string|null }
 type TestJob = { id:string; organization_id:string; customer_id:string; job_number:string; title:string; site_name:string|null; site_address:string|null; scheduled_start:string|null; scheduled_end:string|null; status:string; dispatch_stage?:string|null; notes:string|null; shop_time?:string|null; onsite_time?:string|null; completed_at?:string|null; dispatch_acknowledged_at?:string|null; en_route_at?:string|null; onsite_at?:string|null; work_started_at?:string|null; work_completed_at?:string|null; dispatch_contact_name?:string|null; dispatch_contact_phone?:string|null; emergency_contact_name?:string|null; emergency_contact_phone?:string|null; primary_operator_employee_id?:string|null; recurrence_series_id?:string|null; recurrence_rule?:string|null; recurrence_parent_id?:string|null }
 type TestAssignment = { id:string; organization_id:string; job_id:string; employee_id:string|null; vehicle_id:string|null; role:string|null }
 export type TestLabData = { customers:TestCustomer[]; employees:TestEmployee[]; vehicles:TestVehicle[]; jobs:TestJob[]; assignments:TestAssignment[] }
@@ -31,33 +32,7 @@ export type TestLabData = { customers:TestCustomer[]; employees:TestEmployee[]; 
 const uid = () => crypto.randomUUID()
 
 function seed(): TestLabData {
-  const customerId = uid()
-  const operatorId = uid()
-  const swamperId = uid()
-  const vehicleId = uid()
-  const spareVehicleId = uid()
-  const jobId = uid()
-  const now = Date.now()
-  const shop = new Date(now + 60 * 60 * 1000)
-  const onsite = new Date(now + 2 * 60 * 60 * 1000)
-  const end = new Date(now + 10 * 60 * 60 * 1000)
-  return {
-    customers: [{ id:customerId, organization_id:TEST_ORG.id, name:'Northborn Test Client Company', billing_email:'Client@test.com', phone:'403-555-0100', address:'Red Deer, AB', notes:'Shared functional test client.', status:'active' }],
-    employees: [
-      { id:operatorId, organization_id:TEST_ORG.id, user_id:TEST_USERS.operator.id, first_name:'Operator', last_name:'Test', email:'Operator@test.com', phone:'403-555-0111', position:'Operator', status:'active' },
-      { id:swamperId, organization_id:TEST_ORG.id, user_id:null, first_name:'Swamper', last_name:'Test', email:'swamper@test.com', phone:'403-555-0112', position:'Swamper', status:'active' },
-    ],
-    vehicles: [
-      { id:vehicleId, organization_id:TEST_ORG.id, unit_number:'TEST-101', name:'Test Hydrovac', vehicle_type:'Hydrovac', plate:'TEST101', status:'assigned', odometer_km:125000, engine_hours:4200 },
-      { id:spareVehicleId, organization_id:TEST_ORG.id, unit_number:'TEST-202', name:'Test Combo Vac', vehicle_type:'Combo Vac', plate:'TEST202', status:'available', odometer_km:83000, engine_hours:3100 },
-    ],
-    jobs: [{ id:jobId, organization_id:TEST_ORG.id, customer_id:customerId, job_number:'TEST-0001', title:'Northborn live feature test job', site_name:'Test Site', site_address:'Red Deer County, AB', scheduled_start:onsite.toISOString(), scheduled_end:end.toISOString(), shop_time:shop.toISOString(), onsite_time:onsite.toISOString(), status:'dispatched', dispatch_stage:'dispatched', dispatch_contact_name:'Test Dispatch', dispatch_contact_phone:'403-555-0101', emergency_contact_name:'Test Emergency', emergency_contact_phone:'403-555-0191', primary_operator_employee_id:operatorId, notes:'Shared test job used by Manager, Operator and Client personas.' }],
-    assignments: [
-      { id:uid(), organization_id:TEST_ORG.id, job_id:jobId, employee_id:operatorId, vehicle_id:null, role:'operator' },
-      { id:uid(), organization_id:TEST_ORG.id, job_id:jobId, employee_id:swamperId, vehicle_id:null, role:'swamper' },
-      { id:uid(), organization_id:TEST_ORG.id, job_id:jobId, employee_id:null, vehicle_id:vehicleId, role:'unit' },
-    ],
-  }
+  return createRichCoreSeed(TEST_ORG.id, TEST_USERS.operator.id) as TestLabData
 }
 
 function normalizeTestData(value: unknown): TestLabData | null {
@@ -104,6 +79,17 @@ function normalizeTestData(value: unknown): TestLabData | null {
     status: vehicle.status || 'available',
     odometer_km: vehicle.odometer_km ?? null,
     engine_hours: vehicle.engine_hours ?? null,
+    year: vehicle.year ?? null,
+    make: vehicle.make ?? null,
+    model: vehicle.model ?? null,
+    color: vehicle.color ?? null,
+    vin: vehicle.vin ?? null,
+    primary_operator_id: vehicle.primary_operator_id ?? null,
+    registration_expiry: vehicle.registration_expiry ?? null,
+    insurance_expiry: vehicle.insurance_expiry ?? null,
+    annual_inspection_expiry: vehicle.annual_inspection_expiry ?? null,
+    notes: vehicle.notes ?? null,
+    last_service_date: vehicle.last_service_date ?? null,
   }))
 
   const jobs = parsed.jobs!.map(job => ({
@@ -153,6 +139,22 @@ function storeSchemaVersion() {
   try { localStorage.setItem(TEST_SCHEMA_VERSION_KEY, CURRENT_TEST_SCHEMA_VERSION) } catch {}
 }
 
+const GENERIC_PREFIX = 'northborn_test_table_v1_'
+const TEST_INVOICES_KEY = 'northborn_test_invoices_v1'
+const TEST_MAINTENANCE_KEY = 'northborn_test_fleet_v2'
+
+function seedRichTables(data: TestLabData, force = false) {
+  const bundle = createRichDemoBundle(data, TEST_ORG.id, TEST_USERS)
+  for (const [table, rows] of Object.entries(bundle.generic)) {
+    const key = GENERIC_PREFIX + table
+    if (force || !localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(rows))
+  }
+  if (force || !localStorage.getItem(TEST_INVOICES_KEY)) localStorage.setItem(TEST_INVOICES_KEY, JSON.stringify(bundle.invoices))
+  if (force || !localStorage.getItem(TEST_MAINTENANCE_KEY)) localStorage.setItem(TEST_MAINTENANCE_KEY, JSON.stringify(bundle.maintenance))
+  if (force || !localStorage.getItem(TEST_CLIENT_REQUESTS_KEY)) localStorage.setItem(TEST_CLIENT_REQUESTS_KEY, JSON.stringify(bundle.clientRequests))
+  if (force || !localStorage.getItem(TEST_CLIENT_CONTACTS_KEY)) localStorage.setItem(TEST_CLIENT_CONTACTS_KEY, JSON.stringify(bundle.portalContacts))
+}
+
 export function isTestMode() { return localStorage.getItem(TEST_MODE_KEY) === '1' }
 export function getTestPersona(): TestPersona {
   const value = localStorage.getItem(TEST_PERSONA_KEY)
@@ -170,19 +172,18 @@ export function clearTestLab() {
 export function readTestLabData(): TestLabData {
   try {
     const raw = localStorage.getItem(TEST_DATA_KEY)
-    if (raw) {
+    const currentVersion = localStorage.getItem(TEST_SCHEMA_VERSION_KEY)
+    if (raw && currentVersion === CURRENT_TEST_SCHEMA_VERSION) {
       const normalized = normalizeTestData(JSON.parse(raw))
       if (normalized) {
-        if (localStorage.getItem(TEST_SCHEMA_VERSION_KEY) !== CURRENT_TEST_SCHEMA_VERSION) {
-          localStorage.setItem(TEST_DATA_KEY, JSON.stringify(normalized))
-          storeSchemaVersion()
-        }
+        seedRichTables(normalized, false)
         return normalized
       }
     }
   } catch {}
   const fresh = seed()
   writeTestLabData(fresh)
+  seedRichTables(fresh, true)
   return fresh
 }
 export function writeTestLabData(data: TestLabData) {
@@ -194,6 +195,7 @@ export function writeTestLabData(data: TestLabData) {
 export function resetTestLabData() {
   const fresh = seed()
   writeTestLabData(fresh)
+  seedRichTables(fresh, true)
   return fresh
 }
 

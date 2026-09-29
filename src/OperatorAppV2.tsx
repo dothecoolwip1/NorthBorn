@@ -16,6 +16,7 @@ import {
   LogOut,
   Mail,
   MapPin,
+  Navigation,
   Phone,
   ShieldCheck,
   Truck,
@@ -27,6 +28,7 @@ import {
 import { supabase } from './lib/supabase'
 import OperatorJobCompletionActions from './OperatorJobCompletionActions'
 import OperatorDispatchProgress from './OperatorDispatchProgress'
+import { jobDayValue, localDayKey, stageIndex } from './job-operations'
 import './operator-app.css'
 
 const db = supabase as any
@@ -97,11 +99,11 @@ type Data = { employee: Employee | null; jobs: Job[]; assignments: Assignment[];
 
 const EMPTY: Data = { employee: null, jobs: [], assignments: [], vehicles: [], contacts: [] }
 const NAV = [
-  ['Home', '/', Home],
+  ['Today', '/', Home],
   ['My Jobs', '/jobs', BriefcaseBusiness],
   ['Safety', '/safety', ShieldCheck],
   ['Tickets', '/tickets', ClipboardCheck],
-  ['Timesheets', '/timesheets', HardHat],
+  ['Time', '/timesheets', Clock3],
 ] as const
 
 function formatDate(value: string | null) {
@@ -234,7 +236,7 @@ export default function OperatorAppV2({ userId, organizationId, organizationName
         <header className="field-topbar"><div><span className="field-top-label">FIELD WORKSPACE</span><strong>{organizationName}</strong></div><div className={online ? 'field-connection online':'field-connection offline'}>{online ? <Wifi size={15}/>:<WifiOff size={15}/>} {online?'Online':'Offline'}</div></header>
         {error && <div className="field-error">Unable to load your assigned work: {error}</div>}
         <Routes>
-          <Route path="/" element={<HomePage data={data} onOpen={setSelectedJobId} onRefresh={() => load()}/>} />
+          <Route path="/" element={<HomePage data={data} organizationId={organizationId} organizationName={organizationName} onOpen={setSelectedJobId} onRefresh={() => load(true)}/>} />
           <Route path="/jobs" element={<JobsPage data={data} onOpen={setSelectedJobId}/>} />
           <Route path="/safety" element={<Placeholder icon={<ShieldCheck/>} eyebrow="SAFETY" title="My safety" text="Your own safety forms, acknowledgements and required compliance items will live here."/>}/>
           <Route path="/tickets" element={<Placeholder icon={<ClipboardCheck/>} eyebrow="TICKETS" title="My tickets" text="Field tickets connected to your assigned jobs will live here."/>}/>
@@ -243,23 +245,90 @@ export default function OperatorAppV2({ userId, organizationId, organizationName
         </Routes>
       </main>
 
-      <nav className="field-mobile-nav">{NAV.map(([name,path,Icon]) => <NavLink key={path} to={path} end={path === '/'}><Icon size={20}/><span>{name}</span></NavLink>)}</nav>
-
       {notice && <NoticeCard notice={notice} data={data} onDismiss={() => void dismissNotice()} onOpenJob={jobId => { if (data.jobs.some(job => job.id === jobId)) setSelectedJobId(jobId); void dismissNotice() }}/>} 
       {selectedJob && <JobModal job={selectedJob} data={data} organizationId={organizationId} organizationName={organizationName} onCompleted={()=>load(true)} onClose={() => setSelectedJobId(null)}/>} 
     </div>
   )
 }
 
-function HomePage({ data, onOpen, onRefresh }: { data: Data; onOpen: (id:string)=>void; onRefresh: ()=>Promise<Data|null> }) {
-  const now = Date.now()
-  const current = data.jobs.filter(job => bucket(job,now)==='current')
-  const upcoming = data.jobs.filter(job => bucket(job,now)==='upcoming')
-  const past = data.jobs.filter(job => bucket(job,now)==='past')
-  const next = [...current,...upcoming].sort((a,b)=>String(a.shop_time||a.onsite_time||a.scheduled_start).localeCompare(String(b.shop_time||b.onsite_time||b.scheduled_start)))[0]
-  return <section className="field-page"><div className="field-hero"><div><span className="field-eyebrow">MY WORK</span><h1>{data.employee?`Hi, ${data.employee.first_name}`:'Operator workspace'}</h1><p>Your assigned work updates automatically when Dispatch changes it.</p></div><button className="field-refresh" onClick={()=>void onRefresh()}>Refresh</button></div>
-    <div className="field-stat-grid"><NavLink to="/jobs" className="field-stat"><CalendarDays/><strong>{current.length}</strong><span>Current</span></NavLink><NavLink to="/jobs" className="field-stat"><Clock3/><strong>{upcoming.length}</strong><span>Upcoming</span></NavLink><NavLink to="/jobs" className="field-stat"><CheckCircle2/><strong>{past.length}</strong><span>Past</span></NavLink></div>
-    <section className="field-panel"><div className="field-panel-heading"><div><span className="field-eyebrow">NEXT ASSIGNMENT</span><h2>What’s next</h2></div><NavLink to="/jobs">All my jobs</NavLink></div>{next?<JobCard job={next} data={data} onOpen={()=>onOpen(next.id)}/>:<div className="field-empty"><strong>No assigned work</strong><span>When Dispatch assigns you, it will appear here automatically.</span></div>}</section>
+function HomePage({ data, organizationId, organizationName, onOpen, onRefresh }: { data: Data; organizationId:string; organizationName:string; onOpen:(id:string)=>void; onRefresh:()=>Promise<Data|null> }) {
+  const now=Date.now()
+  const todayKey=localDayKey(new Date())
+  const openJobs=data.jobs.filter(job=>!['completed','cancelled'].includes(job.status))
+  const active=openJobs.filter(job=>stageIndex(job.dispatch_stage)>=2&&stageIndex(job.dispatch_stage)<7).sort((a,b)=>stageIndex(b.dispatch_stage)-stageIndex(a.dispatch_stage)||String(jobDayValue(a)||'').localeCompare(String(jobDayValue(b)||'')))
+  const todayJobs=openJobs.filter(job=>{const value=jobDayValue(job);return value?localDayKey(value)===todayKey:false}).sort((a,b)=>String(jobDayValue(a)||'').localeCompare(String(jobDayValue(b)||'')))
+  const upcoming=openJobs.filter(job=>bucket(job,now)==='upcoming').sort((a,b)=>String(jobDayValue(a)||'').localeCompare(String(jobDayValue(b)||''))
+  const focus=active[0]||todayJobs[0]||upcoming[0]||null
+  const focusIsActive=Boolean(focus&&active.some(job=>job.id===focus.id))
+  const focusIsToday=Boolean(focus&&todayJobs.some(job=>job.id===focus.id))
+  const laterToday=todayJobs.filter(job=>job.id!==focus?.id).slice(0,3)
+  const nextAfterToday=upcoming.filter(job=>job.id!==focus?.id&&!laterToday.some(item=>item.id===job.id)).slice(0,2)
+  const employeeName=data.employee?data.employee.first_name:'Operator'
+
+  if(!focus)return <section className="field-page operator-today-page">
+    <div className="operator-today-heading"><div><span>{new Intl.DateTimeFormat('en-CA',{weekday:'long',month:'short',day:'numeric'}).format(new Date())}</span><h1>Today</h1><p>{employeeName} · {organizationName}</p></div><button type="button" onClick={()=>void onRefresh()}>Refresh</button></div>
+    <div className="operator-today-empty"><CheckCircle2 size={28}/><strong>No assigned work right now</strong><span>New dispatches will appear here automatically.</span><div><NavLink to="/safety">Safety</NavLink><NavLink to="/timesheets">Time</NavLink></div></div>
+  </section>
+
+  const contacts=data.contacts.filter(item=>item.job_id===focus.id)
+  const primary=contacts.find(item=>item.is_primary)||contacts[0]
+  const unitIds=new Set(data.assignments.filter(item=>item.job_id===focus.id).map(item=>item.vehicle_id).filter(Boolean) as string[])
+  const units=data.vehicles.filter(unit=>unitIds.has(unit.id))
+  const crewAssignments=data.assignments.filter(item=>item.job_id===focus.id&&item.employee_id)
+  const crewCount=new Set(crewAssignments.map(item=>item.employee_id)).size
+  const crewRoles=[...new Set(crewAssignments.map(item=>item.role).filter(Boolean).map(item=>label(String(item))))].join(' · ')
+  const destination=focus.site_address||focus.site_name||''
+  const mapsHref=destination?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`:''
+  const focusLabel=focusIsActive?'ACTIVE JOB':focusIsToday?'NEXT TODAY':'NEXT ASSIGNMENT'
+
+  return <section className="field-page operator-today-page">
+    <div className="operator-today-heading">
+      <div><span>{new Intl.DateTimeFormat('en-CA',{weekday:'long',month:'short',day:'numeric'}).format(new Date())}</span><h1>Today</h1><p>{employeeName} · {organizationName}</p></div>
+      <button type="button" onClick={()=>void onRefresh()}>Refresh</button>
+    </div>
+
+    <section className={focusIsActive?'operator-today-focus active':'operator-today-focus'}>
+      <div className="operator-today-focus-head">
+        <div><span>{focusLabel}</span><strong>{focus.job_number}</strong></div>
+        <span className={`field-status status-${focus.status}`}>{label(focus.dispatch_stage||focus.status)}</span>
+      </div>
+      <h2>{focus.title}</h2>
+
+      <div className="operator-today-core">
+        <div><Clock3 size={18}/><span><small>SHOP</small><strong>{formatTime(focus.shop_time)}</strong></span></div>
+        <div><MapPin size={18}/><span><small>ON SITE</small><strong>{formatTime(focus.onsite_time||focus.scheduled_start)}</strong></span></div>
+      </div>
+
+      <div className="operator-today-location">
+        <MapPin size={19}/>
+        <div><strong>{focus.site_name||'Job site'}</strong><span>{focus.site_address||'No site address entered'}</span></div>
+      </div>
+
+      <div className="operator-today-facts">
+        {primary?.customer_name&&<div><Building2 size={17}/><span><small>CLIENT</small><strong>{primary.customer_name}</strong></span></div>}
+        {units.length>0&&<div><Truck size={17}/><span><small>UNIT</small><strong>{units.map(unit=>`#${unit.unit_number} ${unit.name||unit.vehicle_type}`).join(', ')}</strong></span></div>}
+        {crewCount>0&&<div><UserRound size={17}/><span><small>CREW</small><strong>{crewCount} assigned{crewRoles?` · ${crewRoles}`:''}</strong></span></div>}
+      </div>
+
+      <div className="operator-today-action-zone">
+        <OperatorDispatchProgress compact job={focus} organizationId={organizationId} onChanged={onRefresh}/>
+        <OperatorJobCompletionActions job={focus} organizationId={organizationId} organizationName={organizationName} onCompleted={onRefresh}/>
+      </div>
+
+      <div className="operator-today-quick-actions" aria-label="Job quick actions">
+        {mapsHref?<a href={mapsHref} target="_blank" rel="noreferrer"><Navigation size={19}/><span>Directions</span></a>:<button type="button" disabled><Navigation size={19}/><span>Directions</span></button>}
+        {focus.dispatch_contact_phone?<a href={`tel:${focus.dispatch_contact_phone}`}><Phone size={19}/><span>Dispatch</span></a>:<button type="button" disabled><Phone size={19}/><span>Dispatch</span></button>}
+        <NavLink to="/safety"><ShieldCheck size={19}/><span>Safety</span></NavLink>
+        <NavLink to="/tickets"><ClipboardCheck size={19}/><span>Ticket</span></NavLink>
+        <NavLink to="/timesheets"><Clock3 size={19}/><span>Time</span></NavLink>
+      </div>
+
+      <button className="operator-today-details" type="button" onClick={()=>onOpen(focus.id)}>Full job details <ChevronRight size={18}/></button>
+    </section>
+
+    {laterToday.length>0&&<section className="operator-today-list-section"><div className="operator-today-list-head"><div><span>LATER TODAY</span><h2>Coming up</h2></div><NavLink to="/jobs">All jobs</NavLink></div><div className="operator-today-list">{laterToday.map(job=><button type="button" key={job.id} onClick={()=>onOpen(job.id)}><div><strong>{formatTime(job.onsite_time||job.scheduled_start)}</strong><span>{job.job_number}</span></div><div><strong>{job.title}</strong><span>{job.site_name||job.site_address||'Site not set'}</span></div><ChevronRight size={18}/></button>)}</div></section>}
+
+    {!laterToday.length&&nextAfterToday.length>0&&<section className="operator-today-list-section"><div className="operator-today-list-head"><div><span>NEXT SCHEDULED</span><h2>After today</h2></div><NavLink to="/jobs">All jobs</NavLink></div><div className="operator-today-list">{nextAfterToday.map(job=><button type="button" key={job.id} onClick={()=>onOpen(job.id)}><div><strong>{formatDate(job.onsite_time||job.scheduled_start)}</strong><span>{job.job_number}</span></div><div><strong>{job.title}</strong><span>{job.site_name||job.site_address||'Site not set'}</span></div><ChevronRight size={18}/></button>)}</div></section>}
   </section>
 }
 

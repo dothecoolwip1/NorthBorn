@@ -1,6 +1,7 @@
 import { useModalFocus } from './use-modal-focus'
 import { hasAnyRole } from './role-access'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Check, CheckCircle2, ClipboardCheck, Clock3, FileSignature, Filter, MapPin, Plus,
   RefreshCw, Search, Send, Trash2, Truck, UserRound, X,
@@ -22,6 +23,7 @@ type Organization={id:string;name:string}
 type Customer={id:string;name:string}
 type Employee={id:string;user_id:string|null;first_name:string;last_name:string;position:string|null;status:string}
 type Vehicle={id:string;unit_number:string;name:string|null;vehicle_type:string;status:string}
+type Assignment={id:string;job_id:string;employee_id:string|null;vehicle_id:string|null;role:string|null}
 type Job={id:string;customer_id:string;job_number:string;title:string;site_name:string|null;site_address:string|null;status:string}
 type Ticket={id:string;organization_id:string;job_id:string|null;customer_id:string;primary_employee_id:string|null;vehicle_id:string|null;invoice_id:string|null;ticket_number:string;ticket_type:string;work_date:string;site_name:string|null;site_address:string|null;purchase_order:string|null;afe_number:string|null;start_time:string|null;end_time:string|null;travel_hours:number|string;work_hours:number|string;standby_hours:number|string;quantity:number|string|null;quantity_unit:string|null;disposal_location:string|null;disposal_manifest:string|null;work_description:string|null;operator_notes:string|null;customer_signed_by:string|null;customer_signature_data:string|null;customer_signed_at:string|null;status:'draft'|'submitted'|'approved'|'rejected';submitted_at:string|null;reviewed_at:string|null;reviewed_by:string|null;review_note:string|null;created_by:string;created_at:string;updated_at:string;template_id?:string|null;template_version?:number|null;custom_answers?:Record<string,unknown>;operator_signature_data?:string|null;operator_signed_at?:string|null}
 type Item={id:string;ticket_id:string;price_item_id:string|null;category:string;description:string;quantity:number|string;unit:string;rate_snapshot:number|string|null;sort_order:number;notes:string|null}
@@ -39,12 +41,17 @@ const safeFileName=(name:string)=>name.toLowerCase().replace(/[^a-z0-9._-]+/g,'-
 const blankForm=(employeeId='',template?:TemplateRow|null):Form=>({id:null,job_id:'',customer_id:'',primary_employee_id:employeeId,vehicle_id:'',ticket_type:'field',work_date:today(),site_name:'',site_address:'',purchase_order:'',afe_number:'',start_time:'',end_time:'',travel_hours:'0',work_hours:'0',standby_hours:'0',quantity:'',quantity_unit:'',disposal_location:'',disposal_manifest:'',work_description:'',operator_notes:'',customer_signed_by:'',customer_signature_data:'',customer_signed_at:'',operator_signature_data:'',operator_signed_at:'',template_id:template?.id||'',template_version:template?.version||null,custom_answers:{},pending_files:[],items:[blankItem()]})
 
 export default function FieldTicketsPage({activeTemplate=null}:{activeTemplate?:TemplateRow|null}={}){
+  const [searchParams] = useSearchParams()
+  const requestedJobId = searchParams.get('job') || ''
+  const requestedNew = searchParams.get('new') === '1'
+  const deepLinkHandled = useRef(false)
   const [organization,setOrganization]=useState<Organization|null>(null)
   const [assignedRoles,setAssignedRoles]=useState<string[]>([])
   const [userId,setUserId]=useState('')
   const [customers,setCustomers]=useState<Customer[]>([])
   const [employees,setEmployees]=useState<Employee[]>([])
   const [vehicles,setVehicles]=useState<Vehicle[]>([])
+  const [assignments,setAssignments]=useState<Assignment[]>([])
   const [jobs,setJobs]=useState<Job[]>([])
   const [tickets,setTickets]=useState<Ticket[]>([])
   const [items,setItems]=useState<Item[]>([])
@@ -61,6 +68,16 @@ export default function FieldTicketsPage({activeTemplate=null}:{activeTemplate?:
 
   const canManage=hasAnyRole(assignedRoles,MANAGE_ROLES)
   const canSubmit=hasAnyRole(assignedRoles,SUBMIT_ROLES)
+  const operatorJobIds=useMemo(()=>new Set(assignments.filter(item=>item.employee_id===ownEmployeeId).map(item=>item.job_id)),[assignments,ownEmployeeId])
+  const availableJobs=useMemo(()=>canManage?jobs:jobs.filter(job=>operatorJobIds.has(job.id)),[canManage,jobs,operatorJobIds])
+  const applyJobContext=(base:Form,targetJobId:string)=>{
+    if(!targetJobId)return base
+    const job=jobs.find(item=>item.id===targetJobId)
+    if(!job)return base
+    const employeeId=base.primary_employee_id||ownEmployeeId
+    const assignedVehicle=assignments.find(item=>item.job_id===targetJobId&&item.employee_id===employeeId&&item.vehicle_id)?.vehicle_id||assignments.find(item=>item.job_id===targetJobId&&item.vehicle_id)?.vehicle_id||''
+    return {...base,job_id:job.id,customer_id:job.customer_id||base.customer_id,site_name:job.site_name||base.site_name,site_address:job.site_address||base.site_address,vehicle_id:assignedVehicle||base.vehicle_id}
+  }
 
   const load=useCallback(async()=>{
     setLoading(true);setError('')
@@ -72,23 +89,34 @@ export default function FieldTicketsPage({activeTemplate=null}:{activeTemplate?:
     const roleKeys=(roles.data||[]).map((row:any)=>row.role?.key).filter(Boolean)
     setAssignedRoles(roleKeys)
     const org=membership.data.organization as Organization;setOrganization(org)
-    const [customerResult,employeeResult,vehicleResult,jobResult,ticketResult,itemResult]=await Promise.all([
+    const [customerResult,employeeResult,vehicleResult,assignmentResult,jobResult,ticketResult,itemResult]=await Promise.all([
       db.from('customers').select('id,name').eq('organization_id',org.id).eq('status','active').order('name'),
       db.from('employees').select('id,user_id,first_name,last_name,position,status').eq('organization_id',org.id).neq('status','archived').order('last_name'),
       db.from('fleet_vehicles').select('id,unit_number,name,vehicle_type,status').eq('organization_id',org.id).neq('status','archived').order('unit_number'),
+      db.from('dispatch_assignments').select('id,job_id,employee_id,vehicle_id,role').eq('organization_id',org.id),
       db.from('jobs').select('id,customer_id,job_number,title,site_name,site_address,status').eq('organization_id',org.id).neq('status','cancelled').order('created_at',{ascending:false}).limit(300),
       db.from('field_tickets').select('*').eq('organization_id',org.id).order('work_date',{ascending:false}).order('created_at',{ascending:false}).limit(500),
       db.from('field_ticket_items').select('id,ticket_id,price_item_id,category,description,quantity,unit,rate_snapshot,sort_order,notes').eq('organization_id',org.id).order('sort_order'),
     ])
-    const firstError=[customerResult,employeeResult,vehicleResult,jobResult,ticketResult,itemResult].find(result=>result.error)?.error
+    const firstError=[customerResult,employeeResult,vehicleResult,assignmentResult,jobResult,ticketResult,itemResult].find(result=>result.error)?.error
     if(firstError)setError(firstError.message)
     const employeeRows=(employeeResult.data||[]) as Employee[]
-    setCustomers((customerResult.data||[]) as Customer[]);setEmployees(employeeRows);setVehicles((vehicleResult.data||[]) as Vehicle[]);setJobs((jobResult.data||[]) as Job[]);setTickets((ticketResult.data||[]) as Ticket[]);setItems((itemResult.data||[]) as Item[])
+    setCustomers((customerResult.data||[]) as Customer[]);setEmployees(employeeRows);setVehicles((vehicleResult.data||[]) as Vehicle[]);setAssignments((assignmentResult.data||[]) as Assignment[]);setJobs((jobResult.data||[]) as Job[]);setTickets((ticketResult.data||[]) as Ticket[]);setItems((itemResult.data||[]) as Item[])
     setOwnEmployeeId(employeeRows.find(employee=>employee.user_id===user.id)?.id||'')
     setLoading(false)
   },[])
 
   useEffect(()=>{void load()},[load])
+  useEffect(()=>{
+    if(loading||deepLinkHandled.current||!requestedNew)return
+    if(!canSubmit)return
+    if(!canManage&&!ownEmployeeId)return
+    deepLinkHandled.current=true
+    const base=blankForm(canManage?'':ownEmployeeId,activeTemplate)
+    const allowed=!requestedJobId||canManage||operatorJobIds.has(requestedJobId)
+    if(requestedJobId&&!allowed){setError('That job is not assigned to you.');setForm(base);return}
+    setError('');setNotice('');setForm(applyJobContext(base,requestedJobId))
+  },[loading,requestedNew,requestedJobId,canSubmit,canManage,ownEmployeeId,activeTemplate,operatorJobIds])
 
   const shown=useMemo(()=>tickets.filter(ticket=>{
     const customer=customers.find(item=>item.id===ticket.customer_id),job=jobs.find(item=>item.id===ticket.job_id),employee=employees.find(item=>item.id===ticket.primary_employee_id),vehicle=vehicles.find(item=>item.id===ticket.vehicle_id)
@@ -101,10 +129,12 @@ export default function FieldTicketsPage({activeTemplate=null}:{activeTemplate?:
   const approved=tickets.filter(ticket=>ticket.status==='approved').length
   const unsigned=tickets.filter(ticket=>ticket.status==='submitted'&&!ticket.customer_signed_at).length
 
-  const openNew=()=>{
+  const openNew=(initialJobId='')=>{
     if(!canSubmit){setError('Your role cannot create field tickets.');return}
     if(!canManage&&!ownEmployeeId){setError('Your login is not linked to an employee record yet.');return}
-    setNotice('');setError('');setForm(blankForm(canManage?'':ownEmployeeId,activeTemplate))
+    if(initialJobId&&!canManage&&!operatorJobIds.has(initialJobId)){setError('That job is not assigned to you.');return}
+    const base=blankForm(canManage?'':ownEmployeeId,activeTemplate)
+    setNotice('');setError('');setForm(applyJobContext(base,initialJobId))
   }
 
   const openEdit=(ticket:Ticket)=>{
@@ -115,8 +145,8 @@ export default function FieldTicketsPage({activeTemplate=null}:{activeTemplate?:
 
   const chooseJob=(jobId:string)=>{
     if(!form)return
-    const job=jobs.find(item=>item.id===jobId)
-    setForm({...form,job_id:jobId,customer_id:job?.customer_id||form.customer_id,site_name:job?.site_name||form.site_name,site_address:job?.site_address||form.site_address})
+    if(jobId&&!canManage&&!operatorJobIds.has(jobId)){setError('That job is not assigned to you.');return}
+    setForm(applyJobContext({...form,job_id:''},jobId))
   }
 
   const save=async(submit:boolean)=>{
@@ -180,7 +210,7 @@ export default function FieldTicketsPage({activeTemplate=null}:{activeTemplate?:
     {!shown.length&&<div className="ticket-empty"><ClipboardCheck size={31}/><strong>No tickets match this view</strong><span>{canSubmit?'Create the first field ticket or change your filters.':'Change the filters to see more tickets.'}</span></div>}
 
     {viewing&&<TicketDetail ticket={viewing} items={items.filter(item=>item.ticket_id===viewing.id)} customers={customers} jobs={jobs} employees={employees} vehicles={vehicles} canManage={canManage} ownEmployeeId={ownEmployeeId} busy={busy} onClose={()=>setViewing(null)} onEdit={()=>openEdit(viewing)} onReview={review} onDelete={remove}/>} 
-    {form&&<TicketEditor form={form} setForm={setForm} customers={customers} jobs={jobs} employees={employees} vehicles={vehicles} activeTemplate={activeTemplate} canManage={canManage} busy={busy} onClose={()=>setForm(null)} onChooseJob={chooseJob} onSave={save}/>} 
+    {form&&<TicketEditor form={form} setForm={setForm} customers={customers} jobs={availableJobs} employees={employees} vehicles={vehicles} activeTemplate={activeTemplate} canManage={canManage} busy={busy} onClose={()=>setForm(null)} onChooseJob={chooseJob} onSave={save}/>} 
   </main>
 }
 

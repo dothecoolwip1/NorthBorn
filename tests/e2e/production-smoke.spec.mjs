@@ -200,6 +200,14 @@ test('guest and login routes are healthy', async ({ page }) => {
   await expect(page.getByLabel('Email or username', { exact: true })).toBeVisible()
   await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
 
+  await page.getByLabel('Email or username', { exact: true }).fill('admin')
+  await page.getByLabel('Password', { exact: true }).fill('admin')
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page).toHaveURL(absolute('/'), { timeout: 15000 })
+  await expect(page.locator('body')).toContainText('TEST WORKSPACE', { timeout: 15000 })
+  await page.reload()
+  await expect(page.locator('body')).toContainText('TEST WORKSPACE', { timeout: 15000 })
+
   failWithIssues(issues)
 })
 

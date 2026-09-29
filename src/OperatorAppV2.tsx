@@ -239,7 +239,7 @@ export default function OperatorAppV2({ userId, organizationId, organizationName
           <Route path="/jobs" element={<JobsPage data={data} onOpen={setSelectedJobId}/>} />
           <Route path="/safety" element={<Placeholder icon={<ShieldCheck/>} eyebrow="SAFETY" title="My safety" text="Your own safety forms, acknowledgements and required compliance items will live here."/>}/>
           <Route path="/tickets" element={<Placeholder icon={<ClipboardCheck/>} eyebrow="TICKETS" title="My tickets" text="Field tickets connected to your assigned jobs will live here."/>}/>
-          <Route path="/timesheets" element={<Placeholder icon={<HardHat/>} eyebrow="TIME" title="My timesheets" text="Your own hours and shift entries will live here."/>}/>
+          <Route path="/timesheets" element={<Placeholder icon={<Clock3/>} eyebrow="TIME" title="My timesheets" text="Your own hours and shift entries will live here."/>}/>
           <Route path="*" element={<Navigate to="/" replace/>}/>
         </Routes>
       </main>

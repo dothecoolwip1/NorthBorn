@@ -40,7 +40,7 @@ import { initializeNorthbornPwa } from './pwa'
 import { resolveWorkspaceAccess } from './workspace-access'
 import { canAccessInternalRoute } from './role-access'
 import TestSupabaseBridge from './TestSupabaseBridge'
-import { getTestPersona } from './test-lab'
+import { getTestPersona, isTestMode } from './test-lab'
 import './styles.css'
 import './contact-hierarchy.css'
 import './mobile-first.css'
@@ -110,7 +110,7 @@ function DemoRoutedWorkspace({ normalizedPath }:{ normalizedPath:string }) {
     else page = <WorkspaceNotFound />
   }
 
-  return <TestSupabaseBridge persona={persona}>{page}</TestSupabaseBridge>
+  return <>{page}</>
 }
 
 function RoutedWorkspace({ normalizedPath, hasInvite, routeRole, internalRoleKey }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole; internalRoleKey:string[] }) {
@@ -305,13 +305,18 @@ const rootElement = document.getElementById('root')!
 document.documentElement.dataset.northbornMounted = '1'
 if (import.meta.env.PROD) initializeNorthbornPwa()
 
+function NorthbornRoot() {
+  const content = <BrowserRouter basename={routerBase}>
+    <NorthbornRouter />
+    <NorthbornOnlyChrome />
+  </BrowserRouter>
+  return isTestMode() ? <TestSupabaseBridge persona={getTestPersona()}>{content}</TestSupabaseBridge> : content
+}
+
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <AppErrorBoundary>
-      <BrowserRouter basename={routerBase}>
-        <NorthbornRouter />
-        <NorthbornOnlyChrome />
-      </BrowserRouter>
+      <NorthbornRoot />
     </AppErrorBoundary>
   </React.StrictMode>,
 )

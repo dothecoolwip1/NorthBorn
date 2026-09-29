@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Activity, BellRing, BriefcaseBusiness, Building2, CalendarDays, Check, ChevronLeft, CircleDollarSign, ClipboardCheck, ContactRound, Download, FileClock, FileText, Gauge, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, Truck, UserRound, Users, Wrench, X } from 'lucide-react'
+import { BellRing, Building2, Check, ChevronLeft, CircleDollarSign, Download, FileText, LogOut, Menu, ReceiptText, RefreshCw, Settings, ShieldCheck, Smartphone, Trash2, UserRound, Users, X } from 'lucide-react'
 import packageInfo from '../package.json'
 import { supabase } from './lib/supabase'
 import { resolveWorkspaceAccess } from './workspace-access'
-import { INTERNAL_ROLE_PATHS } from './role-access'
 import { FUNCTIONAL_TEST_USERS, personaFromSession, switchFunctionalTestPersona, type FunctionalTestPersona } from './functional-test-auth'
 import { getTestPersona, isTestMode, setTestPersona, type TestPersona } from './test-lab'
+import { fullNavigationForRole, mobileNavigationForRole, type ShellRole } from './navigation-model'
 import { applyNorthbornUpdate, checkForNorthbornUpdate, getPwaUpdateMode, hasInstallPrompt, isNorthbornInstalled, promptNorthbornInstall, setPwaUpdateMode, type NorthbornUpdateMode } from './pwa'
 import './global-account-menu.css'
 import './mobile-app-shell.css'
@@ -18,67 +18,6 @@ const personas = [
   ['manager', FUNCTIONAL_TEST_USERS.manager.email, ShieldCheck],
   ['operator', FUNCTIONAL_TEST_USERS.operator.email, Building2],
   ['client', FUNCTIONAL_TEST_USERS.client.email, Building2],
-] as const
-
-const managerNavigation = [
-  ['Dashboard','/',Gauge],
-  ['Calendar','/calendar',CalendarDays],
-  ['Dispatch','/dispatch',CalendarDays],
-  ['Jobs','/jobs',BriefcaseBusiness],
-  ['Customers','/customers',ContactRound],
-  ['Employees','/employees',Users],
-  ['Fleet','/fleet',Truck],
-  ['Maintenance','/maintenance',Wrench],
-  ['Safety','/safety',ShieldCheck],
-  ['Tickets','/tickets',ClipboardCheck],
-  ['Timesheets','/timesheets',FileClock],
-  ['Invoices','/invoices',ReceiptText],
-  ['Billing queue','/billing',ReceiptText],
-  ['Templates','/templates',FileText],
-  ['Reports','/reports',Activity],
-] as const
-
-const operatorNavigation = [
-  ['Home','/',Gauge],
-  ['My jobs','/jobs',BriefcaseBusiness],
-  ['Tickets','/tickets',ClipboardCheck],
-  ['Timesheets','/timesheets',FileClock],
-  ['Safety','/safety',ShieldCheck],
-  ['My unit','/fleet',Truck],
-] as const
-
-const clientNavigation = [
-  ['Portal home','/',Building2],
-  ['Jobs','/#client-jobs',BriefcaseBusiness],
-  ['Invoices','/#client-invoices',ReceiptText],
-  ['Contacts','/#client-contacts',ContactRound],
-  ['Company','/#client-company',Building2],
-] as const
-
-
-const operatorMobileNavigation = [
-  ['Today','/',Gauge],
-  ['Jobs','/jobs',BriefcaseBusiness],
-  ['Time','/timesheets',FileClock],
-  ['Safety','/safety',ShieldCheck],
-] as const
-
-const clientMobileNavigation = [
-  ['Home','/',Building2],
-  ['Jobs','/#client-jobs',BriefcaseBusiness],
-  ['Invoices','/#client-invoices',ReceiptText],
-] as const
-
-const managerMobileCandidates = [
-  ['Home','/',Gauge],
-  ['Schedule','/calendar',CalendarDays],
-  ['Dispatch','/dispatch',Activity],
-  ['Jobs','/jobs',BriefcaseBusiness],
-  ['Customers','/customers',ContactRound],
-  ['Time','/timesheets',FileClock],
-  ['Invoices','/invoices',ReceiptText],
-  ['Fleet','/fleet',Truck],
-  ['Safety','/safety',ShieldCheck],
 ] as const
 
 type Notification = {
@@ -125,21 +64,16 @@ export default function GlobalAccountMenu() {
   const persona = functionalPersona ?? localPersona
   const isFunctionalTest = functionalPersona !== null
   const userId = session?.user.id || ''
-  const effectiveRole = persona === 'client' ? 'client' : persona === 'operator' ? 'operator' : roleKey
+  const effectiveRoleKeys = localDemo && persona === 'manager' ? ['owner'] : roleKeys
+  const effectiveRole = persona === 'client' ? 'client' : persona === 'operator' ? 'operator' : localDemo && persona === 'manager' ? 'owner' : roleKey
+  const shellRole:ShellRole = persona === 'client' || effectiveRole === 'client' ? 'client' : persona === 'operator' || effectiveRole === 'operator' ? 'operator' : 'manager'
   const unreadCount = useMemo(() => notifications.filter(item => !item.read_at).length, [notifications])
-  const canTeam = roleKeys.some(role=>['owner','admin'].includes(role))
+  const canTeam = effectiveRoleKeys.some(role=>['owner','admin'].includes(role))
   const canTemplates = ['owner', 'admin'].includes(effectiveRole)
-  const canPricing = roleKeys.some(role=>['owner','admin','accounting'].includes(role))
-  const isOperator = effectiveRole === 'operator'
-  const isClient = effectiveRole === 'client'
-  const allowedManagerPaths = [...new Set(roleKeys.flatMap(role=>INTERNAL_ROLE_PATHS[role] || []))]
-  const navigation = isClient ? clientNavigation : isOperator ? operatorNavigation : managerNavigation.filter(([,path])=>allowedManagerPaths.includes(path))
-  const mobileNavigation = isClient
-    ? clientMobileNavigation
-    : isOperator
-      ? operatorMobileNavigation
-      : managerMobileCandidates.filter(([,path])=>allowedManagerPaths.includes(path)).slice(0,4)
-  const mobilePrimaryPaths = new Set<string>(mobileNavigation.map(([,path])=>path))
+  const canPricing = effectiveRoleKeys.some(role=>['owner','admin','accounting'].includes(role))
+  const navigation = fullNavigationForRole(shellRole,effectiveRoleKeys)
+  const mobileNavigation = mobileNavigationForRole(shellRole,effectiveRoleKeys)
+  const mobilePrimaryPaths = new Set<string>(mobileNavigation.map(item=>item.path))
 
   useEffect(() => {
     let active = true
@@ -230,7 +164,7 @@ export default function GlobalAccountMenu() {
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  if (!session) return null
+  if (!session && !localDemo) return null
 
   const markRead = async (notification: Notification) => {
     if (notification.read_at) return
@@ -301,6 +235,12 @@ export default function GlobalAccountMenu() {
 
   const signOut = async () => {
     setBusy(true)
+    if (localDemo) {
+      localStorage.removeItem('northborn_test_mode')
+      const home = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
+      window.location.replace(home)
+      return
+    }
     await supabase.auth.signOut()
     const home = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
     window.location.replace(home)
@@ -333,7 +273,7 @@ export default function GlobalAccountMenu() {
     if (hash) return location.pathname === pathname && location.hash === `#${hash}`
     return location.pathname === path && !location.hash
   }
-  const moreIsActive = open || !mobileNavigation.some(([,path])=>isNavigationActive(path))
+  const moreIsActive = open || !mobileNavigation.some(item=>isNavigationActive(item.path))
   const isPrintRoute = ['/ticket-print','/timesheet-print','/client-ticket-print'].some(path=>location.pathname===path||location.pathname.startsWith(path+'/'))
 
   return <div className={`${localDemo ? 'northborn-account-menu demo-mode' : 'northborn-account-menu'}${isPrintRoute ? ' print-route' : ''}`}>
@@ -372,7 +312,7 @@ export default function GlobalAccountMenu() {
 
         <div className="northborn-account-section-title">Navigation</div>
         <div className="northborn-menu-links northborn-navigation-links">
-          {navigation.map(([name,path,Icon]) => <button type="button" key={path} data-mobile-primary={mobilePrimaryPaths.has(path)?'true':'false'} className={isNavigationActive(path)?'active':''} onClick={()=>go(path)}><Icon size={18}/><span><strong>{name}</strong></span></button>)}
+          {navigation.map(item => {const Icon=item.icon;return <button type="button" key={item.path} data-mobile-primary={mobilePrimaryPaths.has(item.path)?'true':'false'} className={isNavigationActive(item.path)?'active':''} onClick={()=>go(item.path)}><Icon size={18}/><span><strong>{item.label}</strong></span></button>})}
         </div>
 
         <button className="northborn-settings-entry" type="button" onClick={() => setPanel('settings')}><Settings size={18}/><span><strong>Settings</strong><small>Install app, updates and version {APP_VERSION}</small></span></button>
@@ -405,7 +345,7 @@ export default function GlobalAccountMenu() {
     <button className="northborn-account-trigger" type="button" onClick={() => { setOpen(value => !value); if (open) setPanel('main') }} aria-expanded={open} aria-label={open ? 'Close Northborn menu' : 'Open Northborn menu'}>{open ? <X size={22}/> : <Menu size={23}/>} {unreadCount > 0 && <span className="northborn-account-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}</button>
 
     {!isPrintRoute&&<nav className="northborn-mobile-tabs" aria-label="Primary navigation">
-      {mobileNavigation.map(([name,path,Icon])=><button key={path} type="button" aria-current={isNavigationActive(path)?'page':undefined} className={isNavigationActive(path)?'active':''} onClick={()=>go(path)}><Icon size={21}/><span>{name}</span></button>)}
+      {mobileNavigation.map(item=>{const Icon=item.icon;return <button key={item.path} type="button" aria-current={isNavigationActive(item.path)?'page':undefined} className={isNavigationActive(item.path)?'active':''} onClick={()=>go(item.path)}><Icon size={21}/><span>{item.label}</span></button>})}
       <button type="button" className={moreIsActive?'active':''} aria-label="More navigation" aria-expanded={open} onClick={()=>{setPanel('main');setOpen(value=>!value)}}>
         {open?<X size={21}/>:<Menu size={21}/>}<span>More</span>{unreadCount>0&&<b>{unreadCount>9?'9+':unreadCount}</b>}
       </button>

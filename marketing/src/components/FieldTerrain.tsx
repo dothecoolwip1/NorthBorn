@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import type { Material } from 'three'
 
 export default function FieldTerrain() {
   const host = useRef<HTMLDivElement>(null)
@@ -28,7 +29,7 @@ export default function FieldTerrain() {
       container.appendChild(renderer.domElement)
 
       const grid = new THREE.GridHelper(12, 24, 0xd58a34, 0x263b4d)
-      const gridMaterials: THREE.Material[] = Array.isArray(grid.material) ? grid.material : [grid.material]
+      const gridMaterials: Material[] = Array.isArray(grid.material) ? grid.material : [grid.material]
       gridMaterials.forEach(material => {
         material.transparent = true
         material.opacity = 0.36

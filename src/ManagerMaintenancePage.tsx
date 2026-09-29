@@ -823,6 +823,20 @@ function WorkOrderEditor({ work, ws, onClose, onSaved }: { work: WorkOrder | nul
     setBusy(true)
     setError('')
     try {
+      let costTotals = {
+        labour_cost_cents: dollarsToCents(form.labour),
+        parts_cost_cents: dollarsToCents(form.parts),
+        external_cost_cents: dollarsToCents(form.external),
+      }
+      if (work?.id && !ws.testMode) {
+        const latestCosts=await db.from('fleet_work_orders').select('labour_cost_cents,parts_cost_cents,external_cost_cents').eq('organization_id',ws.organization!.id).eq('id',work.id).single()
+        if (latestCosts.error) throw latestCosts.error
+        costTotals={
+          labour_cost_cents:latestCosts.data.labour_cost_cents||0,
+          parts_cost_cents:latestCosts.data.parts_cost_cents||0,
+          external_cost_cents:latestCosts.data.external_cost_cents||0,
+        }
+      }
       const payload = {
         vehicle_id: form.vehicle_id,
         maintenance_assignment_id: form.maintenance_assignment_id || null,
@@ -838,9 +852,7 @@ function WorkOrderEditor({ work, ws, onClose, onSaved }: { work: WorkOrder | nul
         completed_at: form.status === 'completed' ? (work?.completed_at || new Date().toISOString()) : null,
         completed_odometer_km: numberOrNull(form.completed_odometer_km),
         completed_engine_hours: numberOrNull(form.completed_engine_hours),
-        labour_cost_cents: dollarsToCents(form.labour),
-        parts_cost_cents: dollarsToCents(form.parts),
-        external_cost_cents: dollarsToCents(form.external),
+        ...costTotals,
         downtime_minutes: Number(form.downtime_minutes) || 0,
         completion_notes: form.completion_notes.trim() || null,
       }

@@ -10,7 +10,16 @@ test('Northborn marketing site works on a 390px phone', async ({ page }) => {
   await expect(page.locator('.mobile-dock')).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Manager' })).toBeVisible()
 
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true)
+  const mobileOverflow = await page.evaluate(() => ({
+    pageWidth: document.documentElement.scrollWidth,
+    viewportWidth: innerWidth,
+    offenders: Array.from(document.querySelectorAll('*')).map(el => {
+      const rect = el.getBoundingClientRect()
+      return { tag: el.tagName, className: typeof el.className === 'string' ? el.className : '', left: Math.round(rect.left), right: Math.round(rect.right), width: Math.round(rect.width) }
+    }).filter(item => item.right > innerWidth + 2 || item.left < -2).slice(0, 20),
+  }))
+  expect(mobileOverflow, JSON.stringify(mobileOverflow, null, 2)).toMatchObject({ pageWidth: expect.any(Number), viewportWidth: 390 })
+  expect(mobileOverflow.pageWidth, JSON.stringify(mobileOverflow, null, 2)).toBeLessThanOrEqual(392)
 
   await page.getByRole('tab', { name: 'Operator' }).click()
   await expect(page.locator('.role-product.operator')).toContainText('3 jobs assigned')

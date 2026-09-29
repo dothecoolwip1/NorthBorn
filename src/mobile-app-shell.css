@@ -118,11 +118,11 @@ body:has(.northborn-account-menu.print-route) .northborn-test-role-switcher{disp
     background:var(--nb-border-strong);
   }
   .northborn-account-scrim{
-    z-index:10060!important;
+    z-index:-1!important;
     bottom:calc(var(--nb-mobile-nav-height) + env(safe-area-inset-bottom));
     background:rgba(1,6,12,.64)!important;
   }
-  .northborn-account-popover{z-index:10065}
+  .northborn-account-popover{z-index:2}
   .northborn-account-heading{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto;gap:10px}
   .northborn-menu-close{
     width:var(--nb-touch);

@@ -41,7 +41,7 @@
 }
 .marketing-brand>div{display:grid;gap:1px}
 .marketing-brand strong{font-size:13px;letter-spacing:.17em;line-height:1.1}
-.marketing-brand small{font-size:8px;letter-spacing:.17em;color:var(--nb-text-faint);font-weight:850}
+.marketing-brand small{font-size:10px;letter-spacing:.17em;color:var(--nb-text-faint);font-weight:850}
 .marketing-nav nav{display:flex;align-items:center;gap:26px;margin-left:18px}
 .marketing-nav nav a,.marketing-client-link{
   color:var(--nb-text-muted);
@@ -161,8 +161,8 @@
 }
 .marketing-mini-brand{display:flex;align-items:center;gap:8px}
 .marketing-mini-brand>span{width:27px;height:27px;border-radius:8px;display:grid;place-items:center;background:var(--nb-accent);color:#15110b;font-size:10px;font-weight:950}
-.marketing-mini-brand strong{font-size:9px;letter-spacing:.14em}
-.marketing-app-status{display:flex;align-items:center;gap:6px;color:var(--nb-success);font-size:9px;letter-spacing:.08em;font-weight:900}
+.marketing-mini-brand strong{font-size:10px;letter-spacing:.14em}
+.marketing-app-status{display:flex;align-items:center;gap:6px;color:var(--nb-success);font-size:10px;letter-spacing:.08em;font-weight:900}
 .marketing-app-status i{width:7px;height:7px;border-radius:50%;background:var(--nb-success);box-shadow:0 0 0 5px rgba(142,209,165,.08)}
 .marketing-app-body{display:grid;grid-template-columns:126px minmax(0,1fr);min-height:472px}
 .marketing-app-sidebar{
@@ -181,7 +181,7 @@
   align-items:center;
   gap:8px;
   color:#718498;
-  font-size:9px;
+  font-size:10px;
   font-weight:800;
 }
 .marketing-app-sidebar span.active{background:#172334;color:#e8eef4}
@@ -189,10 +189,10 @@
 .marketing-app-main{min-width:0;padding:20px}
 .marketing-app-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:14px}
 .marketing-app-heading small,.marketing-app-heading strong{display:block}
-.marketing-app-heading small{font-size:8px;letter-spacing:.12em;color:var(--nb-accent-hover);font-weight:900}
+.marketing-app-heading small{font-size:10px;letter-spacing:.12em;color:var(--nb-accent-hover);font-weight:900}
 .marketing-app-heading strong{margin-top:4px;font-size:17px;letter-spacing:-.025em}
 .marketing-app-heading strong em{font-style:normal;color:#91a3b5;font-weight:600}
-.marketing-app-heading>span{padding:8px 10px;border-radius:8px;background:var(--nb-accent);color:#16110b;font-size:8px;font-weight:900;white-space:nowrap}
+.marketing-app-heading>span{padding:8px 10px;border-radius:8px;background:var(--nb-accent);color:#16110b;font-size:10px;font-weight:900;white-space:nowrap}
 
 .marketing-start-card{
   display:grid;
@@ -206,9 +206,9 @@
 }
 .marketing-start-card>div{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#322310;color:var(--nb-warning)}
 .marketing-start-card section small,.marketing-start-card section strong,.marketing-start-card section p{display:block}
-.marketing-start-card section small{font-size:7px;letter-spacing:.1em;color:var(--nb-warning);font-weight:900}
+.marketing-start-card section small{font-size:10px;letter-spacing:.1em;color:var(--nb-warning);font-weight:900}
 .marketing-start-card section strong{margin-top:2px;font-size:11px}
-.marketing-start-card section p{margin:2px 0 0;color:#8496a8;font-size:8px;line-height:1.35}
+.marketing-start-card section p{margin:2px 0 0;color:#8496a8;font-size:10px;line-height:1.35}
 .marketing-start-card>svg{color:#74879a}
 
 .marketing-flow-preview{
@@ -219,15 +219,15 @@
 }
 .marketing-flow-preview>div{min-height:70px;padding:9px;border:1px solid #26394b;border-radius:9px;background:#0b151f}
 .marketing-flow-preview small,.marketing-flow-preview strong{display:block}
-.marketing-flow-preview small{min-height:20px;color:#718599;font-size:6px;line-height:1.25;font-weight:850;letter-spacing:.05em}
+.marketing-flow-preview small{min-height:20px;color:#718599;font-size:10px;line-height:1.25;font-weight:850;letter-spacing:.05em}
 .marketing-flow-preview strong{margin-top:5px;font-size:20px}
 .marketing-flow-preview>div.active{border-color:#315441;background:#102219}
 .marketing-flow-preview>div.active strong{color:var(--nb-success)}
 
 .marketing-job-preview{margin-top:12px;border:1px solid #26394b;border-radius:11px;background:#0b151f;overflow:hidden}
 .marketing-job-preview-head{min-height:36px;padding:0 11px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #25384a}
-.marketing-job-preview-head span{font-size:7px;letter-spacing:.09em;color:var(--nb-accent-hover);font-weight:900}
-.marketing-job-preview-head small{color:#72869a;font-size:7px}
+.marketing-job-preview-head span{font-size:10px;letter-spacing:.09em;color:var(--nb-accent-hover);font-weight:900}
+.marketing-job-preview-head small{color:#72869a;font-size:10px}
 .marketing-job-preview-row{
   min-height:60px;
   padding:9px 11px;
@@ -238,12 +238,12 @@
   border-bottom:1px solid #1f3041;
 }
 .marketing-job-preview-row:last-child{border-bottom:0}
-.marketing-job-preview-row time{color:var(--nb-accent-hover);font-size:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.marketing-job-preview-row time{color:var(--nb-accent-hover);font-size:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .marketing-job-preview-row section{min-width:0}
 .marketing-job-preview-row section strong,.marketing-job-preview-row section span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.marketing-job-preview-row section strong{font-size:9px}
-.marketing-job-preview-row section span{margin-top:3px;color:#708397;font-size:7px}
-.marketing-job-preview-row em{font-style:normal;padding:4px 6px;border-radius:999px;border:1px solid #315441;background:#102219;color:var(--nb-success);font-size:6px;font-weight:900;letter-spacing:.04em}
+.marketing-job-preview-row section strong{font-size:10px}
+.marketing-job-preview-row section span{margin-top:3px;color:#708397;font-size:10px}
+.marketing-job-preview-row em{font-style:normal;padding:4px 6px;border-radius:999px;border:1px solid #315441;background:#102219;color:var(--nb-success);font-size:10px;font-weight:900;letter-spacing:.04em}
 .marketing-job-preview-row.muted em{border-color:#6a532f;background:#251b10;color:var(--nb-warning)}
 
 .marketing-float-card{
@@ -263,7 +263,7 @@
 .marketing-float-card svg{color:var(--nb-accent-hover);flex:0 0 auto}
 .marketing-float-card strong,.marketing-float-card span{display:block}
 .marketing-float-card strong{font-size:10px}
-.marketing-float-card span{margin-top:2px;color:#7f92a5;font-size:8px}
+.marketing-float-card span{margin-top:2px;color:#7f92a5;font-size:10px}
 .marketing-float-mobile{left:0;bottom:4px}
 .marketing-float-connected{right:0;top:5px}
 
@@ -307,7 +307,7 @@
 }
 .marketing-workflow-rail article>div{display:flex;align-items:center;justify-content:space-between;color:var(--nb-accent-hover)}
 .marketing-workflow-rail article>div b{font-size:10px;color:#52677b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.marketing-workflow-rail article>small{display:block;margin-top:28px;color:#667c91;font-size:9px;letter-spacing:.12em;font-weight:900}
+.marketing-workflow-rail article>small{display:block;margin-top:28px;color:#667c91;font-size:10px;letter-spacing:.12em;font-weight:900}
 .marketing-workflow-rail article>strong{display:block;margin-top:5px;font-size:18px}
 .marketing-workflow-rail article>p{margin:9px 0 0;color:#8396a9;font-size:12px}
 .marketing-rail-arrow{color:#455a6e}
@@ -497,7 +497,7 @@
 @media(max-width:430px){
   .marketing-hero h1{font-size:49px}
   .marketing-app-topbar{padding:0 12px}
-  .marketing-app-status{font-size:7px}
+  .marketing-app-status{font-size:10px}
   .marketing-app-heading>span{display:none}
   .marketing-start-card{grid-template-columns:auto minmax(0,1fr)}
   .marketing-start-card>svg{display:none}

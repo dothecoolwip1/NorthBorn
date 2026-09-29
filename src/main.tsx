@@ -29,6 +29,7 @@ const BillingQueuePage = React.lazy(() => import('./BillingQueuePage'))
 const EmployeeFleetAccessPage = React.lazy(() => import('./EmployeeFleetAccessPage'))
 const SafetyRoutePage = React.lazy(() => import('./SafetyRoutePage'))
 const TemplateManagerPage = React.lazy(() => import('./TemplateManagerPage'))
+const SuperAdminPage = React.lazy(() => import('./SuperAdminPage'))
 import GlobalAccountMenu from './GlobalAccountMenu'
 import TestRoleSwitcher from './TestRoleSwitcher'
 import ReleaseNotes from './ReleaseNotes'
@@ -48,7 +49,7 @@ import './qa-final-polish.css'
 const RETIRED_TEST_KEYS = ['northborn_test_mode', 'northborn_test_persona']
 for (const key of RETIRED_TEST_KEYS) localStorage.removeItem(key)
 
-type RouteRole = 'loading' | 'guest' | 'unconnected' | 'manager' | 'operator' | 'client' | 'error'
+type RouteRole = 'loading' | 'guest' | 'unconnected' | 'manager' | 'operator' | 'client' | 'superadmin' | 'error'
 function StandardApp() {
   return <><RoleAwareApp /><AuthEnhancements /></>
 }
@@ -76,6 +77,11 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole, internalRoleKey
   if (routeRole === 'guest') {
     if (normalizedPath === '/') return <MarketingHome />
     return <StandardApp />
+  }
+
+  if (routeRole === 'superadmin') {
+    if (normalizedPath === '/' || normalizedPath === '/super-admin') return <SuperAdminPage />
+    return <WorkspaceNotFound homeLabel="Back to super admin" />
   }
 
   if (routeRole === 'unconnected') return <StandardApp />
@@ -192,6 +198,14 @@ function NorthbornRouter() {
 
       setRouteRole('loading')
       try {
+        const platformAccess = await (supabase as any).rpc('link_platform_admin_identity')
+        if (!active) return
+        if (!platformAccess.error && platformAccess.data === true) {
+          setInternalRoleKey([])
+          setRouteRole('superadmin')
+          return
+        }
+
         const access = await resolveWorkspaceAccess(session.user.id)
         if (!active) return
         if (access.kind === 'internal') {
@@ -232,6 +246,7 @@ function NorthbornOnlyChrome() {
     return () => observer.disconnect()
   }, [])
 
+  if ((location.pathname.replace(/\\/+$/, '') || '/') === '/super-admin') return null
   return <><GlobalAccountMenu /><TestRoleSwitcher /><ReleaseNotes /></>
 }
 

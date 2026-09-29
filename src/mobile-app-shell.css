@@ -1,0 +1,160 @@
+:root{--nb-mobile-nav-height:72px}
+
+.northborn-mobile-tabs{display:none}
+.northborn-menu-close{display:none}
+
+@media(max-width:760px){
+  body:has(.northborn-mobile-tabs){padding-bottom:calc(var(--nb-mobile-nav-height) + env(safe-area-inset-bottom))}
+  body:has(.northborn-mobile-tabs) .northborn-account-trigger{display:none!important}
+
+  .northborn-mobile-tabs{
+    position:fixed;
+    z-index:10070;
+    left:0;
+    right:0;
+    bottom:0;
+    min-height:calc(var(--nb-mobile-nav-height) + env(safe-area-inset-bottom));
+    padding:6px max(8px,env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-right));
+    display:grid;
+    grid-auto-flow:column;
+    grid-auto-columns:1fr;
+    align-items:stretch;
+    gap:2px;
+    border-top:1px solid var(--nb-border-default);
+    background:rgba(8,17,26,.97);
+    box-shadow:0 -14px 36px rgba(0,0,0,.28);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+  }
+  .northborn-mobile-tabs>button{
+    position:relative;
+    min-width:0;
+    min-height:58px;
+    border:0;
+    border-radius:var(--nb-radius-md);
+    background:transparent;
+    color:var(--nb-text-muted);
+    display:grid;
+    grid-template-rows:25px 18px;
+    place-items:center;
+    align-content:center;
+    gap:1px;
+    padding:4px 3px;
+    font-weight:800;
+    cursor:pointer;
+  }
+  .northborn-mobile-tabs>button::before{
+    content:"";
+    position:absolute;
+    top:-6px;
+    left:50%;
+    width:0;
+    height:3px;
+    border-radius:0 0 3px 3px;
+    background:var(--nb-accent);
+    transform:translateX(-50%);
+    transition:width var(--nb-transition-fast);
+  }
+  .northborn-mobile-tabs>button>svg{transition:color var(--nb-transition-fast),transform var(--nb-transition-fast)}
+  .northborn-mobile-tabs>button>span{
+    min-width:0;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:var(--nb-font-xs);
+    line-height:1;
+    letter-spacing:.01em;
+  }
+  .northborn-mobile-tabs>button.active{color:var(--nb-text-primary);background:rgba(213,138,52,.08)}
+  .northborn-mobile-tabs>button.active::before{width:28px}
+  .northborn-mobile-tabs>button.active>svg{color:var(--nb-accent);transform:translateY(-1px)}
+  .northborn-mobile-tabs>button:active{background:rgba(255,255,255,.06)}
+  .northborn-mobile-tabs>button>b{
+    position:absolute;
+    top:5px;
+    left:calc(50% + 7px);
+    min-width:18px;
+    height:18px;
+    padding:0 4px;
+    border-radius:var(--nb-radius-pill);
+    background:var(--nb-accent);
+    border:2px solid var(--nb-bg-app);
+    color:#17120b;
+    display:grid;
+    place-items:center;
+    font-size:10px;
+    line-height:1;
+  }
+
+  .northborn-account-popover{
+    top:auto!important;
+    left:8px!important;
+    right:8px!important;
+    bottom:calc(var(--nb-mobile-nav-height) + env(safe-area-inset-bottom) + 8px)!important;
+    width:auto!important;
+    max-height:min(72dvh,620px)!important;
+    padding:10px 12px 16px!important;
+    border-radius:var(--nb-radius-lg)!important;
+    box-shadow:var(--nb-shadow-sheet)!important;
+    overscroll-behavior:contain;
+  }
+  .northborn-account-popover::before{
+    content:"";
+    display:block;
+    width:38px;
+    height:4px;
+    margin:0 auto 10px;
+    border-radius:var(--nb-radius-pill);
+    background:var(--nb-border-strong);
+  }
+  .northborn-account-scrim{
+    z-index:10060!important;
+    bottom:calc(var(--nb-mobile-nav-height) + env(safe-area-inset-bottom));
+    background:rgba(1,6,12,.64)!important;
+  }
+  .northborn-account-popover{z-index:10065}
+  .northborn-account-heading{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto;gap:10px}
+  .northborn-menu-close{
+    width:var(--nb-touch);
+    height:var(--nb-touch);
+    border:0;
+    border-radius:var(--nb-radius-md);
+    background:var(--nb-surface-raised);
+    color:var(--nb-text-secondary);
+    display:grid;
+    place-items:center;
+  }
+
+  .northborn-navigation-links button[data-mobile-primary="true"]{display:none}
+  .northborn-navigation-links{gap:6px}
+  .northborn-menu-links button,.northborn-test-account-list button,.northborn-settings-entry{min-height:56px}
+
+  .northborn-notification-toast{
+    top:auto!important;
+    bottom:calc(var(--nb-mobile-nav-height) + env(safe-area-inset-bottom) + 10px);
+    left:10px;
+    right:10px;
+    width:auto;
+    max-width:none;
+  }
+
+  /* Existing pages no longer reserve header space for a floating hamburger. */
+  body:has(.northborn-mobile-tabs) header{padding-right:inherit!important}
+  body:has(.northborn-mobile-tabs) .field-mobile-nav{padding-right:inherit}
+
+  /* Keep floating demo controls clear of primary navigation. */
+  body:has(.northborn-mobile-tabs) .northborn-test-role-switcher{
+    bottom:calc(var(--nb-mobile-nav-height) + env(safe-area-inset-bottom) + 10px)!important;
+  }
+  body:has(.northborn-mobile-tabs) .northborn-test-role-popover{
+    bottom:calc(var(--nb-mobile-nav-height) + env(safe-area-inset-bottom) + 64px)!important;
+    max-height:calc(100dvh - var(--nb-mobile-nav-height) - 100px)!important;
+  }
+}
+
+@media(max-width:390px){
+  .northborn-mobile-tabs{padding-left:5px;padding-right:5px;gap:0}
+  .northborn-mobile-tabs>button{padding-left:1px;padding-right:1px}
+  .northborn-mobile-tabs>button>span{font-size:11px}
+}

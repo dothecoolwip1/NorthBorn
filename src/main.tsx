@@ -118,6 +118,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole, internalRoleKey
     if (normalizedPath === '/tickets') return <FieldTicketsPage />
     if (normalizedPath === '/ticket-print') return <TicketPrintPage />
     if (normalizedPath === '/timesheets') return <TimesheetsRoutePage />
+    if (normalizedPath === '/timesheet-print') return <TimesheetPrintPage />
     if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) return <SafetyRoutePage />
     return <WorkspaceNotFound />
   }

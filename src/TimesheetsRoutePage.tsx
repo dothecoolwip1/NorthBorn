@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, Clock3, FileClock, Filter, Plus, RefreshCw, Send, Trash2, UserRound, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import TemplateRuntimeFields, { validateTemplateAnswers } from './TemplateRuntimeFields'
+import FormSignaturePad from './FormSignaturePad'
+import RecordAttachments from './RecordAttachments'
+import type { TemplateRow } from './template-manager-data'
 import './timesheets.css'
 
 const db=supabase as any
@@ -8,8 +12,8 @@ const db=supabase as any
 type Organization={id:string;name:string}
 type Employee={id:string;user_id:string|null;first_name:string;last_name:string;position:string|null;status:string}
 type Job={id:string;job_number:string;title:string;status:string}
-type Entry={id:string;organization_id:string;employee_id:string;job_id:string|null;work_date:string;start_time:string|null;end_time:string|null;break_minutes:number;regular_hours:number|string;overtime_hours:number|string;notes:string|null;status:'draft'|'submitted'|'approved'|'rejected';submitted_at:string|null;reviewed_at:string|null;reviewed_by:string|null;review_note:string|null;created_by:string;created_at:string;updated_at:string}
-type Form={id:string|null;employee_id:string;job_id:string;work_date:string;start_time:string;end_time:string;break_minutes:string;regular_hours:string;overtime_hours:string;notes:string}
+type Entry={id:string;organization_id:string;employee_id:string;job_id:string|null;work_date:string;start_time:string|null;end_time:string|null;break_minutes:number;regular_hours:number|string;overtime_hours:number|string;notes:string|null;status:'draft'|'submitted'|'approved'|'rejected';submitted_at:string|null;reviewed_at:string|null;reviewed_by:string|null;review_note:string|null;created_by:string;created_at:string;updated_at:string;template_id?:string|null;template_version?:number|null;custom_answers?:Record<string,unknown>;employee_signature_data?:string|null;employee_signed_at?:string|null}
+type Form={id:string|null;employee_id:string;job_id:string;work_date:string;start_time:string;end_time:string;break_minutes:string;regular_hours:string;overtime_hours:string;notes:string;template_id:string;template_version:number|null;custom_answers:Record<string,string|number|boolean|null|undefined>;employee_signature_data:string;employee_signed_at:string;pending_files:File[]}
 
 const MANAGE_ROLES=new Set(['owner','admin','supervisor','accounting'])
 const SUBMIT_ROLES=new Set(['owner','admin','supervisor','mechanic','operator'])
@@ -19,6 +23,7 @@ const dateLabel=(value:string)=>new Intl.DateTimeFormat('en-CA',{weekday:'short'
 const number=(value:unknown)=>Number(value||0)
 const hours=(value:number)=>`${value.toFixed(value%1===0?0:2)} h`
 const readError=(error:unknown)=>error instanceof Error?error.message:String((error as {message?:string})?.message||error||'Something went wrong.')
+const safeFileName=(name:string)=>name.toLowerCase().replace(/[^a-z0-9._-]+/g,'-').replace(/^-+|-+$/g,'')||'attachment'
 
 function startOfWeek(date=new Date()){
   const copy=new Date(date);const day=copy.getDay();const diff=day===0?-6:1-day;copy.setDate(copy.getDate()+diff);copy.setHours(12,0,0,0);return copy
@@ -31,7 +36,7 @@ function calculateShift(start:string,end:string,breakMinutes:string){
   minutes=Math.max(0,minutes-Math.max(0,Number(breakMinutes)||0));const total=Math.round(minutes/60*100)/100
   return {total,regular:Math.min(8,total),overtime:Math.max(0,Math.round((total-8)*100)/100)}
 }
-function emptyForm(employeeId=''):Form{return {id:null,employee_id:employeeId,job_id:'',work_date:localDate(),start_time:'',end_time:'',break_minutes:'0',regular_hours:'0',overtime_hours:'0',notes:''}}
+function emptyForm(employeeId='',template?:TemplateRow|null):Form{return {id:null,employee_id:employeeId,job_id:'',work_date:localDate(),start_time:'',end_time:'',break_minutes:'0',regular_hours:'0',overtime_hours:'0',notes:'',template_id:template?.id||'',template_version:template?.version||null,custom_answers:{},employee_signature_data:'',employee_signed_at:'',pending_files:[]}}
 
 export default function TimesheetsRoutePage(){
   const [organization,setOrganization]=useState<Organization|null>(null)
@@ -49,6 +54,7 @@ export default function TimesheetsRoutePage(){
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
   const [form,setForm]=useState<Form|null>(null)
+  const [activeTemplate,setActiveTemplate]=useState<TemplateRow|null>(null)
 
   const canManage=MANAGE_ROLES.has(roleKey)
   const canSubmit=SUBMIT_ROLES.has(roleKey)
@@ -61,21 +67,24 @@ export default function TimesheetsRoutePage(){
     const membership=await db.from('organization_members').select('id,organization_id,organization:organizations(id,name)').eq('user_id',user.id).eq('status','active').limit(1).maybeSingle()
     if(membership.error||!membership.data?.id){setError(membership.error?.message||'No active Northborn company was found.');setLoading(false);return}
     const roleResult=await db.from('membership_roles').select('role:roles(key)').eq('membership_id',membership.data.id)
-    const resolvedRole=roleResult.data?.[0]?.role?.key||'';setRoleKey(resolvedRole)
+    const roleKeys=(roleResult.data||[]).map((row:any)=>row.role?.key).filter(Boolean)
+    const precedence=['owner','admin','supervisor','accounting','dispatcher','safety','mechanic','operator']
+    const resolvedRole=precedence.find(key=>roleKeys.includes(key))||roleKeys[0]||'';setRoleKey(resolvedRole)
     const org=membership.data.organization as Organization;setOrganization(org)
-    const [employeeResult,jobResult]=await Promise.all([
+    const [employeeResult,jobResult,templateResult]=await Promise.all([
       db.from('employees').select('id,user_id,first_name,last_name,position,status').eq('organization_id',org.id).neq('status','archived').order('last_name').order('first_name'),
       db.from('jobs').select('id,job_number,title,status').eq('organization_id',org.id).neq('status','cancelled').order('created_at',{ascending:false}).limit(250),
+      db.from('document_templates').select('*').eq('organization_id',org.id).eq('document_type','timesheet').eq('status','active').order('is_default',{ascending:false}).order('updated_at',{ascending:false}).limit(1).maybeSingle(),
     ])
     if(employeeResult.error||jobResult.error){setError(employeeResult.error?.message||jobResult.error?.message||'Unable to load timesheet setup.');setLoading(false);return}
-    const employeeRows=(employeeResult.data||[]) as Employee[];setEmployees(employeeRows);setJobs((jobResult.data||[]) as Job[])
+    const employeeRows=(employeeResult.data||[]) as Employee[];setEmployees(employeeRows);setJobs((jobResult.data||[]) as Job[]);setActiveTemplate((templateResult.data||null) as TemplateRow|null)
     const own=employeeRows.find(employee=>employee.user_id===user.id);setOwnEmployeeId(own?.id||'')
     setLoading(false)
   },[])
 
   const loadEntries=useCallback(async()=>{
     if(!organization)return
-    const result=await db.from('timesheet_entries').select('id,organization_id,employee_id,job_id,work_date,start_time,end_time,break_minutes,regular_hours,overtime_hours,notes,status,submitted_at,reviewed_at,reviewed_by,review_note,created_by,created_at,updated_at').eq('organization_id',organization.id).gte('work_date',range.start).lte('work_date',range.end).order('work_date',{ascending:false}).order('created_at',{ascending:false})
+    const result=await db.from('timesheet_entries').select('*').eq('organization_id',organization.id).gte('work_date',range.start).lte('work_date',range.end).order('work_date',{ascending:false}).order('created_at',{ascending:false})
     if(result.error)setError(result.error.message);else setEntries((result.data||[]) as Entry[])
   },[organization,range.start,range.end])
 
@@ -90,9 +99,9 @@ export default function TimesheetsRoutePage(){
   const openNew=()=>{
     const target=canManage?(employeeFilter!=='all'?employeeFilter:ownEmployeeId||employees[0]?.id||''):ownEmployeeId
     if(!target){setError('Your login is not linked to an employee record yet.');return}
-    setForm(emptyForm(target));setError('');setNotice('')
+    setForm(emptyForm(target,activeTemplate));setError('');setNotice('')
   }
-  const editEntry=(entry:Entry)=>setForm({id:entry.id,employee_id:entry.employee_id,job_id:entry.job_id||'',work_date:entry.work_date,start_time:entry.start_time?.slice(0,5)||'',end_time:entry.end_time?.slice(0,5)||'',break_minutes:String(entry.break_minutes||0),regular_hours:String(entry.regular_hours||0),overtime_hours:String(entry.overtime_hours||0),notes:entry.notes||''})
+  const editEntry=(entry:Entry)=>setForm({id:entry.id,employee_id:entry.employee_id,job_id:entry.job_id||'',work_date:entry.work_date,start_time:entry.start_time?.slice(0,5)||'',end_time:entry.end_time?.slice(0,5)||'',break_minutes:String(entry.break_minutes||0),regular_hours:String(entry.regular_hours||0),overtime_hours:String(entry.overtime_hours||0),notes:entry.notes||'',template_id:entry.template_id||activeTemplate?.id||'',template_version:entry.template_version||activeTemplate?.version||null,custom_answers:(entry.custom_answers||{}) as Record<string,string|number|boolean|null|undefined>,employee_signature_data:entry.employee_signature_data||'',employee_signed_at:entry.employee_signed_at||'',pending_files:[]})
   const applyShift=()=>{if(!form)return;const calc=calculateShift(form.start_time,form.end_time,form.break_minutes);if(calc)setForm({...form,regular_hours:String(calc.regular),overtime_hours:String(calc.overtime)})}
 
   const save=async(submit:boolean)=>{
@@ -103,10 +112,21 @@ export default function TimesheetsRoutePage(){
       const regular=Math.max(0,Number(form.regular_hours)||0),overtime=Math.max(0,Number(form.overtime_hours)||0)
       if(regular+overtime<=0)throw new Error('Enter at least some worked hours.')
       if(regular+overtime>24)throw new Error('A single timesheet entry cannot exceed 24 hours.')
+      const templateValidation=validateTemplateAnswers(form.template_id===activeTemplate?.id?activeTemplate:null,form.custom_answers)
+      if(templateValidation)throw new Error(templateValidation)
+      if(submit&&!form.employee_signature_data)throw new Error('Sign the timesheet before submitting it.')
       const status=submit?'submitted':'draft'
-      const payload={employee_id:form.employee_id,job_id:form.job_id||null,work_date:form.work_date,start_time:form.start_time||null,end_time:form.end_time||null,break_minutes:Math.max(0,Number(form.break_minutes)||0),regular_hours:regular,overtime_hours:overtime,notes:form.notes.trim()||null,status,submitted_at:submit?new Date().toISOString():null,reviewed_at:null,reviewed_by:null,review_note:null}
-      if(form.id){const result=await db.from('timesheet_entries').update(payload).eq('id',form.id).eq('organization_id',organization.id);if(result.error)throw result.error}
-      else {const result=await db.from('timesheet_entries').insert({...payload,organization_id:organization.id,created_by:userId});if(result.error)throw result.error}
+      const payload={employee_id:form.employee_id,job_id:form.job_id||null,work_date:form.work_date,start_time:form.start_time||null,end_time:form.end_time||null,break_minutes:Math.max(0,Number(form.break_minutes)||0),regular_hours:regular,overtime_hours:overtime,notes:form.notes.trim()||null,template_id:form.template_id||null,template_version:form.template_id?form.template_version:null,custom_answers:form.custom_answers,employee_signature_data:form.employee_signature_data||null,employee_signed_at:form.employee_signature_data?(form.employee_signed_at||new Date().toISOString()):null,status,submitted_at:submit?new Date().toISOString():null,reviewed_at:null,reviewed_by:null,review_note:null}
+      let entryId=form.id
+      if(entryId){const result=await db.from('timesheet_entries').update(payload).eq('id',entryId).eq('organization_id',organization.id);if(result.error)throw result.error}
+      else {const result=await db.from('timesheet_entries').insert({...payload,organization_id:organization.id,created_by:userId}).select('id').single();if(result.error)throw result.error;entryId=result.data.id}
+      for(const file of form.pending_files){
+        const path=organization.id+'/timesheets/'+entryId+'/'+crypto.randomUUID()+'-'+safeFileName(file.name)
+        const upload=await supabase.storage.from('form-attachments').upload(path,file,{contentType:file.type||undefined})
+        if(upload.error)throw upload.error
+        const meta=await db.from('timesheet_attachments').insert({organization_id:organization.id,timesheet_entry_id:entryId,file_name:file.name,storage_path:path,mime_type:file.type||null,file_size:file.size,created_by:userId})
+        if(meta.error){await supabase.storage.from('form-attachments').remove([path]);throw meta.error}
+      }
       setNotice(submit?'Timesheet entry submitted for review.':'Draft timesheet saved.');setForm(null);await loadEntries()
     }catch(caught){setError(readError(caught))}finally{setBusy(false)}
   }
@@ -145,7 +165,7 @@ export default function TimesheetsRoutePage(){
         const employee=employees.find(item=>item.id===entry.employee_id),job=jobs.find(item=>item.id===entry.job_id),editable=(entry.status==='draft'||entry.status==='rejected')&&(canManage||entry.employee_id===ownEmployeeId)
         return <article className={`timesheet-entry status-${entry.status}`} key={entry.id}>
           <div className="timesheet-date"><strong>{dateLabel(entry.work_date)}</strong><span>{entry.start_time&&entry.end_time?`${entry.start_time.slice(0,5)} – ${entry.end_time.slice(0,5)}`:'Hours only'}</span></div>
-          <div className="timesheet-entry-main"><div><UserRound size={15}/><strong>{employee?`${employee.first_name} ${employee.last_name}`:'Employee'}</strong>{job&&<span>{job.job_number} · {job.title}</span>}</div>{entry.notes&&<p>{entry.notes}</p>}{entry.review_note&&<small className="timesheet-review-note">Returned: {entry.review_note}</small>}</div>
+          <div className="timesheet-entry-main"><div><UserRound size={15}/><strong>{employee?`${employee.first_name} ${employee.last_name}`:'Employee'}</strong>{job&&<span>{job.job_number} · {job.title}</span>}</div>{entry.notes&&<p>{entry.notes}</p>}{entry.review_note&&<small className="timesheet-review-note">Returned: {entry.review_note}</small>}{entry.employee_signed_at&&<small>Signed {new Intl.DateTimeFormat('en-CA',{dateStyle:'medium',timeStyle:'short'}).format(new Date(entry.employee_signed_at))}</small>}{entry.custom_answers&&Object.keys(entry.custom_answers).length>0&&<div className="timesheet-template-summary">{Object.entries(entry.custom_answers).map(([key,value])=><small key={key}>{key.replaceAll('_',' ')}: {String(value??'')}</small>)}</div>}<RecordAttachments organizationId={entry.organization_id} recordType="timesheet" recordId={entry.id} onError={setError}/></div>
           <div className="timesheet-hours"><strong>{hours(number(entry.regular_hours)+number(entry.overtime_hours))}</strong><span>{hours(number(entry.regular_hours))} regular{number(entry.overtime_hours)>0?` · ${hours(number(entry.overtime_hours))} OT`:''}</span></div>
           <div className="timesheet-state"><span>{entry.status}</span>{entry.break_minutes>0&&<small>{entry.break_minutes} min break</small>}</div>
           <div className="timesheet-actions">{canManage&&entry.status==='submitted'&&<><button type="button" className="approve" disabled={busy} onClick={()=>void review(entry,'approved')}><Check size={15}/>Approve</button><button type="button" className="reject" disabled={busy} onClick={()=>void review(entry,'rejected')}><X size={15}/>Return</button></>}{editable&&<><button type="button" disabled={busy} onClick={()=>editEntry(entry)}>Edit</button><button type="button" className="delete" disabled={busy} onClick={()=>void remove(entry)}><Trash2 size={15}/></button></>}</div>
@@ -160,7 +180,7 @@ export default function TimesheetsRoutePage(){
       <label>Start time<input type="time" value={form.start_time} onChange={event=>setForm({...form,start_time:event.target.value})}/></label><label>End time<input type="time" value={form.end_time} onChange={event=>setForm({...form,end_time:event.target.value})}/></label>
       <label>Break minutes<input type="number" min="0" max="1440" step="5" value={form.break_minutes} onChange={event=>setForm({...form,break_minutes:event.target.value})}/></label><div className="timesheet-calc"><button type="button" onClick={applyShift} disabled={!calculateShift(form.start_time,form.end_time,form.break_minutes)}><Clock3 size={15}/>Calculate hours</button>{calculateShift(form.start_time,form.end_time,form.break_minutes)&&<span>{hours(calculateShift(form.start_time,form.end_time,form.break_minutes)!.total)} after break</span>}</div>
       <label>Regular hours<input type="number" min="0" max="24" step="0.25" value={form.regular_hours} onChange={event=>setForm({...form,regular_hours:event.target.value})}/></label><label>Overtime hours<input type="number" min="0" max="24" step="0.25" value={form.overtime_hours} onChange={event=>setForm({...form,overtime_hours:event.target.value})}/></label>
-      <label className="wide">Notes<textarea rows={4} value={form.notes} onChange={event=>setForm({...form,notes:event.target.value})} placeholder="Work performed, delays, travel or anything payroll should know."/></label>
+      <label className="wide">Notes<textarea rows={4} value={form.notes} onChange={event=>setForm({...form,notes:event.target.value})} placeholder="Work performed, delays, travel or anything payroll should know."/></label>{form.template_id===activeTemplate?.id&&<div className="wide"><TemplateRuntimeFields template={activeTemplate} values={form.custom_answers} onChange={values=>setForm({...form,custom_answers:values})}/></div>}<label className="wide">Attachments<input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={event=>setForm({...form,pending_files:Array.from(event.target.files||[])})}/>{form.pending_files.length>0&&<small>{form.pending_files.length} file{form.pending_files.length===1?'':'s'} will upload when saved.</small>}</label><div className="wide"><FormSignaturePad value={form.employee_signature_data} onChange={data=>setForm({...form,employee_signature_data:data,employee_signed_at:data?new Date().toISOString():''})} label="Employee signature"/></div>
     </div><footer><button type="button" disabled={busy} onClick={()=>setForm(null)}>Cancel</button><button type="button" disabled={busy} onClick={()=>void save(false)}>Save draft</button><button type="button" className="timesheet-primary" disabled={busy} onClick={()=>void save(true)}><Send size={16}/>{busy?'Saving…':'Submit time'}</button></footer></section></div>}
   </main>
 }

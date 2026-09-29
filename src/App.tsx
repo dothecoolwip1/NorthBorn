@@ -162,7 +162,69 @@ export default function App({ resolvedSession, authResolved = false }: AppProps)
   </div>
 }
 
-function AuthScreen({ onTestLogin }: { onTestLogin: () => void }) { const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [mode,setMode]=useState<'signin'|'signup'>('signin'); const [message,setMessage]=useState(''); const [submitting,setSubmitting]=useState(false); const submit=async(e:React.FormEvent)=>{e.preventDefault();setMessage('');setSubmitting(true);const normalized=email.trim().toLowerCase();if(mode==='signin'&&normalized==='admin'){const hash=await sha256(password);setSubmitting(false);if(hash===TEST_PASSWORD_HASH)return onTestLogin();return setMessage('Invalid login credentials')}const result=mode==='signin'?await supabase.auth.signInWithPassword({email:email.trim(),password}):await supabase.auth.signUp({email:email.trim(),password,options:{emailRedirectTo:window.location.origin}});setSubmitting(false);if(result.error)return setMessage(result.error.message);if(mode==='signup'&&!result.data.session)setMessage('Check your email to confirm your Northborn account.')}; return <div className="auth-page"><div className="auth-card"><div className="auth-logo">N</div><h1>Northborn</h1><p>Field operations, built for the work.</p><form onSubmit={submit}><label>Email or username<input value={email} onChange={e=>setEmail(e.target.value)} required/></label><label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength={mode==='signin'?1:8} required/></label>{message&&<div className="message">{message}</div>}<button className="primary" disabled={submitting}>{submitting?'Working…':mode==='signin'?'Sign in':'Create account'}</button></form>{mode==='signin'&&<div className="test-login-hint"><strong>Testing:</strong> admin / admin</div>}<button className="link-button" onClick={()=>{setMode(mode==='signin'?'signup':'signin');setMessage('')}}>{mode==='signin'?'New to Northborn? Create an account':'Already have an account? Sign in'}</button></div></div> }
+function AuthScreen({ onTestLogin }: { onTestLogin: () => void }) {
+  const [email,setEmail]=useState('')
+  const [password,setPassword]=useState('')
+  const [mode,setMode]=useState<'signin'|'signup'>('signin')
+  const [message,setMessage]=useState('')
+  const [submitting,setSubmitting]=useState(false)
+
+  const chooseMode = (next:'signin'|'signup') => {
+    setMode(next)
+    setMessage('')
+    setPassword('')
+  }
+
+  const submit=async(e:React.FormEvent)=>{
+    e.preventDefault()
+    setMessage('')
+    setSubmitting(true)
+    const normalized=email.trim().toLowerCase()
+
+    if(mode==='signin'&&normalized==='admin'){
+      const hash=await sha256(password)
+      setSubmitting(false)
+      if(hash===TEST_PASSWORD_HASH)return onTestLogin()
+      return setMessage('Invalid test login credentials')
+    }
+
+    const result=mode==='signin'
+      ? await supabase.auth.signInWithPassword({email:email.trim(),password})
+      : await supabase.auth.signUp({email:email.trim(),password,options:{emailRedirectTo:window.location.origin}})
+
+    setSubmitting(false)
+
+    if(result.error){
+      if(mode==='signin'&&(result.error.code==='invalid_credentials'||result.error.message.toLowerCase().includes('invalid login credentials'))){
+        return setMessage("Email or password didn't match a Northborn account. If this is a new email, choose Create account above.")
+      }
+      return setMessage(result.error.message)
+    }
+
+    if(mode==='signup'&&!result.data.session){
+      setMessage('Account created. Check your email to confirm it, then return here and sign in.')
+    }
+  }
+
+  return <div className="auth-page"><div className="auth-card">
+    <div className="auth-logo">N</div>
+    <h1>{mode==='signin'?'Sign in to Northborn':'Create your Northborn account'}</h1>
+    <p>{mode==='signin'?'Use an existing Northborn login.':'Create a new login with your email and password.'}</p>
+
+    <div className="account-choice-actions" style={{gridTemplateColumns:'1fr 1fr'}}>
+      <button type="button" className={mode==='signin'?'primary':'secondary'} onClick={()=>chooseMode('signin')}>Sign in</button>
+      <button type="button" className={mode==='signup'?'primary':'secondary'} onClick={()=>chooseMode('signup')}>Create account</button>
+    </div>
+
+    <form onSubmit={submit}>
+      <label>Email or username<input value={email} onChange={e=>setEmail(e.target.value)} autoComplete="username" required/></label>
+      <label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength={mode==='signin'?1:8} autoComplete={mode==='signin'?'current-password':'new-password'} required/></label>
+      {message&&<div className="message">{message}</div>}
+      <button className="primary" disabled={submitting}>{submitting?'Working…':mode==='signin'?'Sign in':'Create account'}</button>
+    </form>
+    {mode==='signin'&&<div className="test-login-hint"><strong>Testing:</strong> admin / admin</div>}
+  </div></div>
+}
 function OrganizationSetup({userId,onCreated}:{userId:string;onCreated:(o:Organization)=>void}){const[name,setName]=useState('');const[error,setError]=useState('');const[submitting,setSubmitting]=useState(false);const submit=async(e:React.FormEvent)=>{e.preventDefault();setError('');setSubmitting(true);const result=await supabase.from('organizations').insert({name:name.trim(),created_by:userId}).select('id,name').single();setSubmitting(false);if(result.error)return setError(result.error.message);onCreated(result.data)};return <div className="auth-page"><div className="auth-card"><Building2 size={42}/><h1>Create your company</h1><p>This becomes your private Northborn workspace.</p><form onSubmit={submit}><label>Company name<input value={name} onChange={e=>setName(e.target.value)} required minLength={2}/></label>{error&&<div className="message">{error}</div>}<button className="primary" disabled={submitting}>{submitting?'Creating…':'Create company'}</button></form></div></div>}
 
 function Dashboard({ organization, data, view, userId, testMode, actions }: { organization: Organization; data: AppData; view: DashboardView; userId: string; testMode: boolean; actions: Actions }) {

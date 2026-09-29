@@ -413,8 +413,8 @@
     .hero{grid-template-columns:1fr;min-height:auto}
     .hero-copy{max-width:950px}
     .hero-visual{max-width:900px;width:100%;min-height:560px;margin:0 auto}
-    .journey-layout{grid-template-columns:1fr}
-    .journey-steps{display:grid;grid-template-columns:repeat(5,minmax(260px,1fr));gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:14px}
+    .journey-layout{grid-template-columns:minmax(0,1fr);min-width:0}
+    .journey-steps{width:100%;max-width:100%;min-width:0;display:grid;grid-template-columns:repeat(5,minmax(260px,1fr));gap:12px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x mandatory;padding-bottom:14px}
     .journey-step{min-height:0;padding:28px 0;scroll-snap-align:start}
     .journey-sticky{order:-1}
     .journey-machine{position:relative;top:auto}
@@ -452,8 +452,8 @@
     .machine-stage{min-height:440px;padding:16px}.machine-panel{inset:16px}
     .machine-track{overflow-x:auto}.machine-track i{min-width:10px}.machine-track span{font-size:10px}
     .machine-foot{overflow:hidden;justify-content:flex-start;gap:7px}.machine-foot span:nth-of-type(n+4),.machine-foot i:nth-of-type(n+4){display:none}
-    .journey-steps{margin-right:-16px;padding-right:16px}
-    .journey-step{min-width:82vw;grid-template-columns:50px 1fr;padding:28px 0}
+    .journey-steps{width:calc(100% + 16px);max-width:calc(100% + 16px);min-width:0;margin-right:-16px;padding-right:16px;display:flex;overflow-x:auto;overflow-y:hidden}
+    .journey-step{min-width:0;flex:0 0 82vw;grid-template-columns:50px minmax(0,1fr);padding:28px 0}
     .journey-step h3{font-size:27px}
     .request-panel h4{font-size:27px}
     .dispatch-row{grid-template-columns:54px 1fr}.dispatch-row em{display:none}

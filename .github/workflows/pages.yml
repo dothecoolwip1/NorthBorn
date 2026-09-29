@@ -30,10 +30,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Northborn for GitHub Pages
+      - name: Build Northborn app for GitHub Pages
         run: npm run build
         env:
           GITHUB_PAGES: 'true'
+
+      - name: Install marketing dependencies
+        working-directory: marketing
+        run: npm install --no-audit --no-fund
+
+      - name: Build Astro marketing preview
+        working-directory: marketing
+        run: npm run build
+        env:
+          GITHUB_PAGES: 'true'
+          PUBLIC_APP_URL: 'https://dothecoolwip1.github.io/NorthBorn/'
+
+      - name: Add marketing preview to Pages artifact
+        run: |
+          mkdir -p dist/marketing
+          cp -R marketing/dist/. dist/marketing/
 
       - name: Add SPA fallback
         run: |

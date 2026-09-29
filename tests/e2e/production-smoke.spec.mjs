@@ -383,6 +383,30 @@ test('Pack 2 calendar and dashboard controls are healthy', async ({ page }) => {
   }
 })
 
+test('Pack 3 customers and client portal are healthy', async ({ page }) => {
+  await loginAs(page, 'manager')
+  await page.goto(absolute('/customers'))
+  await expect(page.locator('.client-card').first()).toBeVisible({ timeout: 30000 })
+  await page.locator('.client-card').first().click()
+  const drawer = page.locator('.client-drawer')
+  await expect(drawer).toBeVisible()
+  await expect(drawer).toContainText('Billing, references and notes')
+  await expect(drawer).toContainText('Sites and locations')
+  await expect(drawer).toContainText('Documents')
+  await expect(drawer).toContainText('Customer history')
+  await expect(drawer).toContainText('Internal notes')
+  await expect(drawer).toContainText('Client portal notes')
+
+  await signOutThroughMenu(page)
+  await loginAs(page, 'client')
+  await expect(page.locator('body')).toContainText('Client Portal')
+  await expect(page.locator('body')).toContainText('Sites and locations')
+  await expect(page.locator('body')).toContainText('Documents')
+  await expect(page.locator('body')).toContainText('Billing and references')
+  await expect(page.locator('body')).toContainText('Portal updates')
+  await expect(page.locator('body')).not.toContainText('Internal notes')
+})
+
 test('operator routes, role isolation, and job access are healthy', async ({ page }) => {
   const issues = []
   await loginAs(page, 'operator')

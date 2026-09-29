@@ -1,5 +1,5 @@
 {
-  "version": "0.22.0",
+  "version": "0.22.1",
   "title": "Public Homepage Experience",
   "notes": [
     "Rebuild the public Northborn landing page around the real field-operations workflow instead of a generic feature-card layout.",
@@ -8,6 +8,7 @@
     "Explain the customer-to-dispatch-to-field-to-billing workflow before listing individual modules.",
     "Add dedicated manager, operator and client sections so visitors can immediately understand what each role sees.",
     "Improve mobile typography, spacing, touch targets and product-preview behavior across the public homepage.",
+    "Raise small product-preview and brand labels to production readability standards.",
     "Add clearer public page metadata and a field-operations page title."
   ]
 }

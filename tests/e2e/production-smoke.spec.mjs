@@ -208,6 +208,17 @@ test('guest and login routes are healthy', async ({ page }) => {
   await page.reload()
   await expect(page.locator('body')).toContainText('TEST WORKSPACE', { timeout: 15000 })
 
+  await page.setViewportSize({ width: 390, height: 844 })
+  const mobileMenu = page.getByRole('button', { name: 'Open navigation' })
+  await expect(mobileMenu).toBeVisible()
+  await mobileMenu.click()
+  await expect(page.locator('.sidebar.open')).toBeVisible()
+  await expect(page.locator('.sidebar.open')).toContainText('Customers')
+  await expect(page.locator('.view-switcher')).toBeVisible()
+  await expect(page.locator('.view-switcher')).toContainText('manager')
+  await expect(page.locator('.view-switcher')).toContainText('operator')
+  await expect(page.locator('.view-switcher')).toContainText('client')
+
   failWithIssues(issues)
 })
 

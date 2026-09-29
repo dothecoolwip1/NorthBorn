@@ -1,10 +1,10 @@
 {
-  "version": "0.16.3",
-  "title": "GitHub Pages production hosting",
+  "version": "0.16.4",
+  "title": "Demo mobile navigation fix",
   "notes": [
-    "Make GitHub Pages the Northborn production deployment from main.",
-    "Point production smoke tests and browser QA at the GitHub Pages site.",
-    "Make authentication, sign-out, team invites and client invites work under the /NorthBorn/ base path.",
-    "Point Supabase-generated invitation and portal links to GitHub Pages instead of Vercel."
+    "Restore the hamburger and slide-out module navigation for the admin/admin local demo workspace on phones.",
+    "Restore Manager, Operator and Client preview controls in local demo mode on mobile.",
+    "Keep the newer global account menu behavior for real authenticated Supabase accounts.",
+    "Add a mobile browser regression for the demo menu and preview controls."
   ]
 }

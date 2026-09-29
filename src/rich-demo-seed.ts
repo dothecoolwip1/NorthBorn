@@ -96,8 +96,8 @@ export function createRichCoreSeed(orgId:string, operatorUserId:string): CoreDat
     const completed=row[1]==='completed'
     const dispatched=['dispatched','in_progress'].includes(row[1])
     return {
-      id:id('job',index+1),organization_id:orgId,customer_id:customers[row[2]].id,job_number:'NB-' + String(2601+index).padStart(4,'0'),
-      title:row[3],site_name:row[4],site_address:row[5],scheduled_start:start,scheduled_end:at(row[0],17,0),
+      id:id('job',index+1),organization_id:orgId,customer_id:customers[row[3]].id,job_number:'NB-' + String(2601+index).padStart(4,'0'),
+      title:row[2],site_name:row[4],site_address:row[5],scheduled_start:start,scheduled_end:at(row[0],17,0),
       shop_time:at(row[0],6,0),onsite_time:start,status:row[1],
       dispatch_stage:completed?'work_completed':row[1]==='in_progress'?'work_started':dispatched?'dispatched':row[1]==='cancelled'?'cancelled':'unassigned',
       completed_at:completed?at(row[0],16,30):null,dispatch_acknowledged_at:dispatched||completed?at(row[0],6,20):null,

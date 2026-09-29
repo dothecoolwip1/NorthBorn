@@ -4,16 +4,15 @@ import fs from 'node:fs'
 
 const menu=fs.readFileSync(new URL('../src/GlobalAccountMenu.tsx',import.meta.url),'utf8')
 const shell=fs.readFileSync(new URL('../src/mobile-app-shell.css',import.meta.url),'utf8')
+const model=fs.readFileSync(new URL('../src/navigation-model.ts',import.meta.url),'utf8')
 const overrides=fs.readFileSync(new URL('../src/menu-shell-overrides.css',import.meta.url),'utf8')
 
 test('phone shell has persistent role-specific primary navigation',()=>{
-  assert.match(menu,/operatorMobileNavigation/)
-  assert.match(menu,/\['Today','\/',Gauge\]/)
-  assert.match(menu,/\['Time','\/timesheets',FileClock\]/)
-  assert.match(menu,/clientMobileNavigation/)
-  assert.match(menu,/\['Invoices','\/#client-invoices',ReceiptText\]/)
-  assert.match(menu,/managerMobileCandidates/)
-  assert.match(menu,/\['Schedule','\/calendar',CalendarDays\]/)
+  assert.match(menu,/mobileNavigationForRole/)
+  assert.match(model,/label:'Today',path:'\/'/)
+  assert.match(model,/label:'Time',path:'\/timesheets'/)
+  assert.match(model,/label:'Invoices',path:'\/#client-invoices'/)
+  assert.match(model,/owner:\['\/','\/calendar','\/dispatch','\/jobs'\]/)
   assert.match(menu,/aria-label="Primary navigation"/)
   assert.match(menu,/aria-label="More navigation"/)
 })

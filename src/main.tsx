@@ -39,6 +39,8 @@ import { supabase } from './lib/supabase'
 import { initializeNorthbornPwa } from './pwa'
 import { resolveWorkspaceAccess } from './workspace-access'
 import { canAccessInternalRoute } from './role-access'
+import TestSupabaseBridge from './TestSupabaseBridge'
+import { getTestPersona } from './test-lab'
 import './styles.css'
 import './contact-hierarchy.css'
 import './mobile-first.css'
@@ -66,6 +68,51 @@ function WorkspaceLoadError() {
   return <div className="center-screen"><div className="auth-card account-choice-card"><div className="auth-logo">N</div><h1>Workspace unavailable</h1><p>Northborn could not verify your workspace access. Your account has not been changed. Check your connection and try again.</p><div className="account-choice-actions"><button className="primary" type="button" onClick={()=>window.location.reload()}>Try again</button><button className="secondary" type="button" onClick={()=>void signOut()}>Sign out</button></div></div></div>
 }
 
+function DemoRoutedWorkspace({ normalizedPath }:{ normalizedPath:string }) {
+  const persona = getTestPersona()
+  let page: React.ReactNode
+
+  if (persona === 'operator') {
+    if (normalizedPath === '/' || normalizedPath === '/jobs') page = <StandardApp />
+    else if (normalizedPath === '/fleet') page = <FleetRoutePage />
+    else if (normalizedPath === '/tickets') page = <FieldTicketsPage />
+    else if (normalizedPath === '/ticket-print') page = <TicketPrintPage />
+    else if (normalizedPath === '/timesheets') page = <TimesheetsRoutePage />
+    else if (normalizedPath === '/timesheet-print') page = <TimesheetPrintPage />
+    else if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) page = <SafetyRoutePage />
+    else page = <WorkspaceNotFound homeLabel="Back to my jobs" />
+  } else if (persona === 'client') {
+    if (normalizedPath === '/') page = <StandardApp />
+    else if (normalizedPath === '/tickets' || normalizedPath === '/client-tickets') page = <ClientFieldTicketsPage />
+    else if (normalizedPath === '/client-ticket-print') page = <ClientTicketPrintPage />
+    else page = <WorkspaceNotFound homeLabel="Back to client portal" />
+  } else {
+    if (normalizedPath === '/' || normalizedPath === '/login') page = <ManagerDashboardV2 />
+    else if (normalizedPath === '/team-access') page = <TeamAccessPage />
+    else if (normalizedPath === '/dispatch') page = <ManagerDispatchPage />
+    else if (normalizedPath === '/calendar') page = <OperationsCalendarPage />
+    else if (normalizedPath === '/customers') page = <ManagerClientsPage />
+    else if (normalizedPath === '/jobs') page = <ManagerJobsPage />
+    else if (normalizedPath === '/employees') page = <ManagerEmployeesPage />
+    else if (normalizedPath === '/fleet') page = <FleetRoutePage />
+    else if (normalizedPath === '/fleet-access') page = <EmployeeFleetAccessPage />
+    else if (normalizedPath === '/maintenance') page = <ManagerMaintenancePage />
+    else if (normalizedPath === '/invoices') page = <ManagerInvoicesPageV2 />
+    else if (normalizedPath === '/billing') page = <BillingQueuePage />
+    else if (normalizedPath === '/pricing') page = <ManagerPricingPage />
+    else if (normalizedPath === '/reports') page = <ManagerReportsPage />
+    else if (normalizedPath === '/templates') page = <TemplateManagerPage />
+    else if (normalizedPath === '/tickets') page = <FieldTicketsPage />
+    else if (normalizedPath === '/ticket-print') page = <TicketPrintPage />
+    else if (normalizedPath === '/timesheets') page = <TimesheetsRoutePage />
+    else if (normalizedPath === '/timesheet-print') page = <TimesheetPrintPage />
+    else if (normalizedPath === '/safety' || normalizedPath.startsWith('/safety/')) page = <SafetyRoutePage />
+    else page = <WorkspaceNotFound />
+  }
+
+  return <TestSupabaseBridge persona={persona}>{page}</TestSupabaseBridge>
+}
+
 function RoutedWorkspace({ normalizedPath, hasInvite, routeRole, internalRoleKey }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole; internalRoleKey:string[] }) {
   if (normalizedPath === '/logout') return <LogoutPage />
   if (normalizedPath === '/client-join') return <ClientJoinPage />
@@ -76,7 +123,7 @@ function RoutedWorkspace({ normalizedPath, hasInvite, routeRole, internalRoleKey
 
   if (routeRole === 'guest') {
     const demoMode = localStorage.getItem(DEMO_MODE_KEY) === '1'
-    if (demoMode) return <StandardApp />
+    if (demoMode) return <DemoRoutedWorkspace normalizedPath={normalizedPath} />
     if (normalizedPath === '/') return <MarketingHome />
     return <StandardApp />
   }

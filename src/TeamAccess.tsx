@@ -82,7 +82,7 @@ export function TeamAccessLauncher() {
   }, [])
 
   if (!show) return null
-  return <a className="team-access-launcher" href="/team-access"><Users size={18}/>Team access</a>
+  return <a className="team-access-launcher" href={authRedirect('/team-access')}><Users size={18}/>Team access</a>
 }
 
 export default function TeamAccessPage() {
@@ -219,7 +219,7 @@ export default function TeamAccessPage() {
 
   return <div className="team-page">
     <div className="team-wrap">
-      <div className="team-topbar"><a href="/" className="team-back"><ArrowLeft size={18}/>Northborn</a><span>{workspace.organizationName}</span></div>
+      <div className="team-topbar"><a href={appRoot()} className="team-back"><ArrowLeft size={18}/>Northborn</a><span>{workspace.organizationName}</span></div>
       <div className="team-hero"><div><div className="team-eyebrow">COMPANY ACCESS</div><h1>Team access</h1><p>Invite your crew and control what each person can access in Northborn.</p></div><div className="team-count"><Users size={24}/><strong>{members.length}</strong><span>active member{members.length === 1 ? '' : 's'}</span></div></div>
 
       {error && <div className="team-error">{error}</div>}
@@ -307,7 +307,7 @@ export function JoinOrganizationPage() {
     try {
       const { error } = await db.rpc('accept_organization_invite', { _token: token })
       if (error) throw error
-      window.location.href = '/'
+      window.location.href = appRoot()
     } catch (err) { setMessage(readError(err)); setBusy(false) }
   }
 

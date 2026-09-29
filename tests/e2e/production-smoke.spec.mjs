@@ -295,6 +295,7 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   const operatorModal = page.locator('.field-job-modal')
   await expect(operatorModal).toContainText('403-555-0202')
   await expect(operatorModal).toContainText('403-555-0911')
+  await expect(operatorModal.getByRole('button', { name: 'Complete job', exact: true })).toHaveCount(0)
 
   await operatorModal.getByRole('button', { name: 'Acknowledge dispatch', exact: true }).click()
   await expect(operatorModal.getByRole('button', { name: 'Start driving', exact: true })).toBeVisible({ timeout: 20000 })
@@ -302,8 +303,10 @@ test('Pack 2 job flows from manager creation through field completion', async ({
   await expect(operatorModal.getByRole('button', { name: 'Mark on site', exact: true })).toBeVisible({ timeout: 20000 })
   await operatorModal.getByRole('button', { name: 'Mark on site', exact: true }).click()
   await expect(operatorModal.getByRole('button', { name: 'Start work', exact: true })).toBeVisible({ timeout: 20000 })
+  await expect(operatorModal.getByRole('button', { name: 'Complete job', exact: true })).toHaveCount(0)
   await operatorModal.getByRole('button', { name: 'Start work', exact: true }).click()
   await expect(operatorModal).toContainText('Work is underway', { timeout: 20000 })
+  await expect(operatorModal.getByRole('button', { name: 'Complete job', exact: true })).toBeVisible({ timeout: 20000 })
 
   await operatorModal.getByRole('button', { name: 'Complete job', exact: true }).click()
   await operatorModal.getByRole('button', { name: 'Yes, complete job', exact: true }).click()

@@ -314,7 +314,7 @@ function HomePage({ data, organizationId, organizationName, onOpen, onRefresh }:
         {focus.dispatch_stage==='work_started'&&<OperatorJobCompletionActions job={focus} organizationId={organizationId} organizationName={organizationName} onCompleted={onRefresh}/>} 
       </div>
 
-      <div className="operator-today-quick-actions" aria-label="Job quick actions">
+      <div className="operator-today-quick-actions" role="group" aria-label="Job quick actions">
         {mapsHref?<a href={mapsHref} target="_blank" rel="noreferrer"><Navigation size={19}/><span>Directions</span></a>:<button type="button" disabled><Navigation size={19}/><span>Directions</span></button>}
         {focus.dispatch_contact_phone?<a href={`tel:${focus.dispatch_contact_phone}`}><Phone size={19}/><span>Dispatch</span></a>:<button type="button" disabled><Phone size={19}/><span>Dispatch</span></button>}
         <NavLink to="/safety"><ShieldCheck size={19}/><span>Safety</span></NavLink>

@@ -336,7 +336,7 @@ export default function GlobalAccountMenu() {
   const moreIsActive = open || !mobileNavigation.some(([,path])=>isNavigationActive(path))
   const isPrintRoute = ['/ticket-print','/timesheet-print','/client-ticket-print'].some(path=>location.pathname===path||location.pathname.startsWith(path+'/'))
 
-  return <div className={localDemo ? 'northborn-account-menu demo-mode' : 'northborn-account-menu'}>
+  return <div className={`${localDemo ? 'northborn-account-menu demo-mode' : 'northborn-account-menu'}${isPrintRoute ? ' print-route' : ''}`}>
     {toast && <div className="northborn-notification-toast">
       <button type="button" className="northborn-toast-main" onClick={() => toast.notification ? void openNotification(toast.notification) : setOpen(true)}>
         <BellRing size={19}/><span><strong>{toast.title}</strong>{toast.message && <small>{toast.message}</small>}</span>

@@ -6,6 +6,7 @@ const common=['playwright','test',file,'--workers=1','--reporter=line','--timeou
 const groups=[
   {name:'core-workspaces',grep:'guest and login routes are healthy|manager routes and core actions are healthy|operator routes, role isolation, and job access are healthy|client routes and role isolation are healthy'},
   {name:'pack2-operations',grep:'Pack 2 job flows from manager creation through field completion|Pack 2 calendar and dashboard controls are healthy'},
+  {name:'pack3-customers',grep:'Pack 3 customers and client portal are healthy'},
   {name:'role-access',grep:'all internal manager roles receive the correct navigation contract|internal roles reject hidden direct routes and keep allowed routes available|role-restricted routes fail closed instead of leaking another workspace|functional test role switcher can change personas'},
   {name:'navigation-notifications',grep:'hamburger navigation, history, deep-link reload, and sign-out work for every persona|known notifications open their intended module|desktop sidebar pages do not duplicate navigation in the top-right'},
   {name:'mobile',grep:'manager mobile routes avoid overflow and tiny controls|operator mobile routes avoid overflow and dead ends|client mobile routes avoid overflow and dead ends'},

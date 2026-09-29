@@ -8,6 +8,7 @@ import {
   ShieldCheck, Truck, Users, Wifi, WifiOff, Wrench, X, UserRound, Clock3,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import { readTestLabData, resetTestLabData, setTestPersona, writeTestLabData } from './test-lab'
 
 type Organization = { id: string; name: string }
 type Customer = { id: string; organization_id: string; name: string; billing_email: string | null; phone: string | null; address: string | null; notes: string | null; status: string }
@@ -33,7 +34,6 @@ type Actions = {
 }
 
 const TEST_MODE_KEY = 'northborn_test_mode'
-const TEST_DATA_KEY = 'northborn_test_data_v3'
 const TEST_PASSWORD_HASH = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'
 const TEST_ORGANIZATION: Organization = { id: '00000000-0000-0000-0000-000000000001', name: 'Northborn Test Company' }
 const EMPTY_DATA: AppData = { customers: [], employees: [], vehicles: [], jobs: [], assignments: [] }
@@ -45,27 +45,8 @@ const modules = [
 ] as const
 const makeId = () => crypto.randomUUID()
 
-function createDemoData(): AppData {
-  const now = new Date(); const start = new Date(now.getTime() + 60 * 60 * 1000); const end = new Date(start.getTime() + 8 * 60 * 60 * 1000)
-  const organization_id = TEST_ORGANIZATION.id; const customerId = makeId(); const employeeOne = makeId(); const employeeTwo = makeId(); const vehicleOne = makeId(); const vehicleTwo = makeId(); const jobId = makeId()
-  return {
-    customers: [{ id: customerId, organization_id, name: 'Demo Energy Services', billing_email: 'billing@example.com', phone: '403-555-0100', address: 'Red Deer, AB', notes: 'Starter customer for testing.', status: 'active' }],
-    employees: [
-      { id: employeeOne, organization_id, user_id: 'test-admin', first_name: 'Garrett', last_name: 'Robson', email: 'garrett@example.com', phone: '403-555-0111', position: 'Operator', status: 'active' },
-      { id: employeeTwo, organization_id, user_id: null, first_name: 'Test', last_name: 'Swamper', email: null, phone: null, position: 'Swamper', status: 'active' },
-    ],
-    vehicles: [
-      { id: vehicleOne, organization_id, unit_number: '101', name: 'Hydrovac 101', vehicle_type: 'Hydrovac', plate: 'TEST101', status: 'assigned' },
-      { id: vehicleTwo, organization_id, unit_number: '202', name: 'Combo Vac 202', vehicle_type: 'Combo Vac', plate: null, status: 'available' },
-    ],
-    jobs: [{ id: jobId, organization_id, customer_id: customerId, job_number: `JOB-${String(now.getFullYear()).slice(-2)}001`, title: 'Hydrovac daylighting demo job', site_name: 'North Site', site_address: 'Red Deer County, AB', scheduled_start: start.toISOString(), scheduled_end: end.toISOString(), status: 'dispatched', notes: 'Use this job to test Dispatch.' }],
-    assignments: [
-      { id: makeId(), organization_id, job_id: jobId, employee_id: employeeOne, vehicle_id: null, role: 'crew' },
-      { id: makeId(), organization_id, job_id: jobId, employee_id: null, vehicle_id: vehicleOne, role: 'unit' },
-    ],
-  }
-}
-function readTestData(): AppData { try { const saved = localStorage.getItem(TEST_DATA_KEY); if (saved) return JSON.parse(saved) as AppData } catch {} const demo = createDemoData(); localStorage.setItem(TEST_DATA_KEY, JSON.stringify(demo)); return demo }
+function readTestData(): AppData { return readTestLabData() as AppData }
+
 async function sha256(value: string) { const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('') }
 function roleToView(role: string): DashboardView { if (['client', 'customer'].includes(role)) return 'client'; if (role === 'operator') return 'operator'; return 'manager' }
 
@@ -120,7 +101,7 @@ export default function App({ resolvedSession, authResolved = false }: AppProps)
   }, [testMode, session, organization])
   useEffect(() => { void refreshData() }, [refreshData])
 
-  const saveTest = (next: AppData) => { localStorage.setItem(TEST_DATA_KEY, JSON.stringify(next)); setData(next) }
+  const saveTest = (next: AppData) => { writeTestLabData(next as any); setData(next) }
   const requireContext = () => { if (!organization) throw new Error('No organization is selected.'); if (!session && !testMode) throw new Error('You must be signed in.'); return { organizationId: organization.id, userId: session?.user.id ?? 'test-admin' } }
 
   const actions: Actions = {
@@ -141,12 +122,12 @@ export default function App({ resolvedSession, authResolved = false }: AppProps)
     },
     removeAssignment: async (assignment) => { const { organizationId } = requireContext(); if (testMode) { saveTest({ ...data, assignments: data.assignments.filter(a => a.id !== assignment.id), vehicles: assignment.vehicle_id ? data.vehicles.map(v => v.id === assignment.vehicle_id ? { ...v, status: 'available' } : v) : data.vehicles }); return } const { error } = await supabase.from('dispatch_assignments').delete().eq('id', assignment.id).eq('organization_id', organizationId); if (error) throw error; if (assignment.vehicle_id) await supabase.from('fleet_vehicles').update({ status: 'available' }).eq('id', assignment.vehicle_id).eq('organization_id', organizationId); await refreshData() },
     updateJobStatus: async (jobId, status) => { const { organizationId } = requireContext(); const vehicleIds = data.assignments.filter(a => a.job_id === jobId).map(a => a.vehicle_id).filter(Boolean) as string[]; if (testMode) { saveTest({ ...data, jobs: data.jobs.map(j => j.id === jobId ? { ...j, status } : j), vehicles: status === 'completed' ? data.vehicles.map(v => vehicleIds.includes(v.id) ? { ...v, status: 'available' } : v) : data.vehicles }); return } const { error } = await supabase.from('jobs').update({ status }).eq('id', jobId).eq('organization_id', organizationId); if (error) throw error; if (status === 'completed' && vehicleIds.length) await supabase.from('fleet_vehicles').update({ status: 'available' }).in('id', vehicleIds).eq('organization_id', organizationId); await refreshData() },
-    resetTestData: () => { const fresh = createDemoData(); localStorage.setItem(TEST_DATA_KEY, JSON.stringify(fresh)); setData(fresh) },
+    resetTestData: () => { const fresh = resetTestLabData() as AppData; setData(fresh) },
   }
 
   const signOut = async () => { if (testMode) { localStorage.removeItem(TEST_MODE_KEY); setTestMode(false); setOrganization(null); setData(EMPTY_DATA); window.location.replace(new URL(import.meta.env.BASE_URL, window.location.origin).toString()); return } await supabase.auth.signOut() }
   if (loading) return <div className="center-screen">Loading Northborn…</div>
-  if (!session && !testMode) return <AuthScreen onTestLogin={() => { localStorage.setItem(TEST_MODE_KEY, '1'); setTestMode(true); setOrganization(TEST_ORGANIZATION); setData(readTestData()) }} />
+  if (!session && !testMode) return <AuthScreen onTestLogin={() => { localStorage.setItem(TEST_MODE_KEY, '1'); setTestPersona('manager'); setTestMode(true); setOrganization(TEST_ORGANIZATION); setData(readTestData()); window.location.replace(new URL(import.meta.env.BASE_URL, window.location.origin).toString()) }} />
   if (!organization) return <OrganizationSetup userId={session!.user.id} onCreated={setOrganization} />
   const dashboardView = testMode ? testView : roleToView(roleKey)
 

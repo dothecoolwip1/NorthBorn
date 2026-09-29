@@ -8,9 +8,4 @@ export default defineConfig({
   build: {
     format: 'directory',
   },
-  vite: {
-    build: {
-      cssMinify: 'lightningcss',
-    },
-  },
 })

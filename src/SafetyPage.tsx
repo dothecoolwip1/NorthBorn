@@ -721,7 +721,7 @@ function DocumentModal({ organizationId, userId, legacyTest, busy, setBusy, onCl
   </Modal>
 }
 
-function SafetyFormModal({ definition, organizationId, userId, employee, jobs, legacyTest, busy, setBusy, onClose, onError, onLegacySave, onSaved }: {
+function SafetyFormModal({ definition, organizationId, userId, employee, jobs, legacyTest, busy, setBusy, onClose, onError, uploadFile, removeUploadedFile, onLegacySave, onSaved }: {
   definition: FormDefinition
   organizationId: string
   userId: string
@@ -732,11 +732,14 @@ function SafetyFormModal({ definition, organizationId, userId, employee, jobs, l
   setBusy: (value: boolean) => void
   onClose: () => void
   onError: (value: string) => void
+  uploadFile: (file: File, path: string) => Promise<string>
+  removeUploadedFile: (path: string) => Promise<void>
   onLegacySave: (submission: FormSubmission) => void
   onSaved: () => Promise<void>
 }) {
   const [jobId, setJobId] = useState('')
   const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [attachments, setAttachments] = useState<File[]>([])
   const update = (key: string, value: string) => setAnswers(current => ({ ...current, [key]: value }))
 
   const submit = async (event: React.FormEvent) => {
@@ -762,9 +765,31 @@ function SafetyFormModal({ definition, organizationId, userId, employee, jobs, l
       onLegacySave({ id: crypto.randomUUID(), created_at: now, updated_at: now, ...row } as FormSubmission)
       setBusy(false); await onSaved(); return
     }
-    const result = await db.from('safety_form_submissions').insert(row)
+    const result = await db.from('safety_form_submissions').insert(row).select('id').single()
+    if (result.error) { setBusy(false); return onError(result.error.message) }
+    const uploaded: string[] = []
+    try {
+      for (const file of attachments.slice(0, 8)) {
+        const rawPath = `${organizationId}/forms/${result.data.id}/${crypto.randomUUID()}-${safeFileName(file.name)}`
+        const path = await uploadFile(file, rawPath)
+        uploaded.push(path)
+        const meta = await db.from('safety_form_attachments').insert({
+          organization_id: organizationId,
+          submission_id: result.data.id,
+          file_name: file.name,
+          storage_path: path,
+          mime_type: file.type || null,
+          file_size: file.size,
+          created_by: userId,
+        })
+        if (meta.error) throw meta.error
+      }
+    } catch (caught:any) {
+      for (const path of uploaded) await removeUploadedFile(path)
+      await db.from('safety_form_submissions').delete().eq('id',result.data.id).eq('organization_id',organizationId)
+      setBusy(false); return onError(caught?.message || String(caught))
+    }
     setBusy(false)
-    if (result.error) return onError(result.error.message)
     await onSaved()
   }
 
@@ -773,14 +798,17 @@ function SafetyFormModal({ definition, organizationId, userId, employee, jobs, l
       <div className="safety-form-intro"><ClipboardPlus/><div><strong>{definition.shortName}</strong><span>{definition.description}</span></div></div>
       <label>Related job <span className="optional">Optional</span><select value={jobId} onChange={event => setJobId(event.target.value)}><option value="">No job selected</option>{jobs.filter(job => !['cancelled'].includes(job.status)).map(job => <option key={job.id} value={job.id}>{job.job_number} · {job.title}</option>)}</select></label>
       {definition.fields.map(field => <label key={field.key}>{field.label}{!field.required && <span className="optional">Optional</span>}{field.type === 'textarea' ? <textarea value={answers[field.key] ?? ''} onChange={event => update(field.key, event.target.value)} required={field.required} placeholder={field.placeholder}/> : field.type === 'select' ? <select value={answers[field.key] ?? ''} onChange={event => update(field.key, event.target.value)} required={field.required}><option value="">Choose one</option>{field.options?.map(option => <option key={option} value={option}>{option}</option>)}</select> : <input type={field.type} value={answers[field.key] ?? ''} onChange={event => update(field.key, event.target.value)} required={field.required} placeholder={field.placeholder}/>}</label>)}
+      <label className="safety-file-picker"><Upload size={20}/><span><strong>{attachments.length ? `${attachments.length} attachment${attachments.length===1?'':'s'} selected` : 'Add photos or documents'}</strong><small>Optional · up to 8 files · PDF or images</small></span><input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={event => setAttachments(Array.from(event.target.files || []).slice(0,8))}/></label>
       <div className="safety-form-certify"><CheckCircle2 size={18}/><span>Submitting records the date, time and signed in user with this form.</span></div>
       <div className="safety-modal-actions"><button type="button" className="safety-secondary" onClick={onClose}>Cancel</button><button type="submit" className="safety-primary" disabled={busy}>{busy ? 'Submitting…' : `Submit ${definition.shortName}`}</button></div>
     </form>
   </Modal>
 }
 
-function SubmissionModal({ submission, employee, job, definition, canManage, busy, onReview, onClose }: {
+function SubmissionModal({ submission, organizationId, onError, employee, job, definition, canManage, busy, onReview, onClose }: {
   submission: FormSubmission
+  organizationId: string
+  onError: (value:string) => void
   employee: Employee | null
   job: Job | null
   definition: FormDefinition | null
@@ -792,6 +820,7 @@ function SubmissionModal({ submission, employee, job, definition, canManage, bus
   return <Modal title={submission.title} eyebrow={definition?.name ?? humanize(submission.form_type)} onClose={onClose} wide>
     <div className="safety-submission-detail-meta"><span><Users size={16}/>{employee ? `${employee.first_name} ${employee.last_name}` : 'Submitted user'}</span>{job && <span><HardHat size={16}/>{job.job_number} · {job.title}</span>}<span><Clock3 size={16}/>{formatDateTime(submission.submitted_at || submission.created_at)}</span><span className={`safety-pill ${submission.status}`}>{humanize(submission.status)}</span></div>
     <div className="safety-answer-list">{definition ? definition.fields.map(field => <div key={field.key}><span>{field.label}</span><strong>{String(submission.answers?.[field.key] || 'Not provided')}</strong></div>) : Object.entries(submission.answers ?? {}).map(([key, value]) => <div key={key}><span>{humanize(key)}</span><strong>{String(value || 'Not provided')}</strong></div>)}</div>
+    <SafetySubmissionAttachments organizationId={organizationId} submissionId={submission.id} onError={onError}/>
     <div className="safety-modal-actions"><button className="safety-secondary" onClick={onClose}>Close</button>{canManage && submission.status === 'submitted' && <button className="safety-primary" disabled={busy} onClick={onReview}><CheckCircle2 size={17}/>{busy ? 'Saving…' : 'Mark reviewed'}</button>}</div>
   </Modal>
 }

@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.9.15':[
+    'Completed the full Pack 2 operations workflow across backend integrity, Jobs and Dispatch, operator field progress, Calendar and Dashboard.',
+    'Added dedicated Calendar and Dashboard regression coverage while preserving the latest desktop navigation and client-card cleanup.',
+    'Split browser QA into isolated groups so one long end-to-end run cannot stall the entire release gate and every group still reports before the release fails.',
+  ],
   '0.9.14':[
     'Cleaned up desktop navigation so pages with a left sidebar no longer show a duplicate top-right hamburger.',
     'Moved the functional test switcher to the lower-left rail so it stays out of operational controls.',

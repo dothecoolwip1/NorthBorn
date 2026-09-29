@@ -1,9 +1,10 @@
 {
-  "version": "0.16.1",
-  "title": "Demo login hotfix",
+  "version": "0.16.2",
+  "title": "Demo session routing fix",
   "notes": [
-    "Allow the production admin / admin demo username to reach Northborn's isolated local test workspace instead of being blocked by email-address validation.",
-    "Keep real account sign-in and account creation restricted to valid email addresses.",
-    "Preserve the separate functional-testing authentication path used by automated QA."
+    "Keep the admin / admin demo session active when the login flow redirects from /login to the Northborn dashboard.",
+    "Stop startup code from deleting the demo-session flag.",
+    "Return to the public homepage cleanly when signing out of the demo workspace.",
+    "Prevent a real authenticated session from accidentally inheriting demo mode."
   ]
 }

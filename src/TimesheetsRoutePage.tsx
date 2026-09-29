@@ -1,5 +1,6 @@
 import { hasAnyRole } from './role-access'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Check, ChevronLeft, ChevronRight, Clock3, FileClock, Filter, Plus, RefreshCw, Send, Trash2, UserRound, X } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import TemplateRuntimeFields, { validateTemplateAnswers } from './TemplateRuntimeFields'
@@ -42,6 +43,10 @@ function calculateShift(start:string,end:string,breakMinutes:string){
 function emptyForm(employeeId='',template?:TemplateRow|null):Form{return {id:null,employee_id:employeeId,job_id:'',reference_number:'',work_date:localDate(),start_time:'',end_time:'',break_minutes:'0',regular_hours:'0',overtime_hours:'0',notes:'',template_id:template?.id||'',template_version:template?.version||null,custom_answers:{},employee_signature_data:'',employee_signed_at:'',pending_files:[]}}
 
 export default function TimesheetsRoutePage(){
+  const [searchParams] = useSearchParams()
+  const requestedJobId = searchParams.get('job') || ''
+  const requestedNew = searchParams.get('new') === '1'
+  const deepLinkHandled = useRef(false)
   const [organization,setOrganization]=useState<Organization|null>(null)
   const [assignedRoles,setAssignedRoles]=useState<string[]>([])
   const [userId,setUserId]=useState('')
@@ -96,6 +101,18 @@ export default function TimesheetsRoutePage(){
   },[organization,range.start,range.end,canManage,ownEmployeeId])
 
   useEffect(()=>{void load()},[load])
+  useEffect(()=>{
+    if(loading||deepLinkHandled.current||!requestedNew)return
+    const target=canManage?(employeeFilter!=='all'?employeeFilter:ownEmployeeId||employees[0]?.id||''):ownEmployeeId
+    if(!target)return
+    deepLinkHandled.current=true
+    const base=emptyForm(target,activeTemplate)
+    if(requestedJobId){
+      const assigned=assignments.some(assignment=>assignment.job_id===requestedJobId&&assignment.employee_id===target)
+      if(assigned)setForm({...base,job_id:requestedJobId})
+      else {setForm(base);setError('That job is not assigned to this employee. Use the manual reference field for outside work.')}
+    }else setForm(base)
+  },[loading,requestedNew,requestedJobId,canManage,employeeFilter,ownEmployeeId,employees,activeTemplate,assignments])
   useEffect(()=>{if(organization)void loadEntries()},[organization,loadEntries])
 
   const scopedEntries=useMemo(()=>canManage?entries:entries.filter(entry=>entry.employee_id===ownEmployeeId),[entries,canManage,ownEmployeeId])

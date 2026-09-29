@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import SafetyPage from './SafetyPage'
 import FLHAPage from './FLHAPage'
+import OperatorFieldFormsPage from './OperatorFieldFormsPage'
 import { supabase } from './lib/supabase'
 import './operator-app.css'
 import './safety-route.css'
@@ -43,11 +44,11 @@ const MANAGER_NAV = [
 ] as const
 
 const OPERATOR_NAV = [
-  ['Home', '/', Home],
-  ['My Jobs', '/jobs', BriefcaseBusiness],
+  ['Today', '/', Home],
+  ['Jobs', '/jobs', BriefcaseBusiness],
   ['Safety', '/safety', ShieldCheck],
   ['Tickets', '/tickets', ClipboardCheck],
-  ['Timesheets', '/timesheets', HardHat],
+  ['Time', '/timesheets', HardHat],
 ] as const
 
 const SAFETY_ROLES = new Set(['owner', 'admin', 'supervisor', 'safety', 'operator', 'mechanic'])
@@ -149,7 +150,9 @@ export default function SafetyRoutePage() {
   const isFlha = location.pathname.replace(/\/+$/, '') === '/safety/flha'
   const safetyContent = isFlha
     ? <FLHAPage organizationId={context.organizationId} userId={context.userId} roleKey={context.roleKey} organizationName={context.organizationName}/>
-    : <SafetyPage organizationId={context.organizationId} userId={context.userId} roleKey={context.roleKey} organizationName={context.organizationName}/>
+    : context.roleKey === 'operator'
+      ? <OperatorFieldFormsPage organizationId={context.organizationId} organizationName={context.organizationName} userId={context.userId}/>
+      : <SafetyPage organizationId={context.organizationId} userId={context.userId} roleKey={context.roleKey} organizationName={context.organizationName}/>
 
   if (context.roleKey === 'operator') {
     return <div className="field-shell">
@@ -161,10 +164,8 @@ export default function SafetyRoutePage() {
       </aside>
       <main className="field-main" onClickCapture={interceptLegacyFlha}>
         <header className="field-topbar"><div><span className="field-top-label">FIELD WORKSPACE</span><strong>{context.organizationName}</strong></div><div className={online ? 'field-connection online' : 'field-connection offline'}>{online ? <Wifi size={15}/> : <WifiOff size={15}/>} {online ? 'Online' : 'Offline'}</div></header>
-        {!isFlha && <div className="operator-flha-shortcut no-print"><NavLink to="/safety/flha"><ClipboardCheck size={18}/><span><strong>Start full FLHA</strong><small>Job autofill, hazard rows, crew sign on and reassessments</small></span></NavLink></div>}
         {safetyContent}
       </main>
-      <nav className="field-mobile-nav">{OPERATOR_NAV.map(([name, path, Icon]) => <NavLink key={path} to={path} end={path === '/'}><Icon size={20}/><span>{name}</span></NavLink>)}</nav>
     </div>
   }
 

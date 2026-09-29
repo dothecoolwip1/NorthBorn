@@ -227,7 +227,7 @@ test('guest and login routes are healthy', async ({ page }) => {
     ['/jobs', 'Hydrovac line locate and daylighting'],
     ['/fleet', 'Hydrovac 101'],
     ['/maintenance', '250 Hour Service'],
-    ['/safety', 'Hydrogen Sulfide (H2S) SDS'],
+    ['/safety', 'Safety library'],
     ['/tickets', 'FT-2026-'],
     ['/timesheets', 'Alex Morgan'],
     ['/invoices', 'INV-2026-1001'],
@@ -240,6 +240,10 @@ test('guest and login routes are healthy', async ({ page }) => {
     await page.goto(absolute(path))
     await expect(page.locator('body')).toContainText(marker, { timeout: 20000 })
   }
+
+  await page.goto(absolute('/safety'))
+  await page.getByRole('button', { name: /Safety library/ }).first().click()
+  await expect(page.locator('body')).toContainText('Hydrogen Sulfide (H2S) SDS', { timeout: 20000 })
 
   failWithIssues(issues)
 })

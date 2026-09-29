@@ -1,14 +1,14 @@
 {
-  "version": "0.18.0",
-  "title": "Mobile foundation — Pack 1",
+  "version": "0.19.0",
+  "title": "Mobile app shell — Pack 2",
   "notes": [
-    "Introduce one Northborn design-token system for typography, spacing, surfaces, borders, semantic colours, radii, focus states and motion.",
-    "Standardize mobile field readability at 16px body text, 14px secondary text and a 12px minimum compact-metadata size.",
-    "Standardize mobile touch targets at 48px with 52px primary actions.",
-    "Add shared Northborn Button, Surface, Status, EmptyState, Skeleton and Sheet primitives for future screen migrations.",
-    "Map legacy primary/secondary controls, fields, surfaces, status pills, empty states and modal sheets onto the new design foundation.",
-    "Migrate the account menu, Northborn dropdown, date/time picker, signature pad, attachments and authentication controls onto shared tokens.",
-    "Replace the old QA micro-font sheet with design-system readability guardrails and remove legacy 10px/sub-48px baselines from the global override layer.",
-    "Add reduced-motion handling and documented standards so future packs build on one visual language instead of adding more CSS patches."
+    "Replace the phone hamburger as primary navigation with a persistent safe-area-aware bottom navigation bar.",
+    "Give operators Today, Jobs, Time and Safety as primary tabs, with lower-frequency tools under More.",
+    "Give clients Home, Jobs and Invoices as primary tabs, with Contacts, Company and account tools under More.",
+    "Give manager and office roles up to four permission-aware high-frequency tabs plus More, so accounting, mechanics, dispatchers and safety users do not see inaccessible primary tabs.",
+    "Turn More into a mobile bottom sheet containing lower-frequency navigation, notifications, settings, demo-role switching and sign out.",
+    "Remove duplicate primary links from the More sheet on phones while retaining the complete navigation list on desktop.",
+    "Reserve safe-area space below page content, move demo controls above the mobile bar, surface notification counts on More and remove the old floating mobile hamburger spacing.",
+    "Hide primary navigation during full-screen modal/editor workflows and remove all Northborn navigation chrome from printable documents."
   ]
 }

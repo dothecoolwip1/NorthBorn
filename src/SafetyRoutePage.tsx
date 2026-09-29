@@ -90,14 +90,16 @@ export default function SafetyRoutePage() {
         setLoading(false)
         return
       }
-      const roleResult = await supabase.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id).limit(1).maybeSingle()
+      const roleResult = await supabase.from('membership_roles').select('role:roles(key)').eq('membership_id', membership.data.id)
       if (!active) return
       if (roleResult.error) {
         setError(roleResult.error.message)
         setLoading(false)
         return
       }
-      const roleKey = ((roleResult.data?.role as unknown as { key?: string } | null)?.key) || ''
+      const roleKeys=(roleResult.data||[]).map((row:any)=>(row.role as {key?:string}|null)?.key).filter(Boolean) as string[]
+      const precedence=['owner','admin','safety','supervisor','dispatcher','mechanic','accounting','operator']
+      const roleKey=precedence.find(key=>roleKeys.includes(key))||roleKeys[0]||''
       const organization = membership.data.organization as unknown as { name?: string } | null
       setContext({
         organizationId: membership.data.organization_id,

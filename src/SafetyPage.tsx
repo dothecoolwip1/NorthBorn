@@ -24,6 +24,9 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import SafetyDocumentAcknowledgement from './SafetyDocumentAcknowledgement'
+import SafetySubmissionAttachments from './SafetySubmissionAttachments'
+import './safety-pack6.css'
 import './safety.css'
 
 const db = supabase as any
@@ -87,6 +90,10 @@ type SafetyDocument = {
   created_by: string
   created_at: string
   updated_at: string
+  expires_on?: string | null
+  requires_acknowledgement?: boolean
+  supersedes_document_id?: string | null
+  revision_notes?: string | null
 }
 
 type FormSubmission = {
@@ -108,7 +115,7 @@ type FormSubmission = {
 }
 
 type Tab = 'overview' | 'credentials' | 'library' | 'forms'
-type FormType = 'flha' | 'incident_report' | 'near_miss' | 'hazard_observation' | 'toolbox_talk'
+type FormType = 'flha' | 'incident_report' | 'near_miss' | 'hazard_observation' | 'toolbox_talk' | 'vehicle_equipment_inspection'
 type FieldDefinition = {
   key: string
   label: string
@@ -205,6 +212,21 @@ const FORM_DEFINITIONS: FormDefinition[] = [
       { key: 'crew', label: 'Crew attending', type: 'textarea', required: true },
       { key: 'questions_concerns', label: 'Questions or concerns raised', type: 'textarea' },
       { key: 'actions', label: 'Actions or follow up', type: 'textarea' },
+    ],
+  },
+  {
+    key: 'vehicle_equipment_inspection',
+    name: 'Vehicle / Equipment Inspection',
+    shortName: 'Equipment Inspection',
+    description: 'Document a safety inspection for a truck, trailer, tool or other equipment.',
+    fields: [
+      { key: 'unit_equipment', label: 'Unit or equipment', type: 'text', required: true, placeholder: 'Unit 12, air compressor, trailer 4...' },
+      { key: 'inspection_type', label: 'Inspection type', type: 'select', required: true, options: ['Pre-use', 'Post-use', 'Weekly', 'Monthly', 'Shop', 'Other'] },
+      { key: 'result', label: 'Result', type: 'select', required: true, options: ['Pass', 'Pass with defects', 'Fail / remove from service'] },
+      { key: 'meter_reading', label: 'Kilometres / hours', type: 'text', placeholder: 'Optional current reading' },
+      { key: 'items_checked', label: 'Items checked', type: 'textarea', required: true },
+      { key: 'defects', label: 'Defects or concerns', type: 'textarea' },
+      { key: 'corrective_action', label: 'Corrective action / repair request', type: 'textarea' },
     ],
   },
 ]
@@ -493,7 +515,7 @@ export default function SafetyPage({ organizationId, userId, roleKey, organizati
 
       <section className="safety-panel">
         <div className="safety-section-heading"><div><span className="safety-eyebrow">RECENTLY ADDED</span><h2>Safety library</h2></div><button className="safety-text-button" onClick={() => setTab('library')}>Open library</button></div>
-        {data.documents.length ? <div className="safety-document-grid">{data.documents.slice(0, 4).map(document => <DocumentCard key={document.id} document={document} onOpen={() => void openFile(document.file_path)}/>)}</div> : <Empty icon={<BookOpenCheck/>} title="The library is ready" text={canManage ? 'Add your first SDS, SOP, safe work practice or emergency plan.' : 'Your safety team has not added documents yet.'}/>} 
+        {data.documents.length ? <div className="safety-document-grid">{data.documents.slice(0, 4).map(document => <DocumentCard key={document.id} document={document} organizationId={organizationId} userId={userId} onError={setError} onOpen={() => void openFile(document.file_path)}/>)}</div> : <Empty icon={<BookOpenCheck/>} title="The library is ready" text={canManage ? 'Add your first SDS, SOP, safe work practice or emergency plan.' : 'Your safety team has not added documents yet.'}/>} 
       </section>
     </>}
 
@@ -514,7 +536,7 @@ export default function SafetyPage({ organizationId, userId, roleKey, organizati
     {tab === 'library' && <section className="safety-panel safety-main-panel">
       <div className="safety-section-heading responsive"><div><span className="safety-eyebrow">DOCUMENT LIBRARY</span><h2>Find the right document fast</h2><p>Search by name, topic or tag instead of digging through folders.</p></div>{canManage && <button className="safety-primary" onClick={() => setDocumentModal(true)}><Plus size={17}/>Add document</button>}</div>
       <div className="safety-category-row">{DOCUMENT_CATEGORIES.map(([value, name]) => <button key={value} className={libraryCategory === value ? 'active' : ''} onClick={() => setLibraryCategory(value)}>{name}</button>)}</div>
-      {documents.length ? <div className="safety-document-grid">{documents.map(document => <DocumentCard key={document.id} document={document} onOpen={() => void openFile(document.file_path)}/>)}</div> : <Empty icon={<FolderSearch/>} title={searchValue ? 'Nothing matched your search' : 'No documents in this category'} text={canManage ? 'Add a PDF, image, Word or Excel document to the safety library.' : 'Try another category or ask your safety team to add what you need.'}/>} 
+      {documents.length ? <div className="safety-document-grid">{documents.map(document => <DocumentCard key={document.id} document={document} organizationId={organizationId} userId={userId} onError={setError} onOpen={() => void openFile(document.file_path)}/>)}</div> : <Empty icon={<FolderSearch/>} title={searchValue ? 'Nothing matched your search' : 'No documents in this category'} text={canManage ? 'Add a PDF, image, Word or Excel document to the safety library.' : 'Try another category or ask your safety team to add what you need.'}/>} 
     </section>}
 
     {tab === 'forms' && <section className="safety-panel safety-main-panel">
@@ -530,13 +552,13 @@ export default function SafetyPage({ organizationId, userId, roleKey, organizati
 
     {credentialModal && <CredentialModal canManage={canManage} employees={data.employees} ownEmployee={ownEmployee} organizationId={organizationId} userId={userId} legacyTest={legacyTest} busy={busy} setBusy={setBusy} onClose={() => setCredentialModal(false)} onError={setError} uploadFile={uploadFile} removeUploadedFile={removeUploadedFile} onLegacySave={credential => saveLegacy({ ...data, credentials: [credential, ...data.credentials] })} onSaved={async () => { setCredentialModal(false); await load(); showSuccess('Safety record uploaded.') }}/>} 
     {documentModal && canManage && <DocumentModal organizationId={organizationId} userId={userId} legacyTest={legacyTest} busy={busy} setBusy={setBusy} onClose={() => setDocumentModal(false)} onError={setError} uploadFile={uploadFile} removeUploadedFile={removeUploadedFile} onLegacySave={document => saveLegacy({ ...data, documents: [document, ...data.documents] })} onSaved={async () => { setDocumentModal(false); await load(); showSuccess('Safety document added.') }}/>} 
-    {activeForm && <SafetyFormModal definition={activeForm} organizationId={organizationId} userId={userId} employee={ownEmployee} jobs={data.jobs} legacyTest={legacyTest} busy={busy} setBusy={setBusy} onClose={() => setActiveForm(null)} onError={setError} onLegacySave={submission => saveLegacy({ ...data, submissions: [submission, ...data.submissions] })} onSaved={async () => { setActiveForm(null); await load(); setTab('forms'); showSuccess('Safety form submitted.') }}/>} 
-    {viewSubmission && <SubmissionModal submission={viewSubmission} employee={viewSubmission.employee_id ? employeeMap.get(viewSubmission.employee_id) ?? null : null} job={viewSubmission.job_id ? jobMap.get(viewSubmission.job_id) ?? null : null} definition={FORM_DEFINITIONS.find(item => item.key === viewSubmission.form_type) ?? null} canManage={canManage} busy={busy} onReview={() => void reviewSubmission(viewSubmission)} onClose={() => setViewSubmission(null)}/>} 
+    {activeForm && <SafetyFormModal definition={activeForm} organizationId={organizationId} userId={userId} employee={ownEmployee} jobs={data.jobs} legacyTest={legacyTest} busy={busy} setBusy={setBusy} onClose={() => setActiveForm(null)} onError={setError} uploadFile={uploadFile} removeUploadedFile={removeUploadedFile} onLegacySave={submission => saveLegacy({ ...data, submissions: [submission, ...data.submissions] })} onSaved={async () => { setActiveForm(null); await load(); setTab('forms'); showSuccess('Safety form submitted.') }}/>} 
+    {viewSubmission && <SubmissionModal submission={viewSubmission} organizationId={organizationId} onError={setError} employee={viewSubmission.employee_id ? employeeMap.get(viewSubmission.employee_id) ?? null : null} job={viewSubmission.job_id ? jobMap.get(viewSubmission.job_id) ?? null : null} definition={FORM_DEFINITIONS.find(item => item.key === viewSubmission.form_type) ?? null} canManage={canManage} busy={busy} onReview={() => void reviewSubmission(viewSubmission)} onClose={() => setViewSubmission(null)}/>} 
   </section>
 }
 
-function DocumentCard({ document, onOpen }: { document: SafetyDocument; onOpen: () => void }) {
-  return <button className="safety-document-card" onClick={onOpen}><div className="safety-doc-top"><div className="safety-document-icon"><FileText/></div><span className="safety-category">{humanize(document.category)}</span></div><strong>{document.title}</strong><p>{document.description || 'Open this document to view the current company reference.'}</p><div className="safety-doc-meta">{document.version && <span>v{document.version}</span>}{document.review_date && <span>Review {formatDate(document.review_date)}</span>}{document.tags?.slice(0, 2).map(tag => <span key={tag}>#{tag}</span>)}</div><small>Open document <Eye size={14}/></small></button>
+function DocumentCard({ document, onOpen, organizationId, userId, onError }: { document: SafetyDocument; onOpen: () => void; organizationId: string; userId: string; onError: (value:string)=>void }) {
+  return <article className="safety-document-card pack6-document-card"><button type="button" className="pack6-document-open" onClick={onOpen}><div className="safety-doc-top"><div className="safety-document-icon"><FileText/></div><span className="safety-category">{humanize(document.category)}</span></div><strong>{document.title}</strong><p>{document.description || 'Open this document to view the current company reference.'}</p><div className="safety-doc-meta">{document.version && <span>v{document.version}</span>}{document.review_date && <span>Review {formatDate(document.review_date)}</span>}{document.expires_on && <span>Expires {formatDate(document.expires_on)}</span>}{document.tags?.slice(0, 2).map(tag => <span key={tag}>#{tag}</span>)}</div><small>Open document <Eye size={14}/></small></button><SafetyDocumentAcknowledgement organizationId={organizationId} documentId={document.id} userId={userId} required={Boolean(document.requires_acknowledgement)} onError={onError}/></article>
 }
 
 function Empty({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
@@ -642,6 +664,9 @@ function DocumentModal({ organizationId, userId, legacyTest, busy, setBusy, onCl
   const [version, setVersion] = useState('')
   const [effectiveDate, setEffectiveDate] = useState('')
   const [reviewDate, setReviewDate] = useState('')
+  const [expiresOn, setExpiresOn] = useState('')
+  const [revisionNotes, setRevisionNotes] = useState('')
+  const [requiresAcknowledgement, setRequiresAcknowledgement] = useState(false)
   const [file, setFile] = useState<File | null>(null)
 
   const submit = async (event: React.FormEvent) => {
@@ -662,6 +687,9 @@ function DocumentModal({ organizationId, userId, legacyTest, busy, setBusy, onCl
         version: version.trim() || null,
         effective_date: effectiveDate || null,
         review_date: reviewDate || null,
+        expires_on: expiresOn || null,
+        revision_notes: revisionNotes.trim() || null,
+        requires_acknowledgement: requiresAcknowledgement,
         status: 'active',
         file_path: uploadedPath,
         created_by: userId,
@@ -685,13 +713,15 @@ function DocumentModal({ organizationId, userId, legacyTest, busy, setBusy, onCl
       <label>Plain language description<textarea value={description} onChange={event => setDescription(event.target.value)} placeholder="What is this document for and when would someone need it?"/></label>
       <div className="safety-form-two"><label>Version<input value={version} onChange={event => setVersion(event.target.value)} placeholder="3.1"/></label><label>Search tags<input value={tags} onChange={event => setTags(event.target.value)} placeholder="h2s, sour gas, chemical"/></label></div>
       <div className="safety-form-two"><label>Effective date<input type="date" value={effectiveDate} onChange={event => setEffectiveDate(event.target.value)}/></label><label>Review date<input type="date" min={effectiveDate || undefined} value={reviewDate} onChange={event => setReviewDate(event.target.value)}/></label></div>
+      <div className="safety-form-two"><label>Expiry date<input type="date" min={effectiveDate || undefined} value={expiresOn} onChange={event => setExpiresOn(event.target.value)}/></label><label className="safety-pack6-check"><input type="checkbox" checked={requiresAcknowledgement} onChange={event => setRequiresAcknowledgement(event.target.checked)}/><span>Require employee acknowledgement</span></label></div>
+      <label>Revision notes<textarea value={revisionNotes} onChange={event => setRevisionNotes(event.target.value)} placeholder="What changed in this version?"/></label>
       <label className="safety-file-picker"><Upload size={20}/><span><strong>{file ? file.name : 'Choose safety document'}</strong><small>PDF, image, Word or Excel · up to 25 MB</small></span><input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" onChange={event => setFile(event.target.files?.[0] ?? null)} required={!legacyTest}/></label>
       <div className="safety-modal-actions"><button type="button" className="safety-secondary" onClick={onClose}>Cancel</button><button type="submit" className="safety-primary" disabled={busy}>{busy ? 'Uploading…' : 'Add document'}</button></div>
     </form>
   </Modal>
 }
 
-function SafetyFormModal({ definition, organizationId, userId, employee, jobs, legacyTest, busy, setBusy, onClose, onError, onLegacySave, onSaved }: {
+function SafetyFormModal({ definition, organizationId, userId, employee, jobs, legacyTest, busy, setBusy, onClose, onError, uploadFile, removeUploadedFile, onLegacySave, onSaved }: {
   definition: FormDefinition
   organizationId: string
   userId: string
@@ -702,11 +732,14 @@ function SafetyFormModal({ definition, organizationId, userId, employee, jobs, l
   setBusy: (value: boolean) => void
   onClose: () => void
   onError: (value: string) => void
+  uploadFile: (file: File, path: string) => Promise<string>
+  removeUploadedFile: (path: string) => Promise<void>
   onLegacySave: (submission: FormSubmission) => void
   onSaved: () => Promise<void>
 }) {
   const [jobId, setJobId] = useState('')
   const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [attachments, setAttachments] = useState<File[]>([])
   const update = (key: string, value: string) => setAnswers(current => ({ ...current, [key]: value }))
 
   const submit = async (event: React.FormEvent) => {
@@ -732,9 +765,31 @@ function SafetyFormModal({ definition, organizationId, userId, employee, jobs, l
       onLegacySave({ id: crypto.randomUUID(), created_at: now, updated_at: now, ...row } as FormSubmission)
       setBusy(false); await onSaved(); return
     }
-    const result = await db.from('safety_form_submissions').insert(row)
+    const result = await db.from('safety_form_submissions').insert(row).select('id').single()
+    if (result.error) { setBusy(false); return onError(result.error.message) }
+    const uploaded: string[] = []
+    try {
+      for (const file of attachments.slice(0, 8)) {
+        const rawPath = `${organizationId}/forms/${result.data.id}/${crypto.randomUUID()}-${safeFileName(file.name)}`
+        const path = await uploadFile(file, rawPath)
+        uploaded.push(path)
+        const meta = await db.from('safety_form_attachments').insert({
+          organization_id: organizationId,
+          submission_id: result.data.id,
+          file_name: file.name,
+          storage_path: path,
+          mime_type: file.type || null,
+          file_size: file.size,
+          created_by: userId,
+        })
+        if (meta.error) throw meta.error
+      }
+    } catch (caught:any) {
+      for (const path of uploaded) await removeUploadedFile(path)
+      await db.from('safety_form_submissions').delete().eq('id',result.data.id).eq('organization_id',organizationId)
+      setBusy(false); return onError(caught?.message || String(caught))
+    }
     setBusy(false)
-    if (result.error) return onError(result.error.message)
     await onSaved()
   }
 
@@ -743,14 +798,17 @@ function SafetyFormModal({ definition, organizationId, userId, employee, jobs, l
       <div className="safety-form-intro"><ClipboardPlus/><div><strong>{definition.shortName}</strong><span>{definition.description}</span></div></div>
       <label>Related job <span className="optional">Optional</span><select value={jobId} onChange={event => setJobId(event.target.value)}><option value="">No job selected</option>{jobs.filter(job => !['cancelled'].includes(job.status)).map(job => <option key={job.id} value={job.id}>{job.job_number} · {job.title}</option>)}</select></label>
       {definition.fields.map(field => <label key={field.key}>{field.label}{!field.required && <span className="optional">Optional</span>}{field.type === 'textarea' ? <textarea value={answers[field.key] ?? ''} onChange={event => update(field.key, event.target.value)} required={field.required} placeholder={field.placeholder}/> : field.type === 'select' ? <select value={answers[field.key] ?? ''} onChange={event => update(field.key, event.target.value)} required={field.required}><option value="">Choose one</option>{field.options?.map(option => <option key={option} value={option}>{option}</option>)}</select> : <input type={field.type} value={answers[field.key] ?? ''} onChange={event => update(field.key, event.target.value)} required={field.required} placeholder={field.placeholder}/>}</label>)}
+      <label className="safety-file-picker"><Upload size={20}/><span><strong>{attachments.length ? `${attachments.length} attachment${attachments.length===1?'':'s'} selected` : 'Add photos or documents'}</strong><small>Optional · up to 8 files · PDF or images</small></span><input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={event => setAttachments(Array.from(event.target.files || []).slice(0,8))}/></label>
       <div className="safety-form-certify"><CheckCircle2 size={18}/><span>Submitting records the date, time and signed in user with this form.</span></div>
       <div className="safety-modal-actions"><button type="button" className="safety-secondary" onClick={onClose}>Cancel</button><button type="submit" className="safety-primary" disabled={busy}>{busy ? 'Submitting…' : `Submit ${definition.shortName}`}</button></div>
     </form>
   </Modal>
 }
 
-function SubmissionModal({ submission, employee, job, definition, canManage, busy, onReview, onClose }: {
+function SubmissionModal({ submission, organizationId, onError, employee, job, definition, canManage, busy, onReview, onClose }: {
   submission: FormSubmission
+  organizationId: string
+  onError: (value:string) => void
   employee: Employee | null
   job: Job | null
   definition: FormDefinition | null
@@ -762,6 +820,7 @@ function SubmissionModal({ submission, employee, job, definition, canManage, bus
   return <Modal title={submission.title} eyebrow={definition?.name ?? humanize(submission.form_type)} onClose={onClose} wide>
     <div className="safety-submission-detail-meta"><span><Users size={16}/>{employee ? `${employee.first_name} ${employee.last_name}` : 'Submitted user'}</span>{job && <span><HardHat size={16}/>{job.job_number} · {job.title}</span>}<span><Clock3 size={16}/>{formatDateTime(submission.submitted_at || submission.created_at)}</span><span className={`safety-pill ${submission.status}`}>{humanize(submission.status)}</span></div>
     <div className="safety-answer-list">{definition ? definition.fields.map(field => <div key={field.key}><span>{field.label}</span><strong>{String(submission.answers?.[field.key] || 'Not provided')}</strong></div>) : Object.entries(submission.answers ?? {}).map(([key, value]) => <div key={key}><span>{humanize(key)}</span><strong>{String(value || 'Not provided')}</strong></div>)}</div>
+    <SafetySubmissionAttachments organizationId={organizationId} submissionId={submission.id} onError={onError}/>
     <div className="safety-modal-actions"><button className="safety-secondary" onClick={onClose}>Close</button>{canManage && submission.status === 'submitted' && <button className="safety-primary" disabled={busy} onClick={onReview}><CheckCircle2 size={17}/>{busy ? 'Saving…' : 'Mark reviewed'}</button>}</div>
   </Modal>
 }

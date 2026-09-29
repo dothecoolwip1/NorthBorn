@@ -12,6 +12,11 @@ type ReleaseInfo={version:string;title?:string;notes:string[]}
 type NoticeKind='updated'|'available'
 
 const FALLBACK_NOTES:Record<string,string[]>={
+  '0.13.0':[
+    'Completed the Safety centre with worker credentials, searchable safety documents, version/review/expiry metadata, employee acknowledgements and multi-role-aware safety access.',
+    'Expanded digital safety paperwork with FLHAs, incidents, near misses, hazards, toolbox talks, vehicle/equipment inspections, attachments/photos and print-to-PDF output.',
+    'Added repository migrations for acknowledgement tracking, safety-form attachments, storage isolation and safety escalation notifications. These migrations are committed but intentionally not applied live in this GitHub-only update.',
+  ],
   '0.12.0':[
     'Completed fleet operations with unit photos, permanent service history, itemized parts and labour, recurring maintenance schedules, inspections, defects, work orders and fleet documents.',
     'Added defect-hold return-to-service controls so blocking defects force units out of service, prevent dispatch, and only release units when every blocking defect is cleared.',

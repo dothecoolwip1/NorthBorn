@@ -1,11 +1,9 @@
 {
-  "version": "0.16.0",
-  "title": "Super Admin and account management",
+  "version": "0.16.1",
+  "title": "Demo login hotfix",
   "notes": [
-    "Add the Northborn platform super admin console for organizations, users, roles, plans, settings and global audit activity.",
-    "Add secure server-side Supabase Auth user creation, password updates, invitations, enable/disable controls and deletion through the super-admin Edge Function.",
-    "Route authorized platform administrators directly into the super admin console while preserving tenant RLS boundaries.",
-    "Make Sign in and Create account explicit choices and replace generic invalid credential feedback with useful account guidance.",
-    "Deploy the live platform admin database foundation and secure super-admin Edge Function."
+    "Allow the production admin / admin demo username to reach Northborn's isolated local test workspace instead of being blocked by email-address validation.",
+    "Keep real account sign-in and account creation restricted to valid email addresses.",
+    "Preserve the separate functional-testing authentication path used by automated QA."
   ]
 }

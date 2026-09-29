@@ -1,9 +1,9 @@
 {
-  "version": "0.12.0",
-  "title": "Pack 5 Fleet and Maintenance",
+  "version": "0.13.0",
+  "title": "Pack 6 Safety Management",
   "notes": [
-    "Completed fleet operations with unit photos, permanent service history, itemized parts and labour, recurring maintenance schedules, inspections, defects, work orders and fleet documents.",
-    "Added defect-hold return-to-service controls so blocking defects force units out of service, prevent dispatch, and only release units when every blocking defect is cleared.",
-    "Hardened fleet administration with multi-role-aware access, tenant-scoped work-order items, synchronized cost history and focused Pack 5 regression coverage."
+    "Completed the Safety centre with worker credentials, searchable safety documents, version/review/expiry metadata, employee acknowledgements and multi-role-aware safety access.",
+    "Expanded digital safety paperwork with FLHAs, incidents, near misses, hazards, toolbox talks, vehicle/equipment inspections, attachments/photos and print-to-PDF output.",
+    "Added repository migrations for acknowledgement tracking, safety-form attachments, storage isolation and safety escalation notifications. These migrations are committed but intentionally not applied live in this GitHub-only update."
   ]
 }

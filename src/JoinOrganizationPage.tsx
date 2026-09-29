@@ -5,8 +5,6 @@ import { supabase } from './lib/supabase'
 import './team-access.css'
 
 const db = supabase as any
-const PRODUCTION_URL = 'https://northborn.vercel.app'
-
 type InviteDetails = {
   organization_name: string
   role_name: string
@@ -21,9 +19,12 @@ function readError(error: unknown) {
   return String(error || 'Something went wrong')
 }
 
+function appRoot() {
+  return new URL(import.meta.env.BASE_URL, window.location.origin).toString()
+}
+
 function authRedirect(path: string) {
-  const base = window.location.hostname.endsWith('vercel.app') ? PRODUCTION_URL : window.location.origin
-  return `${base}${path}`
+  return new URL(path.replace(/^\/+/, ''), appRoot()).toString()
 }
 
 function namesFromSession(session: Session) {
@@ -215,7 +216,7 @@ export default function JoinOrganizationPage() {
           </form>
         )}
 
-        <a className="join-home" href="/">Return to Northborn</a>
+        <a className="join-home" href={appRoot()}>Return to Northborn</a>
       </div>
     </div>
   )

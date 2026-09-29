@@ -1,13 +1,11 @@
 {
-  "version": "0.17.1",
-  "title": "Signed invoice paperwork and smarter timesheets",
+  "version": "0.17.2",
+  "title": "Operator timesheet privacy",
   "notes": [
-    "Show approved linked field tickets directly inside client invoice details, including a View signed ticket action.",
-    "Return linked approved field tickets from the secure customer invoice detail RPC without exposing other customer records.",
-    "Use a real visible signature in the lived-in demo and route the demo Client view through Northborn's actual client portal.",
-    "Allow timesheets to store a manual job, invoice, PO or other reference number when no Northborn job should be linked.",
-    "Only allow a timesheet to link jobs assigned to that employee through Dispatch, with the rule enforced in the UI and database.",
-    "Replace timesheet native selects with reusable Northborn dropdown menus and improve styling for remaining native selects.",
-    "Fix GitHub Pages timesheet print links and show the manual reference on printable timesheets."
+    "Operators now load and display only their own timesheet entries.",
+    "The employee filter is hidden for operators; managers, admins, supervisors and accounting retain company-wide review access.",
+    "Timesheet summary metrics for operators are calculated only from their own entries.",
+    "Existing Supabase row-level security already restricts operators to timesheets.self.view; the UI now matches that database security model.",
+    "Added browser regression coverage to prevent operator timesheet visibility from leaking across employees."
   ]
 }

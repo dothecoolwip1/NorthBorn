@@ -1,9 +1,9 @@
 {
-  "version": "0.9.15",
-  "title": "Pack 2 Complete",
+  "version": "0.10.0",
+  "title": "Pack 3 Customers and Client Portal",
   "notes": [
-    "Completed the full Pack 2 operations workflow across backend integrity, Jobs and Dispatch, operator field progress, Calendar and Dashboard.",
-    "Added dedicated Calendar and Dashboard regression coverage while preserving the latest desktop navigation and client-card cleanup.",
-    "Split browser QA into isolated groups so one long end-to-end run cannot stall the entire release gate and every group still reports before the release fails."
+    "Completed the customer CRM with reusable sites, billing and PO/AFE defaults, separated internal and client-facing notes, customer documents and recent account history.",
+    "Expanded the client portal with shared sites, documents, billing defaults and portal notifications while preserving existing jobs, requests, tickets, invoices, contacts and member roles.",
+    "Corrected client job contacts so job-specific dispatch and emergency numbers and the designated primary operator are preferred without exposing the internal crew roster."
   ]
 }

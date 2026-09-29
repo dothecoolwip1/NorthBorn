@@ -1,3 +1,4 @@
+import { billingRole } from './billing-role'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, FileSignature, Printer, ReceiptText, RefreshCw, Send, TicketCheck } from 'lucide-react'
 import { Navigate, useNavigate } from 'react-router-dom'
@@ -38,7 +39,7 @@ export default function BillingQueuePage(){
     const membership=await db.from('organization_members').select('id,organization_id,organization:organizations(id,name)').eq('user_id',user.id).eq('status','active').limit(1).maybeSingle()
     if(membership.error||!membership.data?.id){setError(membership.error?.message||'No active company found.');setLoading(false);return}
     const roles=await db.from('membership_roles').select('role:roles(key)').eq('membership_id',membership.data.id)
-    const role=roles.data?.[0]?.role?.key||'';setRoleKey(role)
+    const role=billingRole(roles.data);setRoleKey(role)
     const org=membership.data.organization as Organization;setOrganization(org)
     if(!BILLING_ROLES.has(role)){setLoading(false);return}
     const [ticketResult,customerResult,jobResult,itemResult]=await Promise.all([

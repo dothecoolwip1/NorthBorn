@@ -1,3 +1,5 @@
+import { nonNegativeAmount } from './billing-math'
+import { billingRole } from './billing-role'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, DollarSign, Plus, RotateCcw, Save, Trash2 } from 'lucide-react'
@@ -12,10 +14,10 @@ const COMMON=['Hydrovac','Combo Vac','Straight Vac','Steamer','Water Truck','Swa
 
 type Organization={id:string;name:string}
 type Customer={id:string;name:string}
-type PriceItem={id:string;organization_id:string;name:string;category:string;unit:string;default_rate:number|string;is_active:boolean;sort_order:number}
+type PriceItem={id:string;organization_id:string;name:string;category:string;unit:string;default_rate:number|string;minimum_quantity:number|string;is_active:boolean;sort_order:number}
 type Override={id:string;organization_id:string;customer_id:string;price_item_id:string;rate:number|string}
 
-type RowDraft={name:string;category:string;unit:string;rate:string}
+type RowDraft={name:string;category:string;unit:string;rate:string;minimum:string}
 const money=(v:number|string)=>new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD'}).format(Number(v||0))
 const label=(v:string)=>v.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())
 const errText=(e:unknown)=>e instanceof Error?e.message:String((e as any)?.message||e||'Something went wrong.')
@@ -43,14 +45,14 @@ export default function ManagerPricingPage(){
     const m=await db.from('organization_members').select('id,organization_id,organization:organizations(id,name)').eq('user_id',user.id).eq('status','active').limit(1).maybeSingle()
     if(m.error||!m.data?.id){setLoading(false);return}
     const rr=await db.from('membership_roles').select('role:roles(key)').eq('membership_id',m.data.id)
-    const roleKey=rr.data?.[0]?.role?.key||''
+    const roleKey=billingRole(rr.data)
     setRole(roleKey)
-    if(roleKey==='operator'){setLoading(false);return}
+    if(!roleKey){setLoading(false);return}
     const org=m.data.organization as Organization
     setOrganization(org)
     const [c,p,o]=await Promise.all([
       db.from('customers').select('id,name').eq('organization_id',org.id).eq('status','active').order('name'),
-      db.from('price_sheet_items').select('id,organization_id,name,category,unit,default_rate,is_active,sort_order').eq('organization_id',org.id).order('sort_order').order('name'),
+      db.from('price_sheet_items').select('id,organization_id,name,category,unit,default_rate,minimum_quantity,is_active,sort_order').eq('organization_id',org.id).order('sort_order').order('name'),
       db.from('customer_price_overrides').select('id,organization_id,customer_id,price_item_id,rate').eq('organization_id',org.id),
     ])
     const er=c.error||p.error||o.error
@@ -58,7 +60,7 @@ export default function ManagerPricingPage(){
     const nextItems=(p.data||[]) as PriceItem[]
     setCustomers(c.data||[]);setItems(nextItems);setOverrides(o.data||[])
     const nextDrafts:Record<string,RowDraft>={}
-    for(const item of nextItems)nextDrafts[item.id]={name:item.name,category:item.category,unit:item.unit,rate:String(item.default_rate??0)}
+    for(const item of nextItems)nextDrafts[item.id]={name:item.name,category:item.category,unit:item.unit,rate:String(item.default_rate??0),minimum:String(item.minimum_quantity??0)}
     setDrafts(nextDrafts)
     setLoading(false)
   },[])
@@ -81,7 +83,7 @@ export default function ManagerPricingPage(){
     if(!d?.name.trim())return setError('Item name is required.')
     setBusy(true);setError('');setMessage('')
     try{
-      const r=await db.from('price_sheet_items').update({name:d.name.trim(),category:d.category,unit:d.unit,default_rate:Number(d.rate||0)}).eq('id',item.id).eq('organization_id',organization.id)
+      const r=await db.from('price_sheet_items').update({name:d.name.trim(),category:d.category,unit:d.unit,default_rate:nonNegativeAmount(d.rate,'Rate'),minimum_quantity:nonNegativeAmount(d.minimum,'Minimum quantity')}).eq('id',item.id).eq('organization_id',organization.id)
       if(r.error)throw r.error
       setMessage(`${d.name.trim()} saved.`);await load()
     }catch(e){setError(errText(e))}finally{setBusy(false)}
@@ -112,7 +114,7 @@ export default function ManagerPricingPage(){
     try{
       if(!newItem.name.trim())throw new Error('Item name is required.')
       const {data:u}=await supabase.auth.getUser();if(!u.user)throw new Error('Sign in required')
-      const r=await db.from('price_sheet_items').insert({organization_id:organization.id,name:newItem.name.trim(),category:newItem.category,unit:newItem.unit,default_rate:Number(newItem.rate||0),sort_order:items.length,created_by:u.user.id})
+      const r=await db.from('price_sheet_items').insert({organization_id:organization.id,name:newItem.name.trim(),category:newItem.category,unit:newItem.unit,default_rate:nonNegativeAmount(newItem.rate,'Rate'),sort_order:items.length,created_by:u.user.id})
       if(r.error)throw r.error
       setNewItem({name:'',category:'equipment',unit:'hour',rate:''});setMessage('Price sheet item added.');await load()
     }catch(e2){setError(errText(e2))}finally{setBusy(false)}
@@ -141,7 +143,7 @@ export default function ManagerPricingPage(){
   }
 
   if(loading)return <div className="pricing-loading">Loading price sheet…</div>
-  if(!organization||role==='operator')return <RoleAwareApp/>
+  if(!organization||!role)return <RoleAwareApp/>
 
   return <div className="pricing-shell">
     <header className="pricing-topbar"><NavLink to="/" className="pricing-back"><ArrowLeft size={18}/>Northborn</NavLink><div><span>BILLING</span><strong>Price Sheet</strong></div></header>
@@ -152,7 +154,7 @@ export default function ManagerPricingPage(){
 
       {!selectedCustomer&&canManage&&<form className="pricing-add" onSubmit={addItem}><div className="pricing-section-head"><div><strong>Add item</strong><span>Equipment, labour, disposal, material or another billable service.</span></div><button type="button" className="pricing-secondary" onClick={()=>void addCommon()} disabled={busy}>Add common items</button></div><div className="pricing-add-grid"><input aria-label="New price item name" placeholder="Item name" value={newItem.name} onChange={e=>setNewItem({...newItem,name:e.target.value})} required/><select aria-label="New price item category" value={newItem.category} onChange={e=>setNewItem({...newItem,category:e.target.value})}>{CATEGORIES.map(c=><option value={c} key={c}>{label(c)}</option>)}</select><select aria-label="New price item unit" value={newItem.unit} onChange={e=>setNewItem({...newItem,unit:e.target.value})}>{UNITS.map(u=><option value={u} key={u}>{u}</option>)}</select><input aria-label="New price item rate" type="number" min="0" step="0.01" placeholder="Rate" value={newItem.rate} onChange={e=>setNewItem({...newItem,rate:e.target.value})}/><button className="pricing-primary" disabled={busy}><Plus size={17}/>Add</button></div></form>}
 
-      <section className="pricing-list-section"><div className="pricing-section-head"><div><strong>{selectedCustomer?'Client rates':'Standard rates'}</strong><span>{items.length} price sheet item{items.length===1?'':'s'}</span></div></div><div className="pricing-list">{items.map(item=>{const d=drafts[item.id]||{name:item.name,category:item.category,unit:item.unit,rate:String(item.default_rate)};const override=overrideMap.get(item.id);return <article className="pricing-row" key={item.id}><div className="pricing-row-title"><strong>{item.name}</strong><span>{label(item.category)} · per {item.unit}</span></div>{selectedCustomer?<><div className="pricing-standard"><small>Standard</small><b>{money(item.default_rate)}</b></div><label className="pricing-rate"><span>{selectedCustomer.name} rate</span><input aria-label={`${selectedCustomer.name} rate for ${item.name}`} key={`${item.id}-${override?.id||'std'}-${override?.rate??''}`} defaultValue={override?String(override.rate):''} placeholder={money(item.default_rate)} type="number" min="0" step="0.01" onBlur={e=>void saveOverride(item,e.currentTarget.value)}/></label>{override&&<button type="button" className="pricing-icon" title="Use standard rate" onClick={()=>void saveOverride(item,'')} disabled={busy}><RotateCcw size={17}/></button>}</>:<><div className="pricing-fields"><input aria-label={`Name for ${item.name}`} value={d.name} onChange={e=>setDrafts({...drafts,[item.id]:{...d,name:e.target.value}})}/><select aria-label={`Category for ${item.name}`} value={d.category} onChange={e=>setDrafts({...drafts,[item.id]:{...d,category:e.target.value}})}>{CATEGORIES.map(c=><option value={c} key={c}>{label(c)}</option>)}</select><select aria-label={`Unit for ${item.name}`} value={d.unit} onChange={e=>setDrafts({...drafts,[item.id]:{...d,unit:e.target.value}})}>{UNITS.map(u=><option value={u} key={u}>{u}</option>)}</select><input aria-label={`Standard rate for ${item.name}`} type="number" min="0" step="0.01" value={d.rate} onChange={e=>setDrafts({...drafts,[item.id]:{...d,rate:e.target.value}})}/></div><div className="pricing-row-actions"><button type="button" className="pricing-icon save" title="Save" onClick={()=>void saveItem(item)} disabled={busy}><Save size={17}/></button><button type="button" className="pricing-icon danger" title="Remove" onClick={()=>void removeItem(item)} disabled={busy}><Trash2 size={17}/></button></div></>}</article>})}{!items.length&&<div className="pricing-empty">No price sheet items yet. Add your first service above.</div>}</div></section>
+      <section className="pricing-list-section"><div className="pricing-section-head"><div><strong>{selectedCustomer?'Client rates':'Standard rates'}</strong><span>{items.length} price sheet item{items.length===1?'':'s'}</span></div></div><div className="pricing-list">{items.map(item=>{const d=drafts[item.id]||{name:item.name,category:item.category,unit:item.unit,rate:String(item.default_rate),minimum:String(item.minimum_quantity??0)};const override=overrideMap.get(item.id);return <article className="pricing-row" key={item.id}><div className="pricing-row-title"><strong>{item.name}</strong><span>{label(item.category)} · per {item.unit}</span></div>{selectedCustomer?<><div className="pricing-standard"><small>Standard</small><b>{money(item.default_rate)}</b></div><label className="pricing-rate"><span>{selectedCustomer.name} rate</span><input aria-label={`${selectedCustomer.name} rate for ${item.name}`} key={`${item.id}-${override?.id||'std'}-${override?.rate??''}`} defaultValue={override?String(override.rate):''} placeholder={money(item.default_rate)} type="number" min="0" step="0.01" onBlur={e=>void saveOverride(item,e.currentTarget.value)}/></label>{override&&<button type="button" className="pricing-icon" title="Use standard rate" onClick={()=>void saveOverride(item,'')} disabled={busy}><RotateCcw size={17}/></button>}</>:<><div className="pricing-fields"><input aria-label={`Name for ${item.name}`} value={d.name} onChange={e=>setDrafts({...drafts,[item.id]:{...d,name:e.target.value}})}/><select aria-label={`Category for ${item.name}`} value={d.category} onChange={e=>setDrafts({...drafts,[item.id]:{...d,category:e.target.value}})}>{CATEGORIES.map(c=><option value={c} key={c}>{label(c)}</option>)}</select><select aria-label={`Unit for ${item.name}`} value={d.unit} onChange={e=>setDrafts({...drafts,[item.id]:{...d,unit:e.target.value}})}>{UNITS.map(u=><option value={u} key={u}>{u}</option>)}</select><input aria-label={`Standard rate for ${item.name}`} type="number" min="0" step="0.01" value={d.rate} onChange={e=>setDrafts({...drafts,[item.id]:{...d,rate:e.target.value}})}/><label>Minimum quantity<input aria-label={`Minimum quantity for ${item.name}`} type="number" min="0" step="0.001" value={d.minimum} onChange={e=>setDrafts({...drafts,[item.id]:{...d,minimum:e.target.value}})}/></label></div><div className="pricing-row-actions"><button type="button" className="pricing-icon save" title="Save" onClick={()=>void saveItem(item)} disabled={busy}><Save size={17}/></button><button type="button" className="pricing-icon danger" title="Remove" onClick={()=>void removeItem(item)} disabled={busy}><Trash2 size={17}/></button></div></>}</article>})}{!items.length&&<div className="pricing-empty">No price sheet items yet. Add your first service above.</div>}</div></section>
     </main>
   </div>
 }

@@ -15,7 +15,11 @@ export function normalizeInternalRoute(pathname: string) {
   return pathname
 }
 
-export function canAccessInternalRoute(roleKey: string, pathname: string) {
-  const allowed = INTERNAL_ROLE_PATHS[roleKey] || ['/']
-  return allowed.includes(normalizeInternalRoute(pathname))
+export function canAccessInternalRoute(roleKey: string | readonly string[], pathname: string) {
+  const roles = typeof roleKey === 'string' ? [roleKey] : roleKey
+  return roles.some(role => (INTERNAL_ROLE_PATHS[role] || []).includes(normalizeInternalRoute(pathname)))
+}
+
+export function primaryInternalRole(roles: readonly string[]) {
+  return ['owner','admin','supervisor','dispatcher','safety','mechanic','accounting','operator'].find(role=>roles.includes(role)) || ''
 }

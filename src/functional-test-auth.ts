@@ -1,6 +1,9 @@
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 
+export const FUNCTIONAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_FUNCTIONAL_TESTING === 'true'
+function requireFunctionalTesting(){if(!FUNCTIONAL_TESTING_ENABLED)throw new Error('Functional testing is disabled in this build.')}
+
 export type FunctionalTestPersona = 'manager' | 'operator' | 'client'
 export type FunctionalTestInternalRole = 'owner' | 'admin' | 'supervisor' | 'dispatcher' | 'safety' | 'mechanic' | 'accounting'
 
@@ -27,6 +30,7 @@ export function deriveFunctionalTestPassword(enteredPassword: string) {
 }
 
 export function personaFromSession(session: Session | null): FunctionalTestPersona | null {
+  if(!FUNCTIONAL_TESTING_ENABLED)return null
   const email = session?.user.email?.toLowerCase() || ''
   const matched = (Object.entries(FUNCTIONAL_TEST_USERS) as [FunctionalTestPersona, { email: string; label: string }][]) 
     .find(([, value]) => value.email === email)
@@ -38,12 +42,14 @@ export function isFunctionalTestSession(session: Session | null) {
 }
 
 export async function restoreFunctionalTestWorkspace() {
+  requireFunctionalTesting()
   const result = await (supabase as any).rpc('restore_my_northborn_test_workspace')
   if (result.error) throw result.error
   return result.data
 }
 
 async function signInPersona(persona: FunctionalTestPersona, enteredPassword = 'admin') {
+  requireFunctionalTesting()
   const account = FUNCTIONAL_TEST_USERS[persona]
   const result = await supabase.auth.signInWithPassword({
     email: account.email,
@@ -66,6 +72,7 @@ async function bootstrapFunctionalTestUsers(username: string, password: string) 
 }
 
 export async function signInFunctionalTestAdmin(username: string, password: string) {
+  requireFunctionalTesting()
   const normalizedUsername = username.trim().toLowerCase()
   const normalizedPassword = password.toLowerCase()
   if (normalizedUsername !== 'admin' || normalizedPassword !== 'admin') {
@@ -93,6 +100,7 @@ export async function switchFunctionalTestPersona(persona: FunctionalTestPersona
 }
 
 export async function switchFunctionalTestInternalRole(roleKey: FunctionalTestInternalRole) {
+  requireFunctionalTesting()
   const result = await (supabase as any).rpc('set_my_northborn_test_role', { _role_key: roleKey })
   if (result.error) throw result.error
   return result.data as string

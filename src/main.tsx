@@ -5,30 +5,30 @@ import type { Session } from '@supabase/supabase-js'
 import RoleAwareApp from './RoleAwareApp'
 import AuthEnhancements from './AuthEnhancements'
 import MarketingHome from './MarketingHome'
-import TeamAccessPage from './TeamAccessPage'
-import JoinOrganizationPage from './JoinOrganizationPage'
-import ClientJoinPage from './ClientJoinPage'
-import ClientFieldTicketsPage from './ClientFieldTicketsPage'
-import ClientTicketPrintPage from './ClientTicketPrintPage'
-import ManagerDashboardV2 from './ManagerDashboardV2'
-import ManagerDispatchPage from './ManagerDispatchPage'
-import OperationsCalendarPage from './OperationsCalendarPage'
-import ManagerClientsPage from './ManagerClientsPage'
-import ManagerJobsPage from './ManagerJobsPage'
-import ManagerEmployeesPage from './ManagerEmployeesPage'
-import FleetRoutePage from './FleetRoutePage'
-import ManagerMaintenancePage from './ManagerMaintenancePage'
-import ManagerInvoicesPageV2 from './ManagerInvoicesPageV2'
-import ManagerPricingPage from './ManagerPricingPage'
-import ManagerReportsPage from './ManagerReportsPage'
-import TimesheetsRoutePage from './TimesheetsRoutePage'
-import FieldTicketsPage from './TemplateAwareFieldTicketsPage'
-import TicketPrintPage from './TicketPrintPage'
-import TimesheetPrintPage from './TimesheetPrintPage'
-import BillingQueuePage from './BillingQueuePage'
-import EmployeeFleetAccessPage from './EmployeeFleetAccessPage'
-import SafetyRoutePage from './SafetyRoutePage'
-import TemplateManagerPage from './TemplateManagerPage'
+const TeamAccessPage = React.lazy(() => import('./TeamAccessPage'))
+const JoinOrganizationPage = React.lazy(() => import('./JoinOrganizationPage'))
+const ClientJoinPage = React.lazy(() => import('./ClientJoinPage'))
+const ClientFieldTicketsPage = React.lazy(() => import('./ClientFieldTicketsPage'))
+const ClientTicketPrintPage = React.lazy(() => import('./ClientTicketPrintPage'))
+const ManagerDashboardV2 = React.lazy(() => import('./ManagerDashboardV2'))
+const ManagerDispatchPage = React.lazy(() => import('./ManagerDispatchPage'))
+const OperationsCalendarPage = React.lazy(() => import('./OperationsCalendarPage'))
+const ManagerClientsPage = React.lazy(() => import('./ManagerClientsPage'))
+const ManagerJobsPage = React.lazy(() => import('./ManagerJobsPage'))
+const ManagerEmployeesPage = React.lazy(() => import('./ManagerEmployeesPage'))
+const FleetRoutePage = React.lazy(() => import('./FleetRoutePage'))
+const ManagerMaintenancePage = React.lazy(() => import('./ManagerMaintenancePage'))
+const ManagerInvoicesPageV2 = React.lazy(() => import('./ManagerInvoicesPageV2'))
+const ManagerPricingPage = React.lazy(() => import('./ManagerPricingPage'))
+const ManagerReportsPage = React.lazy(() => import('./ManagerReportsPage'))
+const TimesheetsRoutePage = React.lazy(() => import('./TimesheetsRoutePage'))
+const FieldTicketsPage = React.lazy(() => import('./TemplateAwareFieldTicketsPage'))
+const TicketPrintPage = React.lazy(() => import('./TicketPrintPage'))
+const TimesheetPrintPage = React.lazy(() => import('./TimesheetPrintPage'))
+const BillingQueuePage = React.lazy(() => import('./BillingQueuePage'))
+const EmployeeFleetAccessPage = React.lazy(() => import('./EmployeeFleetAccessPage'))
+const SafetyRoutePage = React.lazy(() => import('./SafetyRoutePage'))
+const TemplateManagerPage = React.lazy(() => import('./TemplateManagerPage'))
 import GlobalAccountMenu from './GlobalAccountMenu'
 import TestRoleSwitcher from './TestRoleSwitcher'
 import ReleaseNotes from './ReleaseNotes'
@@ -65,7 +65,7 @@ function WorkspaceLoadError() {
   return <div className="center-screen"><div className="auth-card account-choice-card"><div className="auth-logo">N</div><h1>Workspace unavailable</h1><p>Northborn could not verify your workspace access. Your account has not been changed. Check your connection and try again.</p><div className="account-choice-actions"><button className="primary" type="button" onClick={()=>window.location.reload()}>Try again</button><button className="secondary" type="button" onClick={()=>void signOut()}>Sign out</button></div></div></div>
 }
 
-function RoutedWorkspace({ normalizedPath, hasInvite, routeRole, internalRoleKey }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole; internalRoleKey:string }) {
+function RoutedWorkspace({ normalizedPath, hasInvite, routeRole, internalRoleKey }:{ normalizedPath:string; hasInvite:boolean; routeRole:RouteRole; internalRoleKey:string[] }) {
   if (normalizedPath === '/logout') return <LogoutPage />
   if (normalizedPath === '/client-join') return <ClientJoinPage />
   if (normalizedPath === '/join' || (hasInvite && normalizedPath !== '/client-join')) return <JoinOrganizationPage />
@@ -133,7 +133,7 @@ function NorthbornRouter() {
   const hasInvite = params.has('invite')
   const [session, setSession] = React.useState<Session | null | undefined>(undefined)
   const [routeRole, setRouteRole] = React.useState<RouteRole>('loading')
-  const [internalRoleKey, setInternalRoleKey] = React.useState('')
+  const [internalRoleKey, setInternalRoleKey] = React.useState<string[]>([])
   const [authError, setAuthError] = React.useState('')
 
   React.useEffect(() => {
@@ -195,11 +195,11 @@ function NorthbornRouter() {
         const access = await resolveWorkspaceAccess(session.user.id)
         if (!active) return
         if (access.kind === 'internal') {
-          setInternalRoleKey(access.roleKey)
+          setInternalRoleKey(access.roleKeys)
           setRouteRole(access.roleKey === 'operator' ? 'operator' : 'manager')
           return
         }
-        setInternalRoleKey('')
+        setInternalRoleKey([])
         if (access.kind === 'client') {
           setRouteRole('client')
           return
@@ -214,7 +214,7 @@ function NorthbornRouter() {
     return () => { active = false }
   }, [normalizedPath, session, authError])
 
-  return <RoutedWorkspace normalizedPath={normalizedPath} hasInvite={hasInvite} routeRole={routeRole} internalRoleKey={internalRoleKey} />
+  return <React.Suspense fallback={<div className="center-screen" role="status">Opening workspace…</div>}><RoutedWorkspace normalizedPath={normalizedPath} hasInvite={hasInvite} routeRole={routeRole} internalRoleKey={internalRoleKey} /></React.Suspense>
 }
 
 function NorthbornOnlyChrome() {

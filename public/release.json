@@ -1,9 +1,10 @@
 {
-  "version": "0.14.0",
-  "title": "Pack 7 Templates Forms Tickets and Timesheets",
+  "version": "0.15.0",
+  "title": "Billing controls and filtered reports — rollout pending",
   "notes": [
-    "Connected the no-code Template Manager to real field ticket and timesheet entry so custom sections, required fields and conditional fields are completed in the operational workflow.",
-    "Expanded field tickets and timesheets with exact template/version snapshots, operator and employee signatures, photo/PDF attachments, approval/return workflows and printable PDF-ready records.",
-    "Added repository migrations for template-linked answers, form attachments, immutable sign-off metadata and private attachment storage. These migrations are committed but intentionally not applied live in this GitHub-only update."
+    "Atomic invoice saves, payment and credit history with reversals, approval before issue, and minimum billing quantities. All four new billing migrations are required before deployment.",
+    "Reports add date/customer/unit filters, paginated data, employee hours, separate currency and credit totals, CSV and print exports.",
+    "Combined-role access, safe PWA update defaults, disabled-by-default test login, lazy routes and isolated CI verification.",
+    "GitHub-only work in progress. Remaining packs, full backend verification and live rollout are not complete."
   ]
 }

@@ -1,0 +1,14 @@
+revoke execute on function public.clear_my_notifications() from public, anon;
+revoke execute on function public.complete_my_assigned_job(uuid, uuid) from public, anon;
+revoke execute on function public.get_customer_job_requests_for_org(uuid) from public, anon;
+revoke execute on function public.get_effective_price_sheet(uuid, uuid) from public, anon;
+revoke execute on function public.get_invoice_delivery_payload(uuid, uuid) from public, anon;
+revoke execute on function public.get_my_assigned_job_invoice_draft(uuid, uuid) from public, anon;
+revoke execute on function public.get_my_assigned_job_price_sheet(uuid, uuid) from public, anon;
+revoke execute on function public.get_my_customer_invoice_detail(uuid, uuid) from public, anon;
+revoke execute on function public.get_my_customer_invoice_line_items(uuid, uuid) from public, anon;
+revoke execute on function public.get_my_customer_invoices(uuid) from public, anon;
+revoke execute on function public.get_my_customer_job_requests(uuid) from public, anon;
+revoke execute on function public.record_invoice_delivery(uuid, uuid, text) from public, anon;
+revoke execute on function public.review_customer_job_request(uuid, uuid, text, text, text, timestamptz, text, text, text) from public, anon;
+revoke execute on function public.save_my_assigned_job_invoice_draft(uuid, uuid, jsonb, jsonb) from public, anon;

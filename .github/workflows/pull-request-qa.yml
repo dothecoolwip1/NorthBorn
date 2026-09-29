@@ -29,5 +29,14 @@ jobs:
         run: npm ci
 
 
+      - name: Run isolated regression tests
+        run: npm test
+
       - name: Type-check and build
         run: npm run build
+
+      - name: Install isolated browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run isolated browser checks
+        run: npm run test:browser:isolated

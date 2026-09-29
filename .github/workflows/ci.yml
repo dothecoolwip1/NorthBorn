@@ -1,6 +1,12 @@
 name: Northborn CI
 
 on:
+  workflow_dispatch:
+    inputs:
+      live_qa:
+        description: Run tests that mutate the isolated live QA workspace
+        type: boolean
+        default: false
   push:
     branches: [main]
   pull_request:
@@ -38,15 +44,28 @@ jobs:
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
+      - name: Run isolated regression tests
+        run: npm test
+
       - name: Build Northborn
+        env:
+          VITE_ENABLE_FUNCTIONAL_TESTING: ${{ github.event_name == 'workflow_dispatch' && inputs.live_qa && 'true' || 'false' }}
         run: npm run build
 
+      - name: Install isolated browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run isolated browser checks
+        run: npm run test:browser:isolated
+
       - name: Install browser test runner
+        if: github.event_name == 'workflow_dispatch' && inputs.live_qa
         run: |
           npm install --no-save --package-lock=false @playwright/test@1.63.0
           npx playwright install chromium
 
       - name: Start compiled Northborn preview
+        if: github.event_name == 'workflow_dispatch' && inputs.live_qa
         run: |
           npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/northborn-preview.log 2>&1 &
           echo $! > /tmp/northborn-preview.pid
@@ -60,6 +79,7 @@ jobs:
           exit 1
 
       - name: Run segmented browser QA
+        if: github.event_name == 'workflow_dispatch' && inputs.live_qa
         env:
           NORTHBORN_BASE_URL: http://127.0.0.1:4173
         run: |

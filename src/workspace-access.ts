@@ -1,3 +1,4 @@
+import { primaryInternalRole } from './role-access'
 import { supabase } from './lib/supabase'
 
 const db = supabase as any
@@ -15,7 +16,7 @@ export type ClientPortalContext = {
 }
 
 export type WorkspaceAccess =
-  | { kind: 'internal'; organizationId: string; organizationName: string; roleKey: string }
+  | { kind: 'internal'; organizationId: string; organizationName: string; roleKey: string; roleKeys: string[] }
   | { kind: 'client'; context: ClientPortalContext }
   | { kind: 'unconnected' }
 
@@ -41,7 +42,8 @@ export async function resolveWorkspaceAccess(userId: string): Promise<WorkspaceA
 
     if (roles.error) throw new Error(errorMessage('Unable to verify workspace role', roles.error))
 
-    const roleKey = roles.data?.[0]?.role?.key || ''
+    const roleKeys: string[] = (roles.data || []).map((row: {role: {key: string} | null}) => row.role?.key).filter(Boolean)
+    const roleKey = primaryInternalRole(roleKeys)
     if (!roleKey) throw new Error('Your active Northborn membership does not have an assigned role.')
 
     const organization = membership.data.organization as { name?: string } | null
@@ -50,6 +52,7 @@ export async function resolveWorkspaceAccess(userId: string): Promise<WorkspaceA
       organizationId: membership.data.organization_id,
       organizationName: organization?.name || 'Northborn company',
       roleKey,
+      roleKeys,
     }
   }
 

@@ -435,6 +435,39 @@ test('Pack 4 employees teams and permissions are healthy', async ({ page }) => {
   await expect(page.locator('.member-manage').first()).toBeVisible()
 })
 
+test('Pack 5 fleet and maintenance are healthy', async ({ page }) => {
+  await loginAs(page, 'manager')
+
+  await page.goto(absolute('/fleet'))
+  await expect(page.getByPlaceholder('Search unit, VIN, plate, make or model…')).toBeVisible({ timeout: 30000 })
+  await expect(page.getByRole('link', { name: /Maintenance control/i })).toBeVisible()
+  const fleetCard=page.locator('.fleet-card').first()
+  await expect(fleetCard).toBeVisible()
+  await fleetCard.click()
+  const drawer=page.locator('.fleet-drawer')
+  await expect(drawer).toBeVisible()
+  await expect(drawer).toContainText('Unit photos')
+  await expect(drawer).toContainText('Service history')
+  await expect(drawer).toContainText('Automatic maintenance schedules')
+  await expect(drawer).toContainText('Compliance')
+  await expect(drawer).toContainText('Open defects')
+  await drawer.locator('.fleet-drawer-head button').last().click()
+
+  await page.goto(absolute('/maintenance'))
+  await expect(page.locator('body')).toContainText('Maintenance control')
+  for (const tab of ['Schedule','Work orders','Defects','Inspections','Documents']) {
+    await expect(page.getByRole('button',{name:tab,exact:true})).toBeVisible()
+  }
+  await page.getByRole('button',{name:'Work orders',exact:true}).click()
+  await expect(page.getByRole('button',{name:'Work order',exact:true})).toBeVisible()
+  await page.getByRole('button',{name:'Defects',exact:true}).click()
+  await expect(page.getByRole('button',{name:'Report defect',exact:true})).toBeVisible()
+  await page.getByRole('button',{name:'Inspections',exact:true}).click()
+  await expect(page.getByRole('button',{name:'Inspection',exact:true})).toBeVisible()
+  await page.getByRole('button',{name:'Documents',exact:true}).click()
+  await expect(page.getByRole('button',{name:'Upload',exact:true})).toBeVisible()
+})
+
 test('operator routes, role isolation, and job access are healthy', async ({ page }) => {
   const issues = []
   await loginAs(page, 'operator')

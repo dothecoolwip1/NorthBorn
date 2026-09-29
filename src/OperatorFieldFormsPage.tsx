@@ -226,7 +226,7 @@ export default function OperatorFieldFormsPage({ organizationId, organizationNam
     try {
       for (const file of files.slice(0,8)) {
         const path = `${organizationId}/forms/${inserted.data.id}/${crypto.randomUUID()}-${safeFileName(file.name)}`
-        const upload = await supabase.storage.from('safety-attachments').upload(path,file,{contentType:file.type || undefined})
+        const upload = await supabase.storage.from('safety-files').upload(path,file,{contentType:file.type || undefined})
         if (upload.error) throw upload.error
         uploaded.push(path)
         const meta = await db.from('safety_form_attachments').insert({
@@ -241,7 +241,7 @@ export default function OperatorFieldFormsPage({ organizationId, organizationNam
         if (meta.error) throw meta.error
       }
     } catch (caught:any) {
-      for (const path of uploaded) await supabase.storage.from('safety-attachments').remove([path])
+      for (const path of uploaded) await supabase.storage.from('safety-files').remove([path])
       await db.from('safety_form_submissions').delete().eq('id',inserted.data.id).eq('organization_id',organizationId)
       setBusy(false)
       setError(caught?.message || String(caught))

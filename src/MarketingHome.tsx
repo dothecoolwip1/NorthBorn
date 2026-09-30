@@ -188,7 +188,7 @@ export default function MarketingHome() {
 
     <section className="nb-section workflow-section" id="workflow">
       <div className="workflow-photo-band">
-        <img loading="lazy" src="https://images.pexels.com/photos/7006169/pexels-photo-7006169.jpeg?auto=compress&cs=tinysrgb&w=1600" alt="Industrial worker preparing beside a service truck" />
+        <img loading="lazy" src="https://images.pexels.com/photos/37793901/pexels-photo-37793901.jpeg?auto=compress&cs=tinysrgb&w=1600" alt="Oil and gas pipeline engineers inspecting large pipe at an active construction site" />
         <div className="workflow-photo-overlay"/>
         <div className="workflow-photo-copy"><span>FROM THE TRUCK TO THE OFFICE</span><strong>The software follows the work, not the other way around.</strong></div>
       </div>
@@ -205,6 +205,11 @@ export default function MarketingHome() {
     </section>
 
     <section className="nb-section platform-section" id="platform">
+      <div className="platform-photo">
+        <img loading="lazy" src="https://images.pexels.com/photos/4883682/pexels-photo-4883682.jpeg?auto=compress&cs=tinysrgb&w=1800" alt="Oil and gas refinery with industrial piping and processing infrastructure" />
+        <div className="platform-photo-overlay"/>
+        <div className="platform-photo-copy"><span>OILFIELD · INDUSTRIAL · FIELD SERVICES</span><strong>Built for operations with real equipment, real crews and real paperwork.</strong></div>
+      </div>
       <div className="section-heading">
         <div><span className="section-label">THE PLATFORM</span><h2>Everything important stays attached to the work.</h2></div>
         <p>Fewer disconnected tools means less retyping, fewer missing documents and a clearer picture of what is actually happening.</p>
@@ -216,7 +221,7 @@ export default function MarketingHome() {
 
     <section className="field-section" id="field">
       <div className="field-photo">
-        <img loading="lazy" src="https://images.pexels.com/photos/35224901/pexels-photo-35224901.jpeg?auto=compress&cs=tinysrgb&w=1500" alt="Industrial equipment and worker at an active job site" />
+        <img loading="lazy" src="https://images.pexels.com/photos/34194579/pexels-photo-34194579.jpeg?auto=compress&cs=tinysrgb&w=1500" alt="Industrial worker using high pressure washing equipment in a heavy industrial setting" />
         <div className="field-photo-overlay"/>
         <div className="field-photo-badge"><HardHat size={18}/><span>REAL WORK<br/>REAL CONDITIONS</span></div>
       </div>

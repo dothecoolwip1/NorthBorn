@@ -400,3 +400,52 @@
   .workflow-photo-copy strong{font-size:30px}
   .field-photo{min-height:360px}
 }
+
+
+.platform-photo{
+  position:relative;
+  min-height:300px;
+  margin:0 0 64px;
+  overflow:hidden;
+  border-radius:22px;
+  border:1px solid rgba(91,116,138,.2);
+  background:#0c1721;
+  box-shadow:0 26px 70px rgba(0,0,0,.2);
+}
+.platform-photo img{
+  position:absolute;inset:0;
+  width:100%;height:100%;
+  object-fit:cover;object-position:center 48%;
+  filter:saturate(.7) contrast(1.08) brightness(.68);
+}
+.platform-photo-overlay{
+  position:absolute;inset:0;
+  background:
+    linear-gradient(90deg,rgba(7,16,25,.93) 0%,rgba(7,16,25,.48) 52%,rgba(7,16,25,.18) 100%),
+    linear-gradient(180deg,rgba(7,16,25,.08),rgba(7,16,25,.48));
+}
+.platform-photo-copy{
+  position:absolute;left:clamp(24px,5vw,64px);bottom:clamp(24px,4vw,48px);
+  max-width:620px;display:grid;gap:8px;
+}
+.platform-photo-copy span{
+  color:#dca05a;font-size:8px;letter-spacing:.15em;font-weight:950;
+}
+.platform-photo-copy strong{
+  font-size:clamp(27px,3.5vw,46px);
+  line-height:1.04;letter-spacing:-.035em;
+}
+
+@media (max-width:760px){
+  .platform-photo{
+    min-height:360px;
+    margin-bottom:50px;
+    border-radius:16px;
+  }
+  .platform-photo img{object-position:62% center}
+  .platform-photo-overlay{
+    background:linear-gradient(180deg,rgba(7,16,25,.08) 18%,rgba(7,16,25,.9) 94%);
+  }
+  .platform-photo-copy{left:22px;right:22px;bottom:24px}
+  .platform-photo-copy strong{font-size:31px}
+}
